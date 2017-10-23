@@ -1,0 +1,20 @@
+[package]
+name = "bnf"
+version = "0.1.0"
+authors = ["Shea Newton"]
+
+description = "A library for parsing Backus–Naur form context-free grammars"
+readme = "README.md"
+keywords = ["bnf"]
+
+homepage = "https://github.com/snewt/bnf"
+repository = "https://github.com/snewt/bnf"
+
+license = "MIT"
+
+[features]
+unstable = []
+
+[dependencies.nom]
+version = "^3.2"
+features = ["verbose-errors"]

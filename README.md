@@ -7,7 +7,7 @@ inspired by the JavaScript library [prettybnf](https://github.com/dhconnelly/pre
 
 ## What does a parsable BNF grammar look like?
 
-The following grammar from the [Wikipedia page on Backus-Anur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
+The following grammar from the [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 is exemplifies a compatible grammar after adding ';' characters to indicate the end of a producion.
 
 ```text
@@ -27,7 +27,7 @@ is exemplifies a compatible grammar after adding ';' characters to indicate the 
 ```
 
 ## Output
-Take the folling grammar to be input tot this library's `parse` function.
+Take the following grammar to be input to this library's `parse` function.
 ```
 <A> ::= <B> | "C";
 <B> ::= "D" | "E"; 

@@ -7,7 +7,7 @@
 //! 
 //! ## What does a parsable BNF grammar look like?
 //! 
-//! The following grammar from the [Wikipedia page on Backus-Anur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
+//! The following grammar from the [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 //! exemplifies a compatible grammar after adding ';' characters to indicate the end of a producion.
 //! 
 //! ```text
@@ -27,7 +27,7 @@
 //! ```
 //! 
 //! ## Output
-//! Take the folling grammar to be input tot this library's `parse` function:
+//! Take the following grammar to be input to this library's `parse` function:
 //!
 //! ```text
 //! <A> ::= <B> | "C";
@@ -119,6 +119,7 @@ pub mod node;
 use node::{Grammar};
 use nom::{IResult};
 
+/// Parse a BNF grammer
 pub fn parse(input: &str) -> Grammar {
     match parsers::grammar(input.as_bytes()) {
         IResult::Done(_,o) => return o,

@@ -17,7 +17,7 @@ impl ToString for Term {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-/// An Expression is comprised of can represent any number of Terms
+/// An Expression is comprised of any number of Terms
 pub struct Expression {
     pub terms: Vec<Term>,
 }
@@ -43,7 +43,7 @@ impl ToString for Expression {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-/// A Production is comprised of can represent any number of Expressions
+/// A Production is comprised of any number of Expressions
 pub struct Production {
     pub lhs: Term,
     pub rhs: Vec<Expression>,
@@ -75,7 +75,7 @@ impl ToString for Production {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-/// A Grammar is comprised of can represent any number of Productions
+/// A Grammar is comprised of any number of Productions
 pub struct Grammar {
     pub productions: Vec<Production>,
 }

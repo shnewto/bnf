@@ -1,6 +1,6 @@
 [package]
 name = "bnf"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Shea Newton"]
 
 description = "A library for parsing Backus–Naur form context-free grammars"

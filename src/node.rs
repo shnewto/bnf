@@ -25,12 +25,12 @@ pub struct Expression {
 impl Expression {
     #[allow(dead_code)]
     pub fn new() -> Expression {
-        Expression { terms: vec![], }
+        Expression { terms: vec![] }
     }
 
     #[allow(dead_code)]
     pub fn from_parts(v: Vec<Term>) -> Expression {
-        Expression { terms: v, }
+        Expression { terms: v }
     }
 }
 
@@ -38,7 +38,9 @@ impl ToString for Expression {
     fn to_string(&self) -> String {
         self.terms
             .iter()
-            .map(|s| s.to_string()).collect::<Vec<_>>().join(" ")
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 }
 
@@ -52,12 +54,15 @@ pub struct Production {
 impl Production {
     #[allow(dead_code)]
     pub fn new() -> Production {
-        Production { lhs: Term::Nonterminal(String::new()), rhs: vec![], }
+        Production {
+            lhs: Term::Nonterminal(String::new()),
+            rhs: vec![],
+        }
     }
 
     #[allow(dead_code)]
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
-        Production { lhs: t, rhs: e, }
+        Production { lhs: t, rhs: e }
     }
 }
 
@@ -70,7 +75,8 @@ impl ToString for Production {
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>()
-                .join(" | "))
+                .join(" | ")
+        )
     }
 }
 
@@ -82,12 +88,14 @@ pub struct Grammar {
 
 impl Grammar {
     pub fn new() -> Grammar {
-        Grammar { productions: vec![], }
+        Grammar {
+            productions: vec![],
+        }
     }
 
     #[allow(dead_code)]
     pub fn from_parts(v: Vec<Production>) -> Grammar {
-        Grammar { productions: v, }
+        Grammar { productions: v }
     }
 }
 
@@ -99,6 +107,7 @@ impl ToString for Grammar {
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>()
-                .join("\n"))
+                .join("\n")
+        )
     }
 }

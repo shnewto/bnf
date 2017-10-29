@@ -1,39 +1,39 @@
 //! bnf, a library for parsing Backus–Naur form context-free grammars
-//! 
+//!
 //! Inspired by the JavaScript library [prettybnf](https://github.com/dhconnelly/prettybnf)
-//! 
-//! 
+//!
+//!
 //! The code is available on [Github](https://github.com/snewt/bnf)
-//! 
+//!
 //! ## What does a parsable BNF grammar look like?
-//! 
+//!
 //! The following grammar from the [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 //! exemplifies a compatible grammar after adding ';' characters to indicate the end of a producion.
-//! 
+//!
 //! ```text
 //! <postal-address> ::= <name-part> <street-address> <zip-part>;
-//! 
+//!
 //!         <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
 //!                     | <personal-part> <name-part>;
-//! 
+//!
 //!     <personal-part> ::= <initial> "." | <first-name>;
-//! 
+//!
 //!     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
-//! 
+//!
 //!         <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>;
-//! 
+//!
 //! <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | "";
 //!     <opt-apt-num> ::= <apt-num> | "";
 //! ```
-//! 
+//!
 //! ## Output
 //! Take the following grammar to be input to this library's `parse` function:
 //!
 //! ```text
 //! <A> ::= <B> | "C";
-//! <B> ::= "D" | "E"; 
+//! <B> ::= "D" | "E";
 //! ```
-//! 
+//!
 //! The output is a `Grammar` object representing a tree that looks like this:
 //!
 //! ```text
@@ -84,45 +84,46 @@
 //!     ]
 //! }
 //! ```
-//! 
+//!
 //! ## Example
-//! 
+//!
 //! ```rust
 //! extern crate bnf;
-//! 
+//!
 //! fn main() {
 //!     let input =
 //!         "<postal-address> ::= <name-part> <street-address> <zip-part>;
-//! 
+//!
 //!               <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
 //!                             | <personal-part> <name-part>;
-//! 
+//!
 //!           <personal-part> ::= <initial> \".\" | <first-name>;
-//! 
+//!
 //!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
-//! 
+//!
 //!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;
-//! 
+//!
 //!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
 //!             <opt-apt-num> ::= <apt-num> | \"\";";
-//! 
+//!
 //!     let grammar = bnf::parse(input);
 //!     println!("{:#?}", grammar);
 //! }
 //! ```
 //!
 
-#[macro_use] extern crate nom;
+#[macro_use]
+extern crate nom;
 mod parsers;
 mod reports;
 pub mod node;
-use node::{Grammar};
-use nom::{IResult};
+use node::Grammar;
+use nom::IResult;
 
 /// Parse a BNF grammer
 pub fn parse(input: &str) -> Grammar {
     match parsers::grammar(input.as_bytes()) {
-        IResult::Done(_,o) => return o,
+        IResult::Done(_, o) => return o,
         IResult::Error(e) => {
             reports::report_error(e);
         }

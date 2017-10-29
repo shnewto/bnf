@@ -6,10 +6,10 @@
 //! The code is available on [Github](https://github.com/snewt/bnf)
 //!
 //! ## What does a parsable BNF grammar look like?
-//!
+//! 
 //! The following grammar from the [Wikipedia page on Backus-Naur form]
 //! (https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
-//! exemplifies a compatible grammar after adding ';' characters to indicate the end of a producion.
+//! exemplifies a compatible grammar after adding ';' characters to indicate the end of each producion.
 //!
 //! ```text
 //! <postal-address> ::= <name-part> <street-address> <zip-part>;

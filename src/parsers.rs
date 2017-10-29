@@ -136,7 +136,6 @@ mod tests {
     #[test]
     fn grammar_match() {
         let grammar_tuple = construct_grammar_tuple();
-        println!("{:#?}", grammar_tuple.1);
         assert_eq!(
             grammar_tuple.0,
             grammar(grammar_tuple.1.as_bytes()).unwrap().1

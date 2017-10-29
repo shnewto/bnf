@@ -1,3 +1,4 @@
+use std::fmt;
 
 
 #[derive(PartialEq, Debug, Clone)]
@@ -7,11 +8,11 @@ pub enum Term {
     Nonterminal(String),
 }
 
-impl ToString for Term {
-    fn to_string(&self) -> String {
-        match self {
-            &Term::Terminal(ref s) => return format!("\"{}\"", s),
-            &Term::Nonterminal(ref s) => return format!("<{}>", s),
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Term::Terminal(ref s) => write!(f, "\"{}\"", s),
+            Term::Nonterminal(ref s) => write!(f, "<{}>", s),
         }
     }
 }
@@ -34,13 +35,15 @@ impl Expression {
     }
 }
 
-impl ToString for Expression {
-    fn to_string(&self) -> String {
-        self.terms
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let display = self.terms
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
-            .join(" ")
+            .join(" ");
+
+        write!(f, "{}", display)
     }
 }
 
@@ -66,9 +69,10 @@ impl Production {
     }
 }
 
-impl ToString for Production {
-    fn to_string(&self) -> String {
-        format!(
+impl fmt::Display for Production {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
             "{} ::= {};",
             self.lhs.to_string(),
             self.rhs
@@ -99,9 +103,10 @@ impl Grammar {
     }
 }
 
-impl ToString for Grammar {
-    fn to_string(&self) -> String {
-        format!(
+impl fmt::Display for Grammar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
             "{}\n",
             self.productions
                 .iter()

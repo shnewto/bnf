@@ -6,3 +6,8 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+
+after_success:
+  - if [ "$TRAVIS_RUST_VERSION" != "1.2.0" ]; then
+      cargo coveralls --verbose;
+    fi

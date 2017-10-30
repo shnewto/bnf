@@ -1,4 +1,6 @@
+sudo: false
 language: rust
+cache: cargo
 rust:
   - stable
   - beta
@@ -6,8 +8,28 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+      - cmake
+    sources:
+      - kalakris-cmake
+
+before_script:
+  - export PATH=$HOME/.cargo/bin:$PATH
+  - if [ ! -f $HOME/.cargo/bin/cargo-coveralls ]; then
+      cargo install cargo-travis;
+    fi
+
+script:
+  - |
+      cargo build &&
+      cargo test &&
+      cargo doc
 
 after_success:
-  - if [ "$TRAVIS_RUST_VERSION" != "1.2.0" ]; then
-      cargo coveralls --verbose;
-    fi
+  - cargo coveralls

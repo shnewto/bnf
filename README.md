@@ -1,8 +1,10 @@
 # bnf
 
 [![Build Status](https://travis-ci.org/snewt/bnf.svg?branch=master)](https://travis-ci.org/snewt/bnf)
-[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Coverage Status](https://coveralls.io/repos/github/snewt/bnf/badge.svg?branch=integrate-coveralls)](https://coveralls.io/github/snewt/bnf?branch=integrate-coveralls)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
+[![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)
+[![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A library for parsing Backus–Naur form context-free grammars
 inspired by the JavaScript library [prettybnf](https://github.com/dhconnelly/prettybnf)

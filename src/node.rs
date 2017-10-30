@@ -24,12 +24,10 @@ pub struct Expression {
 }
 
 impl Expression {
-    #[allow(dead_code)]
     pub fn new() -> Expression {
         Expression { terms: vec![] }
     }
 
-    #[allow(dead_code)]
     pub fn from_parts(v: Vec<Term>) -> Expression {
         Expression { terms: v }
     }
@@ -55,7 +53,6 @@ pub struct Production {
 }
 
 impl Production {
-    #[allow(dead_code)]
     pub fn new() -> Production {
         Production {
             lhs: Term::Nonterminal(String::new()),
@@ -63,7 +60,6 @@ impl Production {
         }
     }
 
-    #[allow(dead_code)]
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
     }
@@ -97,7 +93,6 @@ impl Grammar {
         }
     }
 
-    #[allow(dead_code)]
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
     }

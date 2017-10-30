@@ -1,7 +1,7 @@
 # bnf
 
 [![Build Status](https://travis-ci.org/snewt/bnf.svg?branch=master)](https://travis-ci.org/snewt/bnf)
-[![Coverage Status](https://coveralls.io/repos/github/snewt/bnf/badge.svg?branch=integrate-coveralls)](https://coveralls.io/github/snewt/bnf?branch=integrate-coveralls)
+[![Coverage Status](https://coveralls.io/repos/github/snewt/bnf/badge.svg?branch=master)](https://coveralls.io/github/snewt/bnf?branch=master)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

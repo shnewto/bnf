@@ -1,4 +1,5 @@
 use std::fmt;
+use std::slice;
 use super::Expression;
 use super::Term;
 
@@ -21,6 +22,12 @@ impl Production {
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
     }
+
+    pub fn rhs(&self) -> Iter {
+        Iter {
+            iterator: self.rhs.iter(),
+        }
+    }
 }
 
 impl fmt::Display for Production {
@@ -35,5 +42,17 @@ impl fmt::Display for Production {
                 .collect::<Vec<_>>()
                 .join(" | ")
         )
+    }
+}
+
+pub struct Iter<'a> {
+    iterator: slice::Iter<'a, Expression>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Expression;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
     }
 }

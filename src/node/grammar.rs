@@ -1,4 +1,5 @@
 use std::fmt;
+use std::slice;
 use super::Production;
 
 
@@ -18,6 +19,12 @@ impl Grammar {
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
     }
+
+    pub fn productions(&self) -> Iter {
+        Iter {
+            iterator: self.productions.iter(),
+        }
+    }
 }
 
 impl fmt::Display for Grammar {
@@ -31,5 +38,17 @@ impl fmt::Display for Grammar {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+pub struct Iter<'a> {
+    iterator: slice::Iter<'a, Production>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Production;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
     }
 }

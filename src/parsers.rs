@@ -10,22 +10,32 @@ named!(pub terminal< &[u8], Term >,
 
 named!(pub nonterminal< &[u8], Term >,
     do_parse!(
-        nt: ws!(delimited!(tag!("<"), take_until_either!(" >"), tag!(">"))) >>
+        nt: ws!(delimited!(tag!("<"), take_until_either!(" >"), tag!(">") ) ) >>
+        not!(ws!(tag!("::="))) >>
         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
 
+named!(pub nonterminal_lhs< &[u8], Term >,
+    do_parse!(
+        // nt: ws!(delimited!(opt!(tag!("<")), take_until_either!(" >"), tag!(">") ) ) >>      
+        nt: ws!(take_until_and_consume!(">")) >>
+        (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
+    )
+);
+
+
 named!(pub expression< &[u8], Expression >,
     do_parse!(
         terms: many1!(alt!(terminal | nonterminal)) >>
-        ws!(alt!(tag!(";") | tag!("|"))) >>
+        ws!(alt!( tag!(";") | tag!("<") | tag!("|"))) >> 
         (Expression::from_parts(terms))
     )
 );
 
 named!(pub production< &[u8], Production >,
     do_parse!(
-        lhs: nonterminal >>
+        lhs: nonterminal_lhs >>
         ws!(tag!("::=")) >>
         rhs: many1!(expression) >>
         (Production::from_parts(lhs, rhs))
@@ -116,10 +126,8 @@ mod tests {
     #[test]
     fn production_match() {
         let production_tuple = construct_production_tuple();
-        assert_eq!(
-            production_tuple.0,
-            production(production_tuple.1.as_bytes()).unwrap().1
-        );
+        let parsed = production(production_tuple.1.as_bytes());
+        assert_eq!(production_tuple.0, parsed.unwrap().1);
     }
 
     fn construct_grammar_tuple() -> (Grammar, String) {

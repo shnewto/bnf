@@ -1,11 +1,12 @@
 use std::fmt;
+use std::slice;
 use super::Term;
 
 
 #[derive(PartialEq, Debug, Clone)]
 /// An Expression is comprised of any number of Terms
 pub struct Expression {
-    pub terms: Vec<Term>,
+    terms: Vec<Term>,
 }
 
 impl Expression {
@@ -15,6 +16,16 @@ impl Expression {
 
     pub fn from_parts(v: Vec<Term>) -> Expression {
         Expression { terms: v }
+    }
+
+    pub fn terms(&self) -> Iter {
+        Iter {
+            iterator: self.terms.iter(),
+        }
+    }
+
+    pub fn add_term(&mut self, term: Term) {
+        self.terms.push(term)
     }
 }
 
@@ -27,5 +38,17 @@ impl fmt::Display for Expression {
             .join(" ");
 
         write!(f, "{}", display)
+    }
+}
+
+pub struct Iter<'a> {
+    iterator: slice::Iter<'a, Term>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = &'a Term;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
     }
 }

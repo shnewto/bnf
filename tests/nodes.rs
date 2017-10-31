@@ -14,8 +14,8 @@ mod tests {
 
         let e1: Expression = Expression::from_parts(vec![nt1, t1]);
         let mut e2: Expression = Expression::new();
-        e2.terms.push(nt2);
-        e2.terms.push(t2);
+        e2.add_term(nt2);
+        e2.add_term(t2);
 
         assert_eq!(e1, e2);
     }
@@ -62,5 +62,20 @@ mod tests {
         g1.productions.push(p2.clone());
         let g2: Grammar = Grammar::from_parts(vec![p1, p2]);
         assert_eq!(g1, g2);
+    }
+
+    #[test]
+    fn iterate_expression() {
+        let terminal = Term::Terminal(String::from("terminal"));
+        let nonterminal = Term::Nonterminal(String::from("nonterminal"));
+        let expression = Expression::from_parts(vec![terminal, nonterminal]);
+        let mut expression_terms = expression.terms();
+
+        let first = Term::Terminal(String::from("terminal"));
+        let second = Term::Nonterminal(String::from("nonterminal"));
+
+        assert_eq!(expression_terms.next(), Some(&first));
+        assert_eq!(expression_terms.next(), Some(&second));
+        assert_eq!(expression_terms.next(), None);
     }
 }

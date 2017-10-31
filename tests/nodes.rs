@@ -1,5 +1,5 @@
 extern crate bnf;
-use bnf::node::{Term, Expression, Production, Grammar};
+use bnf::node::{Expression, Grammar, Production, Term};
 
 #[cfg(test)]
 mod tests {
@@ -23,17 +23,17 @@ mod tests {
     #[test]
     fn new_productions() {
         let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs1: Expression = Expression::from_parts(
-            vec![
-                Term::Terminal(String::from("STRING B")),
-                Term::Nonterminal(String::from("STRING C"))]);
+        let rhs1: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
         let p1: Production = Production::from_parts(lhs1, vec![rhs1]);
 
         let lhs2: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs2: Expression = Expression::from_parts(
-            vec![
-                Term::Terminal(String::from("STRING B")),
-                Term::Nonterminal(String::from("STRING C"))]);
+        let rhs2: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
         let mut p2: Production = Production::new();
         p2.lhs = lhs2;
         p2.rhs = vec![rhs2];
@@ -44,17 +44,17 @@ mod tests {
     #[test]
     fn new_grammars() {
         let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs1: Expression = Expression::from_parts(
-            vec![
-                Term::Terminal(String::from("STRING B")),
-                Term::Nonterminal(String::from("STRING C"))]);
+        let rhs1: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
         let p1: Production = Production::from_parts(lhs1, vec![rhs1]);
 
         let lhs2: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs2: Expression = Expression::from_parts(
-            vec![
-                Term::Terminal(String::from("STRING B")),
-                Term::Nonterminal(String::from("STRING C"))]);
+        let rhs2: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
         let p2: Production = Production::from_parts(lhs2, vec![rhs2]);
 
         let mut g1: Grammar = Grammar::new();

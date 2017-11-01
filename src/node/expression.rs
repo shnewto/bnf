@@ -1,6 +1,6 @@
 use std::fmt;
 use std::slice;
-use super::Term;
+use node::Term;
 
 
 #[derive(PartialEq, Debug, Clone)]

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::slice;
-use super::Expression;
-use super::Term;
+use node::Expression;
+use node::Term;
 
 
 #[derive(PartialEq, Debug, Clone)]

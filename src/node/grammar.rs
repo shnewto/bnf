@@ -10,26 +10,31 @@ pub struct Grammar {
 }
 
 impl Grammar {
+    /// Construct a new `Grammar`
     pub fn new() -> Grammar {
         Grammar {
             productions: vec![],
         }
     }
 
+    /// Construct an `Grammar` from `Production`s
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
     }
 
+    /// Get iterator of the `Grammar`'s `Productions`s
     pub fn productions_iter(&self) -> Iter {
         Iter {
             iterator: self.productions.iter(),
         }
     }
 
+    /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, expr: Production) {
         self.productions.push(expr)
     }
 
+    /// Remove `Production` from the `Grammar`
     pub fn remove_production(&mut self, prod: &Production) -> Option<Production> {
         if let Some(pos) = self.productions.iter().position(|x| *x == *prod) {
             Some(self.productions.remove(pos))

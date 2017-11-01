@@ -10,24 +10,49 @@ pub struct Expression {
 }
 
 impl Expression {
+    /// Construct a new `Expression`
     pub fn new() -> Expression {
         Expression { terms: vec![] }
     }
 
+    /// Construct an `Expression` from `Term`s
     pub fn from_parts(v: Vec<Term>) -> Expression {
         Expression { terms: v }
     }
 
+    /// Get iterator of `Term`s within `Expression`
     pub fn terms_iter(&self) -> Iter {
         Iter {
             iterator: self.terms.iter(),
         }
     }
 
+    /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
         self.terms.push(term)
     }
 
+    /// Remove `Term` from `Expression`
+    ///
+    /// If interested if `Term` was removed, then inspect the returned `Option`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate bnf;
+    /// # use bnf::node::{Expression, Term};
+    /// # fn main() {
+    /// let mut expression = Expression::from_parts(vec![]);
+    /// let to_remove = Term::Terminal(String::from("a_terminal"));
+    /// let removed = expression.remove_term(&to_remove);
+    /// # let removed_clone = removed.clone();
+    /// match removed {
+    ///     Some(term) => println!("removed {}", term),
+    ///     None => println!("term was not in expression, so could not be removed"),
+    /// }
+    /// # assert_eq!(removed_clone, None);
+    /// # }
+    /// ```
     pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
         if let Some(pos) = self.terms.iter().position(|x| *x == *term) {
             Some(self.terms.remove(pos))

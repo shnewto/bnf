@@ -48,7 +48,7 @@ impl Production {
         }
     }
 
-    /// Get iterator of the `Production`'s right hand side `Expression`s
+    /// Get mutable iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter_mut(&mut self) -> IterMut {
         IterMut {
             iterator: self.rhs.iter_mut(),

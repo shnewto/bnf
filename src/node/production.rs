@@ -12,6 +12,7 @@ pub struct Production {
 }
 
 impl Production {
+    /// Construct a new `Production`
     pub fn new() -> Production {
         Production {
             lhs: Term::Nonterminal(String::new()),
@@ -19,20 +20,26 @@ impl Production {
         }
     }
 
+    /// Construct an `Production` from `Expression`s
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
     }
 
+    /// Get iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter(&self) -> Iter {
         Iter {
             iterator: self.rhs.iter(),
         }
     }
 
+    /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
         self.rhs.push(expr)
     }
 
+    /// Remove `Expression` from the `Production`'s right hand side
+    ///
+    /// If interested if `Expression` was removed, then inspect the returned `Option`.
     pub fn remove_from_rhs(&mut self, expr: &Expression) -> Option<Expression> {
         if let Some(pos) = self.rhs.iter().position(|x| *x == *expr) {
             Some(self.rhs.remove(pos))

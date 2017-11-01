@@ -6,7 +6,7 @@ use super::Production;
 #[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
 pub struct Grammar {
-    pub productions: Vec<Production>,
+    productions: Vec<Production>,
 }
 
 impl Grammar {
@@ -20,9 +20,21 @@ impl Grammar {
         Grammar { productions: v }
     }
 
-    pub fn productions(&self) -> Iter {
+    pub fn productions_iter(&self) -> Iter {
         Iter {
             iterator: self.productions.iter(),
+        }
+    }
+
+    pub fn add_production(&mut self, expr: Production) {
+        self.productions.push(expr)
+    }
+
+    pub fn remove_production(&mut self, prod: &Production) -> Option<Production> {
+        if let Some(pos) = self.productions.iter().position(|x| *x == *prod) {
+            Some(self.productions.remove(pos))
+        } else {
+            None
         }
     }
 }

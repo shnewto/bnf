@@ -23,8 +23,8 @@ impl Grammar {
     }
 
     /// Add `Production` to the `Grammar`
-    pub fn add_production(&mut self, expr: Production) {
-        self.productions.push(expr)
+    pub fn add_production(&mut self, prod: Production) {
+        self.productions.push(prod)
     }
 
     /// Remove `Production` from the `Grammar`

@@ -18,7 +18,7 @@ impl Expression {
         Expression { terms: v }
     }
 
-    pub fn terms(&self) -> Iter {
+    pub fn terms_iter(&self) -> Iter {
         Iter {
             iterator: self.terms.iter(),
         }
@@ -26,6 +26,14 @@ impl Expression {
 
     pub fn add_term(&mut self, term: Term) {
         self.terms.push(term)
+    }
+
+    pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
+        if let Some(pos) = self.terms.iter().position(|x| *x == *term) {
+            Some(self.terms.remove(pos))
+        } else {
+            None
+        }
     }
 }
 

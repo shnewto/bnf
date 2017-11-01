@@ -8,7 +8,7 @@ use super::Term;
 /// A Production is comprised of any number of Expressions
 pub struct Production {
     pub lhs: Term,
-    pub rhs: Vec<Expression>,
+    rhs: Vec<Expression>,
 }
 
 impl Production {
@@ -23,9 +23,21 @@ impl Production {
         Production { lhs: t, rhs: e }
     }
 
-    pub fn rhs(&self) -> Iter {
+    pub fn rhs_iter(&self) -> Iter {
         Iter {
             iterator: self.rhs.iter(),
+        }
+    }
+
+    pub fn add_to_rhs(&mut self, expr: Expression) {
+        self.rhs.push(expr)
+    }
+
+    pub fn remove_from_rhs(&mut self, expr: &Expression) -> Option<Expression> {
+        if let Some(pos) = self.rhs.iter().position(|x| *x == *expr) {
+            Some(self.rhs.remove(pos))
+        } else {
+            None
         }
     }
 }

@@ -66,4 +66,50 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn mutably_iterate_grammar() {
+        let dna_productions = "
+            <dna> ::= <dna> | <base> <dna>;
+            <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
+
+        let mut dna_grammar = bnf::parse(dna_productions);
+
+        // scope mutable borrow
+        {
+            let terminals = dna_grammar
+                .productions_iter_mut()
+                .flat_map(|prod| prod.rhs_iter_mut())
+                .flat_map(|expr| expr.terms_iter_mut())
+                .filter(|&&mut ref term| match *term {
+                    Term::Terminal(_) => true,
+                    _ => false,
+                });
+
+            // transform all terminals to "Z"
+            for term in terminals {
+                *term = Term::Terminal(String::from("Z"));
+            }
+        }
+
+        // get another iterator to check work
+        let are_all_terminals_z = dna_grammar
+            .productions_iter()
+            .flat_map(|prod| prod.rhs_iter())
+            .flat_map(|expr| expr.terms_iter())
+            .filter(|&term| match *term {
+                Term::Terminal(_) => true,
+                _ => false,
+            })
+            .all(|term| match *term {
+                Term::Terminal(ref s) => *s == String::from("Z"),
+                _ => false,
+            });
+
+        assert!(
+            are_all_terminals_z,
+            "all terminals in {} were not \"Z\"",
+            dna_grammar
+        );
+    }
 }

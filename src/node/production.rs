@@ -25,13 +25,6 @@ impl Production {
         Production { lhs: t, rhs: e }
     }
 
-    /// Get iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter(&self) -> Iter {
-        Iter {
-            iterator: self.rhs.iter(),
-        }
-    }
-
     /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
         self.rhs.push(expr)
@@ -45,6 +38,20 @@ impl Production {
             Some(self.rhs.remove(pos))
         } else {
             None
+        }
+    }
+
+    /// Get iterator of the `Production`'s right hand side `Expression`s
+    pub fn rhs_iter(&self) -> Iter {
+        Iter {
+            iterator: self.rhs.iter(),
+        }
+    }
+
+    /// Get iterator of the `Production`'s right hand side `Expression`s
+    pub fn rhs_iter_mut(&mut self) -> IterMut {
+        IterMut {
+            iterator: self.rhs.iter_mut(),
         }
     }
 }
@@ -70,6 +77,18 @@ pub struct Iter<'a> {
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Expression;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+}
+
+pub struct IterMut<'a> {
+    iterator: slice::IterMut<'a, Expression>,
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = &'a mut Expression;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iterator.next()

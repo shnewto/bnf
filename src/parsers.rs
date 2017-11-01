@@ -1,6 +1,5 @@
-
 use node::{Expression, Grammar, Production, Term};
-use nom::{IResult};
+use nom::IResult;
 
 #[macro_export]
 macro_rules! look_ahead(
@@ -19,13 +18,14 @@ macro_rules! look_ahead(
   );
 );
 
-named!(pub prod_lhs< &[u8], Term >, 
+named!(pub prod_lhs< &[u8], Term >,
     do_parse!(
             nt: ws!(delimited!(tag!("<"), take_until!(">"), ws!(tag!(">")))) >>
-            ret: ws!(tag!("::=")) >> 
+            ret: ws!(tag!("::=")) >>
             (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
+
 
 named!(pub terminal< &[u8], Term >,
     do_parse!(
@@ -45,7 +45,7 @@ named!(pub nonterminal< &[u8], Term >,
 named!(pub expression< &[u8], Expression >,
     do_parse!(
         terms: many1!(alt!(terminal | nonterminal)) >>
-        ws!(alt!( eof!() | tag!(";") | tag!("|") | complete!(look_ahead!(prod_lhs)) )) >> 
+        ws!(alt!( eof!() | tag!(";") | tag!("|") | complete!(look_ahead!(prod_lhs)) )) >>
         (Expression::from_parts(terms))
     )
 );

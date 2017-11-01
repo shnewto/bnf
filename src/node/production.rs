@@ -68,3 +68,29 @@ impl<'a> Iterator for Iter<'a> {
         self.iterator.next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_productions() {
+        let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
+        let rhs1: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
+        let p1: Production = Production::from_parts(lhs1, vec![rhs1]);
+
+        let lhs2: Term = Term::Nonterminal(String::from("STRING A"));
+        let rhs2: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
+        let mut p2: Production = Production::new();
+        p2.lhs = lhs2;
+        p2.add_to_rhs(rhs2);
+
+        assert_eq!(p1, p2);
+    }
+}

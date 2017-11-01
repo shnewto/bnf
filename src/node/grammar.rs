@@ -1,6 +1,6 @@
 use std::fmt;
 use std::slice;
-use super::Production;
+use node::Production;
 
 
 #[derive(PartialEq, Debug, Clone)]
@@ -62,5 +62,34 @@ impl<'a> Iterator for Iter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iterator.next()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use node::{Expression, Production, Term};
+
+    #[test]
+    fn new_grammars() {
+        let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
+        let rhs1: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
+        let p1: Production = Production::from_parts(lhs1, vec![rhs1]);
+
+        let lhs2: Term = Term::Nonterminal(String::from("STRING A"));
+        let rhs2: Expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("STRING B")),
+            Term::Nonterminal(String::from("STRING C")),
+        ]);
+        let p2: Production = Production::from_parts(lhs2, vec![rhs2]);
+
+        let mut g1: Grammar = Grammar::new();
+        g1.add_production(p1.clone());
+        g1.add_production(p2.clone());
+        let g2: Grammar = Grammar::from_parts(vec![p1, p2]);
+        assert_eq!(g1, g2);
     }
 }

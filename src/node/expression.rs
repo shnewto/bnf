@@ -81,7 +81,7 @@ mod tests {
     }
 
     #[test]
-    fn add_term_to_expression() {
+    fn add_term() {
         let mut terms = vec![
             Term::Terminal(String::from("A")),
             Term::Terminal(String::from("C")),
@@ -104,7 +104,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_term_from_expression() {
+    fn remove_term() {
         let terms = vec![
             Term::Terminal(String::from("A")),
             Term::Terminal(String::from("C")),
@@ -132,7 +132,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_nonexistent_term_from_expression() {
+    fn remove_nonexistent_term() {
         let terms = vec![
             Term::Terminal(String::from("A")),
             Term::Terminal(String::from("C")),
@@ -147,7 +147,14 @@ mod tests {
         let nonexistent = Term::Terminal(String::from("Z"));
         let removed = dna_expression.remove_term(&nonexistent);
 
-        // the removed element should be the accident
+        // the nonexistent term should not be found in the terms
+        assert_eq!(
+            dna_expression
+                .terms_iter()
+                .find(|&term| *term == nonexistent),
+            None
+        );
+        // no term should have been removed
         assert_eq!(None, removed);
         // number of terms should not have decreased
         assert_eq!(dna_expression.terms_iter().count(), terms.len());

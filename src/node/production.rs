@@ -93,4 +93,62 @@ mod tests {
 
         assert_eq!(p1, p2);
     }
+
+    #[test]
+    fn remove_from_rhs() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        // unnecessary expression to be removed from production
+        let two_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let expression_list = vec![last, one_more, two_more.clone()];
+        let mut production = Production::from_parts(lhs, expression_list.clone());
+        let removed = production.remove_from_rhs(&two_more);
+
+        // the removed element should be the accident
+        assert_eq!(Some(two_more.clone()), removed);
+        // number of productions should have decreased
+        assert_eq!(production.rhs_iter().count(), expression_list.len() - 1);
+        // the unnecessary should no longer be found
+        assert_eq!(
+            production
+                .rhs_iter()
+                .find(|&expression| *expression == two_more),
+            None
+        );
+    }
+
+    #[test]
+    fn remove_nonexistent_from_rhs() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let expression_list = vec![last, one_more];
+        let mut production = Production::from_parts(lhs, expression_list.clone());
+
+        // unnecessary expression to be removed from production
+        let two_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let removed = production.remove_from_rhs(&two_more);
+
+        // the unused term should not be found in the terms
+        assert_eq!(production.rhs_iter().find(|&expr| *expr == two_more), None);
+        // no term should have been removed
+        assert_eq!(None, removed);
+        // number of terms should not have decreased
+        assert_eq!(production.rhs_iter().count(), expression_list.len());
+    }
 }

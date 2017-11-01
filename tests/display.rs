@@ -22,14 +22,14 @@ mod tests {
                 <opt-apt-num> ::= <apt-num> | \"\";";
 
         let display_output = 
-            "<postal-address> ::= <name-part> <street-address> <zip-part>;\n\
-             <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL> | <personal-part> <name-part>;\n\
-             <personal-part> ::= <initial> \".\" | <first-name>;\n\
-             <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;\n\
-             <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;\n\
-             <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";\n\
-             <opt-apt-num> ::= <apt-num> | \"\";\n";        
-        
+            "<postal-address> ::= <name-part> <street-address> <zip-part>\n\
+             <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL> | <personal-part> <name-part>\n\
+             <personal-part> ::= <initial> \".\" | <first-name>\n\
+             <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>\n\
+             <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>\n\
+             <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
+             <opt-apt-num> ::= <apt-num> | \"\"\n";          
+
         let grammar = bnf::parse(input);        
 
         assert_eq!(grammar.to_string(), display_output);
@@ -53,14 +53,14 @@ mod tests {
                 <opt-apt-num> ::= <apt-num> | \"\"";
 
         let display_output = 
-            "<postal-address> ::= <name-part> <street-address> <zip-part>;\n\
-             <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL> | <personal-part> <name-part>;\n\
-             <personal-part> ::= <initial> \".\" | <first-name>;\n\
-             <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;\n\
-             <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;\n\
-             <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";\n\
-             <opt-apt-num> ::= <apt-num> | \"\";\n";        
-        
+            "<postal-address> ::= <name-part> <street-address> <zip-part>\n\
+             <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL> | <personal-part> <name-part>\n\
+             <personal-part> ::= <initial> \".\" | <first-name>\n\
+             <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>\n\
+             <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>\n\
+             <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
+             <opt-apt-num> ::= <apt-num> | \"\"\n";        
+
         let grammar = bnf::parse(input);        
 
         assert_eq!(grammar.to_string(), display_output);

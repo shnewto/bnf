@@ -22,7 +22,7 @@ macro_rules! look_ahead(
 named!(pub prod_lhs< &[u8], Term >, 
     do_parse!(
             nt: ws!(delimited!(tag!("<"), take_until!(">"), ws!(tag!(">")))) >>
-            ret: tag!("::=") >> 
+            ret: ws!(tag!("::=")) >> 
             (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );

@@ -136,7 +136,7 @@ mod tests {
         let expression_list = vec![last, one_more];
         let mut production = Production::from_parts(lhs, expression_list.clone());
 
-        // unnecessary expression to be removed from production
+        // unused expression to fail being removed from production
         let two_more = Expression::from_parts(vec![
             Term::Terminal(String::from("base")),
             Term::Terminal(String::from("base")),

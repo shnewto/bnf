@@ -92,4 +92,92 @@ mod tests {
         let g2: Grammar = Grammar::from_parts(vec![p1, p2]);
         assert_eq!(g1, g2);
     }
+
+    #[test]
+    fn add_production() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let expression_list = vec![last, one_more];
+        let production = Production::from_parts(lhs, expression_list);
+        let productions = vec![production.clone()];
+        let mut grammar = Grammar::new();
+
+        // grammar starts empty
+        assert_eq!(grammar.productions_iter().count(), 0);
+
+        grammar.add_production(production.clone());
+
+        // grammar now has production
+        assert_eq!(grammar.productions_iter().count(), 1);
+
+        // mutated grammar identical to new grammar built from same productions
+        let filled_grammar = Grammar::from_parts(productions.clone());
+        assert_eq!(grammar, filled_grammar);
+    }
+
+    #[test]
+    fn remove_production() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let expression_list = vec![last, one_more];
+        let production = Production::from_parts(lhs, expression_list);
+        let productions = vec![production.clone()];
+        let mut grammar = Grammar::from_parts(productions.clone());
+
+        // grammar has production
+        assert_eq!(
+            Some(&production),
+            grammar.productions_iter().find(|&prod| *prod == production)
+        );
+        assert_eq!(grammar.productions_iter().count(), productions.len());
+
+        // production has been removed
+        let removed = grammar.remove_production(&production);
+        assert_eq!(removed, Some(production.clone()));
+        assert_eq!(grammar.productions_iter().count(), productions.len() - 1);
+        assert_eq!(
+            None,
+            grammar.productions_iter().find(|&prod| *prod == production)
+        );
+    }
+
+    #[test]
+    fn remove_nonexistent_production() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let expression_list = vec![last, one_more];
+        let production = Production::from_parts(lhs, expression_list);
+        let productions = vec![production.clone()];
+        let mut grammar = Grammar::from_parts(productions.clone());
+
+        let unused = Production::from_parts(Term::Nonterminal(String::from("nonexistent")), vec![]);
+
+        // grammar has original production
+        assert_eq!(
+            Some(&production),
+            grammar.productions_iter().find(|&prod| *prod == production)
+        );
+        assert_eq!(grammar.productions_iter().count(), productions.len());
+
+        // unused production is not removed
+        let removed = grammar.remove_production(&unused);
+        assert_eq!(removed, None);
+        assert_eq!(grammar.productions_iter().count(), productions.len());
+        assert_eq!(
+            None,
+            grammar.productions_iter().find(|&prod| *prod == unused)
+        );
+    }
 }

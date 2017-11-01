@@ -1,5 +1,31 @@
 
 use node::{Expression, Grammar, Production, Term};
+use nom::{IResult};
+
+#[macro_export]
+macro_rules! look_ahead(
+  ($i:expr, $submac:ident!( $($args:tt)* )) => (
+    {
+      let i_ = $i.clone();
+      match $submac!(i_, $($args)*) {
+        IResult::Done(_, _)    => IResult::Done($i, $i),
+        IResult::Error(e)      => IResult::Error(e),
+        IResult::Incomplete(i) => IResult::Incomplete(i)
+      }
+    }
+  );
+  ($i:expr, $f:expr) => (
+    look_ahead!($i, call!($f));
+  );
+);
+
+named!(pub prod_lhs< &[u8], Term >, 
+    do_parse!(
+            nt: ws!(delimited!(tag!("<"), take_until!(">"), ws!(tag!(">")))) >>
+            ret: ws!(tag!("::=")) >> 
+            (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
+    )
+);
 
 named!(pub terminal< &[u8], Term >,
     do_parse!(
@@ -10,7 +36,8 @@ named!(pub terminal< &[u8], Term >,
 
 named!(pub nonterminal< &[u8], Term >,
     do_parse!(
-        nt: ws!(delimited!(tag!("<"), take_until_either!(" >"), tag!(">"))) >>
+        nt: ws!(delimited!(tag!("<"), take_until!(">"), tag!(">"))) >>
+        ws!(not!(tag!("::="))) >>
         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
@@ -18,15 +45,14 @@ named!(pub nonterminal< &[u8], Term >,
 named!(pub expression< &[u8], Expression >,
     do_parse!(
         terms: many1!(alt!(terminal | nonterminal)) >>
-        ws!(alt!(tag!(";") | tag!("|"))) >>
+        ws!(alt!( eof!() | tag!(";") | tag!("|") | complete!(look_ahead!(prod_lhs)) )) >> 
         (Expression::from_parts(terms))
     )
 );
 
 named!(pub production< &[u8], Production >,
     do_parse!(
-        lhs: nonterminal >>
-        ws!(tag!("::=")) >>
+        lhs: prod_lhs >>
         rhs: many1!(expression) >>
         (Production::from_parts(lhs, rhs))
     )
@@ -35,7 +61,6 @@ named!(pub production< &[u8], Production >,
 named!(pub grammar< &[u8], Grammar >,
     do_parse!(
         prods: many1!(production) >>
-        eof!() >>
         (Grammar::from_parts(prods))
     )
 );
@@ -116,10 +141,8 @@ mod tests {
     #[test]
     fn production_match() {
         let production_tuple = construct_production_tuple();
-        assert_eq!(
-            production_tuple.0,
-            production(production_tuple.1.as_bytes()).unwrap().1
-        );
+        let parsed = production(production_tuple.1.as_bytes());
+        assert_eq!(production_tuple.0, parsed.unwrap().1);
     }
 
     fn construct_grammar_tuple() -> (Grammar, String) {

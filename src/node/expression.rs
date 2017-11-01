@@ -20,13 +20,6 @@ impl Expression {
         Expression { terms: v }
     }
 
-    /// Get iterator of `Term`s within `Expression`
-    pub fn terms_iter(&self) -> Iter {
-        Iter {
-            iterator: self.terms.iter(),
-        }
-    }
-
     /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
         self.terms.push(term)
@@ -60,6 +53,20 @@ impl Expression {
             None
         }
     }
+
+    /// Get iterator of `Term`s within `Expression`
+    pub fn terms_iter(&self) -> Iter {
+        Iter {
+            iterator: self.terms.iter(),
+        }
+    }
+
+    /// Get mutable iterator of `Term`s within `Expression`
+    pub fn terms_iter_mut(&mut self) -> IterMut {
+        IterMut {
+            iterator: self.terms.iter_mut(),
+        }
+    }
 }
 
 impl fmt::Display for Expression {
@@ -80,6 +87,18 @@ pub struct Iter<'a> {
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Term;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+}
+
+pub struct IterMut<'a> {
+    iterator: slice::IterMut<'a, Term>,
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = &'a mut Term;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iterator.next()

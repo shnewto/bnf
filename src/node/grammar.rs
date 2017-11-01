@@ -22,13 +22,6 @@ impl Grammar {
         Grammar { productions: v }
     }
 
-    /// Get iterator of the `Grammar`'s `Productions`s
-    pub fn productions_iter(&self) -> Iter {
-        Iter {
-            iterator: self.productions.iter(),
-        }
-    }
-
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, expr: Production) {
         self.productions.push(expr)
@@ -40,6 +33,20 @@ impl Grammar {
             Some(self.productions.remove(pos))
         } else {
             None
+        }
+    }
+
+    /// Get iterator of the `Grammar`'s `Productions`s
+    pub fn productions_iter(&self) -> Iter {
+        Iter {
+            iterator: self.productions.iter(),
+        }
+    }
+
+    /// Get mutable iterator of the `Grammar`'s `Productions`s
+    pub fn productions_iter_mut(&mut self) -> IterMut {
+        IterMut {
+            iterator: self.productions.iter_mut(),
         }
     }
 }
@@ -64,6 +71,18 @@ pub struct Iter<'a> {
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Production;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iterator.next()
+    }
+}
+
+pub struct IterMut<'a> {
+    iterator: slice::IterMut<'a, Production>,
+}
+
+impl<'a> Iterator for IterMut<'a> {
+    type Item = &'a mut Production;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iterator.next()

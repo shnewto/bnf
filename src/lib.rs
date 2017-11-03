@@ -138,8 +138,8 @@ pub fn parse(input: &str) -> Grammar {
 }
 
 pub fn generate(grammar: Grammar) -> String {
-    let lhs = grammar.productions_iter().nth(0).unwrap().lhs;
-    let start_rule;
+    let lhs = grammar.productions_iter().nth(0).unwrap().lhs.clone();
+    let start_rule: String;
     match lhs {
         Term::Nonterminal(nt) => start_rule = nt,
         _ => start_rule = String::from(""),

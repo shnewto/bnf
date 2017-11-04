@@ -91,12 +91,15 @@ impl Grammar {
     /// Generate a random sentence from self.
     /// Begins from lhs of first production.
     /// 
+    /// # Example
+    /// 
     /// ```rust
     /// extern crate bnf;
+    /// 
     /// fn main() {
     ///     let input = 
     ///         "<dna> ::= <base> | <base> <dna>
-    ///          <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
     ///     let grammar = bnf::parse(input);
     ///     let sentence: String = grammar.generate();
     /// }

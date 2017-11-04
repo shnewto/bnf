@@ -152,11 +152,17 @@ use nom::IResult;
 
 /// Parse a BNF grammer
 /// 
+/// # Example
+/// 
 /// ```rust
-/// let input = 
-///     "<dna> ::= <base> | <base> <dna>
-///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-/// let grammar: bnf::node::Grammar = bnf::parse(input);
+/// extern crate bnf;
+/// 
+/// fn main() {
+///     let input = 
+///         "<dna> ::= <base> | <base> <dna>
+///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+///     let grammar: bnf::node::Grammar = bnf::parse(input);
+/// }
 /// ```
 pub fn parse(input: &str) -> Grammar {
     match parsers::grammar(input.as_bytes()) {

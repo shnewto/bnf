@@ -9,31 +9,31 @@
 //!
 //! The following grammar from the [Wikipedia page on Backus-Naur form]
 //! (https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
-//! exemplifies a compatible grammar after adding ';'
-//! characters to indicate the end of each producion.
+//! exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
+//! to indicate the end of each producion)
 //!
 //! ```text
-//! <postal-address> ::= <name-part> <street-address> <zip-part>;
+//! <postal-address> ::= <name-part> <street-address> <zip-part>
 //!
 //!         <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-//!                     | <personal-part> <name-part>;
+//!                     | <personal-part> <name-part>
 //!
-//!     <personal-part> ::= <initial> "." | <first-name>;
+//!     <personal-part> ::= <initial> "." | <first-name>
 //!
-//!     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+//!     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 //!
-//!         <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>;
+//!         <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>
 //!
-//! <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | "";
-//!     <opt-apt-num> ::= <apt-num> | "";
+//! <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | ""
+//!     <opt-apt-num> ::= <apt-num> | ""
 //! ```
 //!
 //! ## Output
 //! Take the following grammar to be input to this library's `parse` function:
 //!
 //! ```text
-//! <A> ::= <B> | "C";
-//! <B> ::= "D" | "E";
+//! <A> ::= <B> | "C"
+//! <B> ::= "D" | "E"
 //! ```
 //!
 //! The output is a `Grammar` object representing a tree that looks like this:
@@ -94,19 +94,19 @@
 //!
 //! fn main() {
 //!     let input =
-//!         "<postal-address> ::= <name-part> <street-address> <zip-part>;
+//!         "<postal-address> ::= <name-part> <street-address> <zip-part>
 //!
 //!               <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-//!                             | <personal-part> <name-part>;
+//!                             | <personal-part> <name-part>
 //!
-//!           <personal-part> ::= <initial> \".\" | <first-name>;
+//!           <personal-part> ::= <initial> \".\" | <first-name>
 //!
-//!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+//!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 //!
-//!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;
+//!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 //!
-//!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
-//!             <opt-apt-num> ::= <apt-num> | \"\";";
+//!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
+//!             <opt-apt-num> ::= <apt-num> | \"\"";
 //!
 //!     let grammar = bnf::parse(input);
 //!     println!("{:#?}", grammar);
@@ -117,6 +117,7 @@
 #[macro_use]
 extern crate nom;
 extern crate rand;
+extern crate stacker;
 mod parsers;
 mod reports;
 pub mod node;

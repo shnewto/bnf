@@ -1,22 +1,4 @@
 use node::{Expression, Grammar, Production, Term};
-use nom::IResult;
-
-#[macro_export]
-macro_rules! look_ahead(
-  ($i:expr, $submac:ident!( $($args:tt)* )) => (
-    {
-      let i_ = $i.clone();
-      match $submac!(i_, $($args)*) {
-        IResult::Done(_, _)    => IResult::Done($i, $i),
-        IResult::Error(e)      => IResult::Error(e),
-        IResult::Incomplete(i) => IResult::Incomplete(i)
-      }
-    }
-  );
-  ($i:expr, $f:expr) => (
-    look_ahead!($i, call!($f));
-  );
-);
 
 named!(pub prod_lhs< &[u8], Term >,
     do_parse!(
@@ -45,7 +27,7 @@ named!(pub nonterminal< &[u8], Term >,
 named!(pub expression< &[u8], Expression >,
     do_parse!(
         terms: many1!(alt!(terminal | nonterminal)) >>
-        ws!(alt!( eof!() | tag!(";") | tag!("|") | complete!(look_ahead!(prod_lhs)) )) >>
+        ws!(alt!( eof!() | tag!(";") | tag!("|") | recognize!(peek!(complete!(prod_lhs))) )) >>
         (Expression::from_parts(terms))
     )
 );

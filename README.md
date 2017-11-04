@@ -7,34 +7,36 @@
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 A library for parsing Backus–Naur form context-free grammars
-inspired by the JavaScript library [prettybnf](https://github.com/dhconnelly/prettybnf)
+inspired by the JavaScript libraries [prettybnf](https://github.com/dhconnelly/prettybnf) and
+[erratic](https://github.com/dhconnelly/erratic)
 
 ## What does a parsable BNF grammar look like?
 
 The following grammar from the [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
-exemplifies a compatible grammar after adding ';' characters to indicate the end of each producion.
+exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
+to indicate the end of each producion)
 
 ```text
-<postal-address> ::= <name-part> <street-address> <zip-part>;
+<postal-address> ::= <name-part> <street-address> <zip-part>
 
         <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-                    | <personal-part> <name-part>;
+                    | <personal-part> <name-part>
 
-    <personal-part> ::= <initial> "." | <first-name>;
+    <personal-part> ::= <initial> "." | <first-name>
 
-    <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+    <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 
-        <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>;
+        <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>
 
-<opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | "";
-    <opt-apt-num> ::= <apt-num> | "";
+<opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | ""
+    <opt-apt-num> ::= <apt-num> | ""
 ```
 
 ## Output
-Take the following grammar to be input to this library's `parse` function.
+Take the following grammar for DNA sequences to be input to this library's `parse` function.
 ```
-<A> ::= <B> | "C";
-<B> ::= "D" | "E"; 
+<dna> ::= <base> | <base> <dna>;
+<base> ::= "A" | "C" | "G" | "T"
 ```
 
 The output is a `Grammar` object representing a tree that looks like this:
@@ -43,13 +45,37 @@ Grammar {
     productions: [
         Production {
             lhs: Nonterminal(
-                "A"
+                "dna"
             ),
             rhs: [
                 Expression {
                     terms: [
                         Nonterminal(
-                            "B"
+                            "base"
+                        )
+                    ]
+                },
+                Expression {
+                    terms: [
+                        Nonterminal(
+                            "base"
+                        ),
+                        Nonterminal(
+                            "dna"
+                        )
+                    ]
+                }
+            ]
+        },
+        Production {
+            lhs: Nonterminal(
+                "base"
+            ),
+            rhs: [
+                Expression {
+                    terms: [
+                        Terminal(
+                            "A"
                         )
                     ]
                 },
@@ -59,25 +85,18 @@ Grammar {
                             "C"
                         )
                     ]
-                }
-            ]
-        },
-        Production {
-            lhs: Nonterminal(
-                "B"
-            ),
-            rhs: [
+                },
                 Expression {
                     terms: [
                         Terminal(
-                            "D"
+                            "G"
                         )
                     ]
                 },
                 Expression {
                     terms: [
                         Terminal(
-                            "E"
+                            "T"
                         )
                     ]
                 }
@@ -85,8 +104,14 @@ Grammar {
         }
     ]
 }
+
 ```
 
+Once the `Grammar` object is populated, to generate a random sentence from it
+call the object's generate function. `grammar.generate()`. For the above grammar
+you could expect something like `TGGC` or `AG`. Be careful with the generate 
+function, it is unable to intuit infinte loops. If the input grammar was
+`<PATTERN> := <PATTERN>` for instance ...
 ## Example
 
 ```rust
@@ -94,19 +119,19 @@ extern crate bnf;
 
 fn main() {
     let input =
-        "<postal-address> ::= <name-part> <street-address> <zip-part>;
+        "<postal-address> ::= <name-part> <street-address> <zip-part>
 
               <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-                            | <personal-part> <name-part>;
+                            | <personal-part> <name-part>
 
-          <personal-part> ::= <initial> \".\" | <first-name>;
+          <personal-part> ::= <initial> \".\" | <first-name>
 
-         <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+         <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 
-               <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;
+               <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 
-        <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
-            <opt-apt-num> ::= <apt-num> | \"\";";
+        <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
+            <opt-apt-num> ::= <apt-num> | \"\"";
 
     let grammar = bnf::parse(input);
     println!("{:#?}", grammar);

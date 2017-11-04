@@ -8,8 +8,8 @@ mod tests {
     #[test]
     fn iterate_grammar() {
         let dna_productions = "
-            <dna> ::= <dna> | <base> <dna>;
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
+            <dna> ::= <base> | <base> <dna>
+            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 
         let dna_grammar = bnf::parse(dna_productions);
 

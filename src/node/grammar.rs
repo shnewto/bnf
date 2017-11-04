@@ -2,6 +2,7 @@ use std::fmt;
 use std::slice;
 use node::{Expression, Production, Term};
 use rand::{thread_rng, Rng};
+use::stacker;
 
 #[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
@@ -58,6 +59,11 @@ impl Grammar {
     }
 
     fn traverse(self, ident: String) -> String {
+        let stack_red_zone: usize = 32 * 1024;
+        if stacker::remaining_stack() <= stack_red_zone {
+            // revise this to return a result once that's implemented
+            panic!("Infinite loop detected!");
+        }
 
         let mut res = String::new();
         let production = self
@@ -77,6 +83,7 @@ impl Grammar {
         res
     }    
 
+    /// Generate a random sentence from self
     pub fn generate(self) -> String {
         let lhs = self.productions_iter().nth(0).unwrap().lhs.clone();
         let start_rule: String;

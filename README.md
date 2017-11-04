@@ -12,9 +12,10 @@ inspired by the JavaScript libraries [prettybnf](https://github.com/dhconnelly/p
 
 ## What does a parsable BNF grammar look like?
 
-The following grammar from the [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
+The following grammar from the 
+[Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
-to indicate the end of each producion)
+to indicate the end of a producion)
 
 ```text
 <postal-address> ::= <name-part> <street-address> <zip-part>
@@ -33,14 +34,15 @@ to indicate the end of each producion)
 ```
 
 ## Output
-Take the following grammar for DNA sequences to be input to this library's `parse` function.
-```
+Take the following grammar for DNA sequences to be input to this library's 
+`parse` function.
+```text
 <dna> ::= <base> | <base> <dna>;
 <base> ::= "A" | "C" | "G" | "T"
 ```
 
 The output is a `Grammar` object representing a tree that looks like this:
-```
+```text
 Grammar {
     productions: [
         Production {
@@ -111,6 +113,9 @@ Once the `Grammar` object is populated, to generate a random sentence from it
 call the object's generate function. `grammar.generate()`. For the above grammar
 you could expect something like `TGGC` or `AG`. 
 
+If the generate function can't find a production for a nonterminal it tries
+to evaluate it will print the identifer as a nonterminal, i.e. `<identifier>`.
+
 The generate function will return an error if it detects an infinite loop caused
 by a production such as `<PATTERN> := <PATTERN>`.
 
@@ -137,6 +142,6 @@ fn main() {
 
     let grammar = bnf::parse(input);
     println!("{:#?}", grammar);
-    println!("{}", grammar.generate());
+    println!("Random sentence defined by grammar: {}", grammar.generate());
 }
 ```

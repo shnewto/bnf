@@ -51,47 +51,53 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(self, term: Term) -> String {
-        match term {
-            Term::Nonterminal(nt) => self.traverse(nt),
-            Term::Terminal(t) => t,
+    fn eval_terminal(&self, term: &Term) -> String {
+        match *term {
+            Term::Nonterminal(ref nt) => self.traverse(&nt),
+            Term::Terminal(ref t) => t.clone(),
         }
     }
 
-    fn traverse(self, ident: String) -> String {
+    fn traverse(&self, ident: &String) -> String {
         let stack_red_zone: usize = 32 * 1024;
         if stacker::remaining_stack() <= stack_red_zone {
-            // revise this to return a result once that's implemented
+            // revise this to return an error result once that's implemented
             panic!("Infinite loop detected!");
         }
 
+        let nonterm = Term::Nonterminal(ident.clone());
         let mut res = String::new();
-        let production = self
+        let production;
+        let production_result = self
             .productions_iter()
-            .find(|&x| x.lhs == Term::Nonterminal(ident.clone()))
-            .unwrap()
-            .clone();
+            .find(|&x| x.lhs == nonterm);
+        
+        match production_result {
+            Some(p) => production = p,
+            None => return nonterm.to_string(),
+        }
 
         let expression = *thread_rng()
             .choose(&production.rhs_iter().collect::<Vec<&Expression>>())
             .unwrap();
 
         for term in expression.terms_iter() {
-            res = res + &self.clone().eval_terminal(term.clone());
+            res = res + &self.eval_terminal(&term);
         }
 
         res
     }    
 
-    /// Generate a random sentence from self
-    pub fn generate(self) -> String {
-        let lhs = self.productions_iter().nth(0).unwrap().lhs.clone();
+    /// Generate a random sentence from self.
+    /// Begins from lhs of first production.
+    pub fn generate(&self) -> String {
+        let lhs = &self.productions_iter().nth(0).unwrap().lhs;
         let start_rule: String;
-        match lhs {
-            Term::Nonterminal(nt) => start_rule = nt,
-            _ => start_rule = String::from(""),
+        match *lhs {
+            Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+            _ => start_rule = String::from(""), // revise to return error result
         }
-        self.traverse(start_rule)
+        self.traverse(&start_rule)
     }
 }
 

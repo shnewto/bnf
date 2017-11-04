@@ -1,7 +1,6 @@
 use node::{Expression, Grammar, Production, Term};
 use nom::IResult;
 
-#[macro_export]
 macro_rules! look_ahead(
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
     {

@@ -37,14 +37,14 @@ impl Grammar {
         }
     }
 
-    /// Get iterator of the `Grammar`'s `Productions`s
+    /// Get iterator of the `Grammar`'s `Production`s
     pub fn productions_iter(&self) -> Iter {
         Iter {
             iterator: self.productions.iter(),
         }
     }
 
-    /// Get mutable iterator of the `Grammar`'s `Productions`s
+    /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> IterMut {
         IterMut {
             iterator: self.productions.iter_mut(),
@@ -59,7 +59,7 @@ impl Grammar {
     }
 
     fn traverse(&self, ident: &String) -> String {
-        let stack_red_zone: usize = 32 * 1024;
+        let stack_red_zone: usize = 32 * 1024; // 32KB 
         if stacker::remaining_stack() <= stack_red_zone {
             // revise this to return an error result once that's implemented
             panic!("Infinite loop detected!");
@@ -90,6 +90,17 @@ impl Grammar {
 
     /// Generate a random sentence from self.
     /// Begins from lhs of first production.
+    /// 
+    /// ```rust
+    /// extern crate bnf;
+    /// fn main() {
+    ///     let input = 
+    ///         "<dna> ::= <base> | <base> <dna>
+    ///          <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     let grammar = bnf::parse(input);
+    ///     let sentence: String = grammar.generate();
+    /// }
+    /// ```
     pub fn generate(&self) -> String {
         let lhs = &self.productions_iter().nth(0).unwrap().lhs;
         let start_rule: String;

@@ -109,9 +109,11 @@ Grammar {
 
 Once the `Grammar` object is populated, to generate a random sentence from it
 call the object's generate function. `grammar.generate()`. For the above grammar
-you could expect something like `TGGC` or `AG`. Be careful with the generate 
-function, it is unable to intuit infinte loops. If the input grammar was
-`<PATTERN> := <PATTERN>` for instance ...
+you could expect something like `TGGC` or `AG`. 
+
+The generate function will return an error if it detects an infinite loop caused
+by a production such as `<PATTERN> := <PATTERN>`.
+
 ## Example
 
 ```rust
@@ -135,5 +137,6 @@ fn main() {
 
     let grammar = bnf::parse(input);
     println!("{:#?}", grammar);
+    println!("{}", grammar.generate());
 }
 ```

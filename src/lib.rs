@@ -119,9 +119,8 @@ extern crate nom;
 extern crate rand;
 mod parsers;
 mod reports;
-mod generate;
 pub mod node;
-use node::{Grammar, Term};
+use node::Grammar;
 use nom::IResult;
 
 /// Parse a BNF grammer
@@ -135,14 +134,4 @@ pub fn parse(input: &str) -> Grammar {
     }
 
     Grammar::new()
-}
-
-pub fn generate(grammar: Grammar) -> String {
-    let lhs = grammar.productions_iter().nth(0).unwrap().lhs.clone();
-    let start_rule: String;
-    match lhs {
-        Term::Nonterminal(nt) => start_rule = nt,
-        _ => start_rule = String::from(""),
-    }
-    generate::traverse(grammar, start_rule)
 }

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::slice;
-use node::Production;
-
+use node::{Expression, Production, Term};
+use rand::{thread_rng, Rng};
 
 #[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
@@ -48,6 +48,43 @@ impl Grammar {
         IterMut {
             iterator: self.productions.iter_mut(),
         }
+    }
+
+    fn eval_terminal(self, term: Term) -> String {
+        match term {
+            Term::Nonterminal(nt) => self.traverse(nt),
+            Term::Terminal(t) => t,
+        }
+    }
+
+    fn traverse(self, ident: String) -> String {
+
+        let mut res = String::new();
+        let production = self
+            .productions_iter()
+            .find(|&x| x.lhs == Term::Nonterminal(ident.clone()))
+            .unwrap()
+            .clone();
+
+        let expression = *thread_rng()
+            .choose(&production.rhs_iter().collect::<Vec<&Expression>>())
+            .unwrap();
+
+        for term in expression.terms_iter() {
+            res = res + &self.clone().eval_terminal(term.clone());
+        }
+
+        res
+    }    
+
+    pub fn generate(self) -> String {
+        let lhs = self.productions_iter().nth(0).unwrap().lhs.clone();
+        let start_rule: String;
+        match lhs {
+            Term::Nonterminal(nt) => start_rule = nt,
+            _ => start_rule = String::from(""),
+        }
+        self.traverse(start_rule)
     }
 }
 

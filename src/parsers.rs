@@ -3,25 +3,16 @@ use expression::Expression;
 use production::Production;
 use grammar::Grammar;
 
-named!(pub prod_lhs< &[u8], Term >,
-    do_parse!(
-            nt: ws!(delimited!(tag!("<"), take_until!(">"), ws!(tag!(">")))) >>
-            ret: ws!(tag!("::=")) >>
-            (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
-    )
-);
-
 named!(pub terminal< &[u8], Term >,
     do_parse!(
-        t: delimited!(tag!("\""), take_until!("\""), ws!(tag!("\""))) >>
+        t: ws!(delimited!(char!('\"'), take_until!("\""), char!('\"'))) >>
         (Term::Terminal(String::from_utf8_lossy(t).into_owned()))
     )
 );
 
 named!(pub nonterminal< &[u8], Term >,
     do_parse!(
-        nt: ws!(delimited!(tag!("<"), take_until!(">"), tag!(">"))) >>
-        ws!(not!(tag!("::="))) >>
+        nt: ws!(delimited!(char!('<'), take_until!(">"), char!('>'))) >>
         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
@@ -30,16 +21,17 @@ named!(pub term< &[u8], Term >, alt!(terminal | nonterminal));
 
 named!(pub expression< &[u8], Expression >,
     do_parse!(
-        terms: many1!(term) >>
-        ws!(alt!( eof!() | tag!(";") | tag!("|") | recognize!(peek!(complete!(prod_lhs))) )) >>
+        terms: ws!(many1!(term)) >>
         (Expression::from_parts(terms))
     )
 );
 
 named!(pub production< &[u8], Production >,
     do_parse!(
-        lhs: prod_lhs >>
-        rhs: many1!(expression) >>
+        lhs: nonterminal >>
+        ws!(tag!("::=")) >>
+        rhs: dbg_dmp!(separated_nonempty_list_complete!(char!('|'), ws!(expression))) >>
+        opt!(complete!(char!(';'))) >>
         (Production::from_parts(lhs, rhs))
     )
 );
@@ -92,10 +84,10 @@ mod tests {
     fn construct_expression_tuple() -> (Expression, String) {
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_terminal_tuple();
-        let expression_pattern = nonterminal_tuple.1 + &terminal_tuple.1 + "|";
+        let expression_pattern = nonterminal_tuple.1 + &terminal_tuple.1;
         let expression_object = Expression::from_parts(vec![nonterminal_tuple.0, terminal_tuple.0]);
 
-        (expression_object, String::from(expression_pattern))
+        (expression_object, expression_pattern)
     }
 
     #[test]
@@ -112,7 +104,7 @@ mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_nonterminal_tuple();
         let production_pattern =
-            nonterminal_tuple.1 + "::=" + &expression_tuple.1 + &terminal_tuple.1 + ";";
+            nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" + &terminal_tuple.1 + ";";
         let production_object = Production::from_parts(
             nonterminal_tuple.0,
             vec![
@@ -121,7 +113,7 @@ mod tests {
             ],
         );
 
-        (production_object, String::from(production_pattern))
+        (production_object, production_pattern)
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 use std::slice;
+use nom::IResult;
 use expression::Expression;
 use term::Term;
 use parsers;
@@ -29,9 +30,11 @@ impl Production {
 
     // Get `Production` by parsing a string
     pub fn from_parse(s: &str) -> Result<Self, Error> {
-        parsers::production(s.as_bytes())
-            .to_result()
-            .map_err(|e| Error::from(e))
+        match parsers::production(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Expression` to the `Production`'s right hand side
@@ -197,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_production() {
+    fn parse_complete() {
         let lhs = Term::Nonterminal(String::from("dna"));
         let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
         let one_more = Expression::from_parts(vec![
@@ -212,7 +215,30 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete_production() {
-        assert!(Production::from_str("base> ::= \"A\" | \"C\" | \"G\" |").is_err());
+    fn parse_incomplete() {
+        let result = Production::from_str("<base> ::= \"A\" | \"C\" | \"G\" |");
+        assert!(
+            result.is_err(),
+            "production result should be error {:?}",
+            result
+        );
+
+        let production = result.unwrap_err();
+        match production {
+            Error::ParseIncomplete(_) => (),
+            e => panic!("production error should be incomplete parsing: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn parse_semicolon_separated() {
+        let result = Production::from_str("<base> ::= \"A\" ; \"C\" ; \"G\" ; \"T\"");
+        assert!(result.is_err(), "{:?} should be error", result);
+
+        let production = result.unwrap_err();
+        match production {
+            Error::ParseError(_) => (),
+            e => panic!("invalid production should be parsing error: {:?}", e),
+        }
     }
 }

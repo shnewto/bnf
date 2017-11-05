@@ -5,19 +5,19 @@ use grammar::Grammar;
 
 named!(pub terminal< &[u8], Term >,
     do_parse!(
-        t: ws!(delimited!(char!('\"'), take_until!("\""), char!('\"'))) >>
+        t: delimited!(char!('\"'), take_until!("\""), char!('\"')) >>
         (Term::Terminal(String::from_utf8_lossy(t).into_owned()))
     )
 );
 
 named!(pub nonterminal< &[u8], Term >,
     do_parse!(
-        nt: ws!(delimited!(char!('<'), take_until!(">"), char!('>'))) >>
+        nt: delimited!(char!('<'), take_until!(">"), char!('>')) >>
         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
 
-named!(pub term< &[u8], Term >, alt!(terminal | nonterminal));
+named!(pub term< &[u8], Term >, ws!(alt!(terminal | nonterminal)));
 
 named!(pub expression< &[u8], Expression >,
     do_parse!(

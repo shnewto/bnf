@@ -1,10 +1,12 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Term;
+use term::Term;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// An Expression is comprised of any number of Terms
+#[derive(PartialEq, Debug, Clone)]
 pub struct Expression {
     terms: Vec<Term>,
 }
@@ -33,7 +35,7 @@ impl Expression {
     ///
     /// ```
     /// # extern crate bnf;
-    /// # use bnf::node::{Expression, Term};
+    /// # use bnf::{Expression, Term};
     /// # fn main() {
     /// let mut expression = Expression::from_parts(vec![]);
     /// let to_remove = Term::Terminal(String::from("a_terminal"));
@@ -78,6 +80,16 @@ impl fmt::Display for Expression {
             .join(" ");
 
         write!(f, "{}", display)
+    }
+}
+
+impl str::FromStr for Expression {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parsers::expression(s.as_bytes())
+            .to_result()
+            .map_err(|e| Self::Err::from(e))
     }
 }
 

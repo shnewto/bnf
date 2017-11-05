@@ -125,6 +125,7 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn new_expressions() {
@@ -219,5 +220,24 @@ mod tests {
         assert_eq!(None, removed);
         // number of terms should not have decreased
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
+    }
+
+    #[test]
+    fn parse_expression() {
+        let expression = Expression::from_parts(vec![
+            Term::Terminal(String::from("A")),
+            Term::Terminal(String::from("C")),
+            Term::Terminal(String::from("G")),
+            Term::Terminal(String::from("T")),
+        ]);
+        assert_eq!(
+            Ok(expression),
+            Expression::from_str("\"A\" \"C\" \"G\" \"T\"")
+        );
+    }
+
+    #[test]
+    fn parse_incomplete_expression() {
+        assert!(Expression::from_str("\"A\" \"C\" \"G\" \"T").is_err());
     }
 }

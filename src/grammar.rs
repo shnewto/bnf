@@ -223,4 +223,9 @@ mod tests {
             grammar.productions_iter().find(|&prod| *prod == unused)
         );
     }
+
+    #[test]
+    fn invalid_grammar_parse() {
+        assert!(Grammar::from_parse("<almost_grammar> ::= <test").is_err());
+    }
 }

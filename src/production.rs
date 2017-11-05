@@ -115,6 +115,7 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn new_productions() {
@@ -140,15 +141,15 @@ mod tests {
     #[test]
     fn remove_from_rhs() {
         let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
         let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         // unnecessary expression to be removed from production
         let two_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         let expression_list = vec![last, one_more, two_more.clone()];
@@ -171,7 +172,7 @@ mod tests {
     #[test]
     fn remove_nonexistent_from_rhs() {
         let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
         let one_more = Expression::from_parts(vec![
             Term::Terminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
@@ -181,8 +182,8 @@ mod tests {
 
         // unused expression to fail being removed from production
         let two_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         let removed = production.remove_from_rhs(&two_more);
@@ -193,5 +194,25 @@ mod tests {
         assert_eq!(None, removed);
         // number of terms should not have decreased
         assert_eq!(production.rhs_iter().count(), expression_list.len());
+    }
+
+    #[test]
+    fn parse_production() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let production = Production::from_parts(lhs, vec![last, one_more]);
+        assert_eq!(
+            Ok(production),
+            Production::from_str("<dna> ::= <base> | <base> <dna>")
+        );
+    }
+
+    #[test]
+    fn parse_incomplete_production() {
+        assert!(Production::from_str("base> ::= \"A\" | \"C\" | \"G\" |").is_err());
     }
 }

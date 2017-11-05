@@ -10,13 +10,20 @@ pub enum Term {
     Nonterminal(String),
 }
 
+impl Term {
+    // Get `Term` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        parsers::term(s.as_bytes())
+            .to_result()
+            .map_err(|e| Error::from(e))
+    }
+}
+
 impl str::FromStr for Term {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parsers::term(s.as_bytes())
-            .to_result()
-            .map_err(|e| Self::Err::from(e))
+        Self::from_parse(s)
     }
 }
 

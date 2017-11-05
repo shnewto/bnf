@@ -22,6 +22,13 @@ impl Expression {
         Expression { terms: v }
     }
 
+    // Get `Expression` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        parsers::expression(s.as_bytes())
+            .to_result()
+            .map_err(|e| Error::from(e))
+    }
+
     /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
         self.terms.push(term)
@@ -87,9 +94,7 @@ impl str::FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parsers::expression(s.as_bytes())
-            .to_result()
-            .map_err(|e| Self::Err::from(e))
+        Self::from_parse(s)
     }
 }
 

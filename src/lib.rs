@@ -91,7 +91,6 @@
 //!
 //! ```rust
 //! extern crate bnf;
-//! use std::str::FromStr;
 //! use bnf::Grammar;
 //!
 //! fn main() {
@@ -110,7 +109,7 @@
 //!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
 //!             <opt-apt-num> ::= <apt-num> | \"\";";
 //!
-//!     let grammar = Grammar::from_str(input);
+//!     let grammar = Grammar::from_parse(input);
 //!     match grammar {
 //!         Ok(g) => println!("{:#?}", g),
 //!         Err(e) => println!("Failed to make grammar from String: {:?}", e),

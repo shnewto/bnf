@@ -27,6 +27,13 @@ impl Production {
         Production { lhs: t, rhs: e }
     }
 
+    // Get `Production` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        parsers::production(s.as_bytes())
+            .to_result()
+            .map_err(|e| Error::from(e))
+    }
+
     /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
         self.rhs.push(expr)
@@ -77,9 +84,7 @@ impl str::FromStr for Production {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parsers::production(s.as_bytes())
-            .to_result()
-            .map_err(|e| Self::Err::from(e))
+        Self::from_parse(s)
     }
 }
 

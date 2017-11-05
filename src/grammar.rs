@@ -24,6 +24,13 @@ impl Grammar {
         Grammar { productions: v }
     }
 
+    // Get `Grammar` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        parsers::grammar(s.as_bytes())
+            .to_result()
+            .map_err(|e| Error::from(e))
+    }
+
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
         self.productions.push(prod)
@@ -71,9 +78,7 @@ impl str::FromStr for Grammar {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parsers::grammar(s.as_bytes())
-            .to_result()
-            .map_err(|e| Self::Err::from(e))
+        Self::from_parse(s)
     }
 }
 

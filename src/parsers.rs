@@ -26,12 +26,7 @@ named!(pub nonterminal< &[u8], Term >,
     )
 );
 
-named!(pub term< &[u8], Term >,
-    do_parse!(
-        term: alt!(terminal | nonterminal) >>
-        (term)
-    )
-);
+named!(pub term< &[u8], Term >, alt!(terminal | nonterminal));
 
 named!(pub expression< &[u8], Expression >,
     do_parse!(

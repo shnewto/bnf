@@ -72,4 +72,22 @@ mod tests {
         let error = incomplete.unwrap_err().to_string();
         assert!(!error.is_empty());
     }
+
+    #[test]
+    fn parse_whitespace_nonterm() {
+        let some_space = String::from(" some space ");
+        assert_eq!(
+            Ok(Term::Nonterminal(some_space.clone())),
+            Term::from_str(&format!("<{}>", some_space))
+        );
+    }
+
+    #[test]
+    fn parse_whitespace_term() {
+        let some_space = String::from(" some space ");
+        assert_eq!(
+            Ok(Term::Terminal(some_space.clone())),
+            Term::from_str(&format!("\"{}\"", some_space))
+        );
+    }
 }

@@ -1,10 +1,12 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Production;
+use production::Production;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
+#[derive(PartialEq, Debug, Clone)]
 pub struct Grammar {
     productions: Vec<Production>,
 }
@@ -65,6 +67,16 @@ impl fmt::Display for Grammar {
     }
 }
 
+impl str::FromStr for Grammar {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parsers::grammar(s.as_bytes())
+            .to_result()
+            .map_err(|e| Self::Err::from(e))
+    }
+}
+
 pub struct Iter<'a> {
     iterator: slice::Iter<'a, Production>,
 }
@@ -92,7 +104,9 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use node::{Expression, Production, Term};
+    use term::Term;
+    use expression::Expression;
+    use production::Production;
 
     #[test]
     fn new_grammars() {

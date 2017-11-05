@@ -1,4 +1,7 @@
-use node::{Expression, Grammar, Production, Term};
+use term::Term;
+use expression::Expression;
+use production::Production;
+use grammar::Grammar;
 
 named!(pub prod_lhs< &[u8], Term >,
     do_parse!(
@@ -7,7 +10,6 @@ named!(pub prod_lhs< &[u8], Term >,
             (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
-
 
 named!(pub terminal< &[u8], Term >,
     do_parse!(
@@ -24,9 +26,16 @@ named!(pub nonterminal< &[u8], Term >,
     )
 );
 
+named!(pub term< &[u8], Term >,
+    do_parse!(
+        term: alt!(terminal | nonterminal) >>
+        (term)
+    )
+);
+
 named!(pub expression< &[u8], Expression >,
     do_parse!(
-        terms: many1!(alt!(terminal | nonterminal)) >>
+        terms: many1!(term) >>
         ws!(alt!( eof!() | tag!(";") | tag!("|") | recognize!(peek!(complete!(prod_lhs))) )) >>
         (Expression::from_parts(terms))
     )

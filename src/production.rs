@@ -1,11 +1,13 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Expression;
-use node::Term;
+use expression::Expression;
+use term::Term;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// A Production is comprised of any number of Expressions
+#[derive(PartialEq, Debug, Clone)]
 pub struct Production {
     pub lhs: Term,
     rhs: Vec<Expression>,
@@ -68,6 +70,16 @@ impl fmt::Display for Production {
                 .collect::<Vec<_>>()
                 .join(" | ")
         )
+    }
+}
+
+impl str::FromStr for Production {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parsers::production(s.as_bytes())
+            .to_result()
+            .map_err(|e| Self::Err::from(e))
     }
 }
 

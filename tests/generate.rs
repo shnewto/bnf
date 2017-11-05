@@ -1,6 +1,3 @@
-#![cfg_attr(test, feature(plugin))]
-#![cfg_attr(test, plugin(quickcheck_macros))]
-
 extern crate bnf;
 
 #[cfg(test)]

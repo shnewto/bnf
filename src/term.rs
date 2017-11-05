@@ -1,5 +1,6 @@
 use std::fmt;
 use std::str;
+use nom::IResult;
 use parsers;
 use error::Error;
 
@@ -13,9 +14,11 @@ pub enum Term {
 impl Term {
     // Get `Term` by parsing a string
     pub fn from_parse(s: &str) -> Result<Self, Error> {
-        parsers::term(s.as_bytes())
-            .to_result()
-            .map_err(|e| Error::from(e))
+        match parsers::term(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 }
 
@@ -42,7 +45,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn parse_term() {
+    fn parse_complete() {
         assert_eq!(
             Ok(Term::Nonterminal(String::from("dna"))),
             Term::from_str("<dna>")
@@ -50,7 +53,23 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete_term() {
-        assert!(Term::from_str("<dna").is_err());
+    fn parse_incomplete() {
+        let incomplete = Term::from_str("<dna");
+        assert!(incomplete.is_err());
+
+        let error = incomplete.unwrap_err();
+        match error {
+            Error::ParseError(ref s) => assert!(s.starts_with("Parsing error:")),
+            _ => panic!("Incomplete term should be parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_error_display() {
+        let incomplete = Term::from_str("<dna");
+        assert!(incomplete.is_err());
+
+        let error = incomplete.unwrap_err().to_string();
+        assert!(!error.is_empty());
     }
 }

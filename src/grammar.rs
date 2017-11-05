@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 use std::slice;
+use nom::IResult;
 use production::Production;
 use parsers;
 use error::Error;
@@ -26,9 +27,11 @@ impl Grammar {
 
     // Get `Grammar` by parsing a string
     pub fn from_parse(s: &str) -> Result<Self, Error> {
-        parsers::grammar(s.as_bytes())
-            .to_result()
-            .map_err(|e| Error::from(e))
+        match parsers::grammar(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Production` to the `Grammar`
@@ -225,7 +228,8 @@ mod tests {
     }
 
     #[test]
-    fn invalid_grammar_parse() {
-        assert!(Grammar::from_parse("<almost_grammar> ::= <test").is_err());
+    fn parse_incomplete() {
+        let grammar = Grammar::from_parse("<almost_grammar> ::= <test");
+        assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 }

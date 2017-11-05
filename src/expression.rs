@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 use std::slice;
+use nom::IResult;
 use term::Term;
 use parsers;
 use error::Error;
@@ -24,9 +25,11 @@ impl Expression {
 
     // Get `Expression` by parsing a string
     pub fn from_parse(s: &str) -> Result<Self, Error> {
-        parsers::expression(s.as_bytes())
-            .to_result()
-            .map_err(|e| Error::from(e))
+        match parsers::expression(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Term` to `Expression`
@@ -223,21 +226,23 @@ mod tests {
     }
 
     #[test]
-    fn parse_expression() {
+    fn parse_complete() {
         let expression = Expression::from_parts(vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-            Term::Terminal(String::from("T")),
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
         ]);
-        assert_eq!(
-            Ok(expression),
-            Expression::from_str("\"A\" \"C\" \"G\" \"T\"")
-        );
+        assert_eq!(Ok(expression), Expression::from_str("<base> <dna>"));
     }
 
     #[test]
-    fn parse_incomplete_expression() {
-        assert!(Expression::from_str("\"A\" \"C\" \"G\" \"T").is_err());
+    fn parse_incomplete() {
+        let expression = Expression::from_str("<base> <dna");
+        assert!(expression.is_err(), "{:?} should be error", expression);
+
+        let error = expression.unwrap_err();
+        match error {
+            Error::ParseIncomplete(_) => (),
+            _ => panic!("{} should be incomplete parsing", error),
+        }
     }
 }

@@ -11,8 +11,8 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::ParseError(ref s) => write!(f, "ParseError: {}", s),
-            Error::ParseIncomplete(ref s) => write!(f, "ParseIncomplete: {}", s),
+            Error::ParseError(ref s) => write!(f, "{}", s),
+            Error::ParseIncomplete(ref s) => write!(f, "{}", s),
         }
     }
 }

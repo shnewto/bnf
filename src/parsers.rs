@@ -1,5 +1,5 @@
 use node::{Expression, Grammar, Production, Term};
-use nom::IResult;
+use nom::{IResult};
 
 macro_rules! look_ahead(
   ($i:expr, $submac:ident!( $($args:tt)* )) => (
@@ -28,7 +28,10 @@ named!(pub prod_lhs< &[u8], Term >,
 
 named!(pub terminal< &[u8], Term >,
     do_parse!(
-        t: delimited!(tag!("\""), take_until!("\""), ws!(tag!("\""))) >>
+        t: alt!(
+            delimited!(tag!("\""), take_until!("\""), ws!(tag!("\""))) |
+            delimited!(tag!("'"), take_until!("'"), ws!(tag!("'")))
+            ) >>
         (Term::Terminal(String::from_utf8_lossy(t).into_owned()))
     )
 );

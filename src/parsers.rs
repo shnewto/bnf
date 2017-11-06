@@ -109,49 +109,6 @@ named!(pub grammar_complete< &[u8], Grammar >,
     )
 );
 
-
-
-
-// named!(pub terminal< &[u8], Term >,
-//     do_parse!(
-//         t: delimited!(char!('\"'), take_until!("\""), char!('\"')) >>
-//         (Term::Terminal(String::from_utf8_lossy(t).into_owned()))
-//     )
-// );
-
-// named!(pub nonterminal< &[u8], Term >,
-//     do_parse!(
-//         nt: delimited!(char!('<'), take_until!(">"), char!('>')) >>
-//         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
-//     )
-// );
-
-// named!(pub term< &[u8], Term >, ws!(alt!(terminal | nonterminal)));
-
-// named!(pub expression< &[u8], Expression >,
-//     do_parse!(
-//         terms: ws!(many1!(term)) >>
-//         (Expression::from_parts(terms))
-//     )
-// );
-
-// named!(pub production< &[u8], Production >,
-//     do_parse!(
-//         lhs: nonterminal >>
-//         ws!(tag!("::=")) >>
-//         rhs: dbg_dmp!(separated_nonempty_list_complete!(char!('|'), ws!(expression))) >>
-//         opt!(complete!(char!(';'))) >>
-//         (Production::from_parts(lhs, rhs))
-//     )
-// );
-
-// named!(pub grammar< &[u8], Grammar >,
-//     do_parse!(
-//         prods: many1!(production) >>
-//         (Grammar::from_parts(prods))
-//     )
-// );
-
 #[cfg(test)]
 mod tests {
     use super::*;

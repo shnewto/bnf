@@ -91,6 +91,7 @@
 //!
 //! ```rust
 //! extern crate bnf;
+//! use bnf::Grammar;
 //!
 //! fn main() {
 //!     let input =
@@ -108,8 +109,11 @@
 //!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
 //!             <opt-apt-num> ::= <apt-num> | \"\";";
 //!
-//!     let grammar = bnf::parse(input);
-//!     println!("{:#?}", grammar);
+//!     let grammar = Grammar::from_parse(input);
+//!     match grammar {
+//!         Ok(g) => println!("{:#?}", g),
+//!         Err(e) => println!("Failed to make grammar from String: {:?}", e),
+//!     }
 //! }
 //! ```
 //!
@@ -117,20 +121,12 @@
 #[macro_use]
 extern crate nom;
 mod parsers;
-mod reports;
-pub mod node;
-use node::Grammar;
-use nom::IResult;
-
-/// Parse a BNF grammer
-pub fn parse(input: &str) -> Grammar {
-    match parsers::grammar(input.as_bytes()) {
-        IResult::Done(_, o) => return o,
-        IResult::Error(e) => {
-            reports::report_error(e);
-        }
-        IResult::Incomplete(n) => reports::report_incomplete(n, input.len()),
-    }
-
-    Grammar::new()
-}
+mod error;
+mod term;
+mod expression;
+mod production;
+mod grammar;
+pub use term::Term;
+pub use expression::Expression;
+pub use production::Production;
+pub use grammar::Grammar;

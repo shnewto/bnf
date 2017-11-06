@@ -51,7 +51,7 @@ mod tests {
         let grammar = bnf::Grammar::from_parse(bnf_for_bnf);
         assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_some());
+        assert!(sentence.is_ok());
         let meta_grammar = bnf::Grammar::from_parse(&sentence.unwrap());
         assert!(meta_grammar.is_ok());
     }

@@ -139,12 +139,15 @@ impl Grammar {
         let lhs = self.productions_iter().nth(0);
 
         match lhs {
-            Some(term) => {
-                match term.lhs {
-                    Term::Nonterminal(ref nt) => start_rule = nt.clone(),
-                    _ => start_rule = String::from(""), // TODO revise to return error result
+            Some(term) => match term.lhs {
+                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                Term::Terminal(_) => {
+                    return Err(Error::GenerateError(format!(
+                        "Termainal type cannot define a production in '{}'!",
+                        term
+                    )));
                 }
-            }
+            },
             None => {
                 return Err(Error::GenerateError(
                     String::from("Failed to get first production!"),

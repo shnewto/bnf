@@ -1,9 +1,9 @@
 extern crate bnf;
-use bnf::node::Term;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
+    use bnf::{Grammar, Term};
 
     #[test]
     fn iterate_grammar() {
@@ -11,7 +11,7 @@ mod tests {
             <dna> ::= <base> | <base> <dna>
             <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 
-        let dna_grammar = bnf::parse(dna_productions);
+        let dna_grammar = Grammar::from_str(dna_productions).unwrap();
 
         let left_hand_terms: Vec<&Term> = dna_grammar
             .productions_iter()
@@ -73,7 +73,7 @@ mod tests {
             <dna> ::= <dna> | <base> <dna>;
             <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
 
-        let mut dna_grammar = bnf::parse(dna_productions);
+        let mut dna_grammar = Grammar::from_str(dna_productions).unwrap();
 
         // scope mutable borrow
         {

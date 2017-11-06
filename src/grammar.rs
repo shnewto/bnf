@@ -1,11 +1,17 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::{Expression, Production, Term};
+use nom::IResult;
+use expression::Expression;
+use production::Production;
+use term::Term;
+use parsers;
+use error::Error;
 use rand::{thread_rng, Rng};
-use::stacker;
+use stacker;
 
-#[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
+#[derive(PartialEq, Debug, Clone)]
 pub struct Grammar {
     productions: Vec<Production>,
 }
@@ -21,6 +27,15 @@ impl Grammar {
     /// Construct an `Grammar` from `Production`s
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
+    }
+
+    // Get `Grammar` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        match parsers::grammar_complete(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Production` to the `Grammar`
@@ -51,66 +66,83 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term) -> String {
+    fn eval_terminal(&self, term: &Term) -> Option<String> {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(&nt),
-            Term::Terminal(ref t) => t.clone(),
+            Term::Terminal(ref t) => Some(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String) -> String {
-        let stack_red_zone: usize = 32 * 1024; // 32KB 
+    fn traverse(&self, ident: &String) -> Option<String> {
+        let stack_red_zone: usize = 32 * 1024; // 32KB
         if stacker::remaining_stack() <= stack_red_zone {
-            // revise this to return an error result once that's implemented
+            // TODO revise this to return an error result once that's implemented
             panic!("Infinite loop detected!");
         }
 
         let nonterm = Term::Nonterminal(ident.clone());
         let mut res = String::new();
         let production;
-        let production_result = self
-            .productions_iter()
-            .find(|&x| x.lhs == nonterm);
-        
-        match production_result {
+        let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+
+        match find_lhs {
             Some(p) => production = p,
-            None => return nonterm.to_string(),
+            None => return Some(nonterm.to_string()),
         }
 
-        let expression = *thread_rng()
-            .choose(&production.rhs_iter().collect::<Vec<&Expression>>())
-            .unwrap();
+        let expression;
+        let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+
+        match thread_rng().choose(&expressions) {
+            Some(e) => expression = e.clone(),
+            None => return None,
+        }
 
         for term in expression.terms_iter() {
-            res = res + &self.eval_terminal(&term);
+            match self.eval_terminal(&term) {
+                Some(s) => res = res + &s,
+                None => return None,
+            }
         }
 
-        res
-    }    
+        Some(res)
+    }
 
     /// Generate a random sentence from self.
     /// Begins from lhs of first production.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// extern crate bnf;
-    /// 
+    /// use bnf::Grammar;
+    ///
     /// fn main() {
-    ///     let input = 
+    ///     let input =
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar = bnf::parse(input);
-    ///     let sentence: String = grammar.generate();
+    ///     let grammar = Grammar::from_parse(input).unwrap();
+    ///     let sentence = grammar.generate();
+    ///     match sentence {
+    ///         Some(s) => println!("random sentence: {}", s),
+    ///         None => println!("something went wrong!")
+    ///     }
     /// }
     /// ```
-    pub fn generate(&self) -> String {
-        let lhs = &self.productions_iter().nth(0).unwrap().lhs;
+    pub fn generate(&self) -> Option<String> {
         let start_rule: String;
-        match *lhs {
-            Term::Nonterminal(ref nt) => start_rule = nt.clone(),
-            _ => start_rule = String::from(""), // revise to return error result
+        let lhs = self.productions_iter().nth(0);
+
+        match lhs {
+            Some(term) => {
+                match term.lhs {
+                    Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                    _ => start_rule = String::from(""), // TODO revise to return error result
+                }
+            }
+            None => return None,
         }
+
         self.traverse(&start_rule)
     }
 }
@@ -126,6 +158,14 @@ impl fmt::Display for Grammar {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+impl str::FromStr for Grammar {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_parse(s)
     }
 }
 
@@ -156,7 +196,9 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use node::{Expression, Production, Term};
+    use term::Term;
+    use expression::Expression;
+    use production::Production;
 
     #[test]
     fn new_grammars() {
@@ -267,5 +309,11 @@ mod tests {
             None,
             grammar.productions_iter().find(|&prod| *prod == unused)
         );
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let grammar = Grammar::from_parse("<almost_grammar> ::= <test");
+        assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 }

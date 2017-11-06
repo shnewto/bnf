@@ -1,10 +1,13 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Term;
+use nom::IResult;
+use term::Term;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// An Expression is comprised of any number of Terms
+#[derive(PartialEq, Debug, Clone)]
 pub struct Expression {
     terms: Vec<Term>,
 }
@@ -20,6 +23,15 @@ impl Expression {
         Expression { terms: v }
     }
 
+    // Get `Expression` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        match parsers::expression_complete(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
+    }
+
     /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
         self.terms.push(term)
@@ -33,7 +45,7 @@ impl Expression {
     ///
     /// ```
     /// # extern crate bnf;
-    /// # use bnf::node::{Expression, Term};
+    /// # use bnf::{Expression, Term};
     /// # fn main() {
     /// let mut expression = Expression::from_parts(vec![]);
     /// let to_remove = Term::Terminal(String::from("a_terminal"));
@@ -81,6 +93,14 @@ impl fmt::Display for Expression {
     }
 }
 
+impl str::FromStr for Expression {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_parse(s)
+    }
+}
+
 pub struct Iter<'a> {
     iterator: slice::Iter<'a, Term>,
 }
@@ -108,6 +128,7 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn new_expressions() {
@@ -202,5 +223,26 @@ mod tests {
         assert_eq!(None, removed);
         // number of terms should not have decreased
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
+    }
+
+    #[test]
+    fn parse_complete() {
+        let expression = Expression::from_parts(vec![
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        assert_eq!(Ok(expression), Expression::from_str("<base> <dna>"));
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let expression = Expression::from_str("<base> <dna");
+        assert!(expression.is_err(), "{:?} should be error", expression);
+
+        let error = expression.unwrap_err();
+        match error {
+            Error::ParseError(_) => (),
+            _ => panic!("{} should be incomplete parsing", error),
+        }
     }
 }

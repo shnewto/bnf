@@ -2,7 +2,8 @@ extern crate bnf;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
+    use bnf::Grammar;
 
     #[test]
     fn validate_terminated_display() {
@@ -28,7 +29,7 @@ mod tests {
                               <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
                               <opt-apt-num> ::= <apt-num> | \"\"\n";
 
-        let grammar = bnf::parse(input);
+        let grammar = Grammar::from_str(input).unwrap();
 
         assert_eq!(grammar.to_string(), display_output);
     }
@@ -57,7 +58,7 @@ mod tests {
                               <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
                               <opt-apt-num> ::= <apt-num> | \"\"\n";
 
-        let grammar = bnf::parse(input);
+        let grammar = Grammar::from_str(input).unwrap();
 
         assert_eq!(grammar.to_string(), display_output);
     }

@@ -1,10 +1,13 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Production;
+use nom::IResult;
+use production::Production;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// A Grammar is comprised of any number of Productions
+#[derive(PartialEq, Debug, Clone)]
 pub struct Grammar {
     productions: Vec<Production>,
 }
@@ -20,6 +23,15 @@ impl Grammar {
     /// Construct an `Grammar` from `Production`s
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
+    }
+
+    // Get `Grammar` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        match parsers::grammar_complete(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Production` to the `Grammar`
@@ -65,6 +77,14 @@ impl fmt::Display for Grammar {
     }
 }
 
+impl str::FromStr for Grammar {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_parse(s)
+    }
+}
+
 pub struct Iter<'a> {
     iterator: slice::Iter<'a, Production>,
 }
@@ -92,7 +112,9 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use node::{Expression, Production, Term};
+    use term::Term;
+    use expression::Expression;
+    use production::Production;
 
     #[test]
     fn new_grammars() {
@@ -203,5 +225,11 @@ mod tests {
             None,
             grammar.productions_iter().find(|&prod| *prod == unused)
         );
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let grammar = Grammar::from_parse("<almost_grammar> ::= <test");
+        assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 }

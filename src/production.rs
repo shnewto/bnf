@@ -1,11 +1,14 @@
 use std::fmt;
+use std::str;
 use std::slice;
-use node::Expression;
-use node::Term;
+use nom::IResult;
+use expression::Expression;
+use term::Term;
+use parsers;
+use error::Error;
 
-
-#[derive(PartialEq, Debug, Clone)]
 /// A Production is comprised of any number of Expressions
+#[derive(PartialEq, Debug, Clone)]
 pub struct Production {
     pub lhs: Term,
     rhs: Vec<Expression>,
@@ -23,6 +26,15 @@ impl Production {
     /// Construct an `Production` from `Expression`s
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
+    }
+
+    // Get `Production` by parsing a string
+    pub fn from_parse(s: &str) -> Result<Self, Error> {
+        match parsers::production_complete(s.as_bytes()) {
+            IResult::Done(_, o) => Ok(o),
+            IResult::Incomplete(n) => Err(Error::from(n)),
+            IResult::Error(e) => Err(Error::from(e)),
+        }
     }
 
     /// Add `Expression` to the `Production`'s right hand side
@@ -71,6 +83,14 @@ impl fmt::Display for Production {
     }
 }
 
+impl str::FromStr for Production {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::from_parse(s)
+    }
+}
+
 pub struct Iter<'a> {
     iterator: slice::Iter<'a, Expression>,
 }
@@ -98,6 +118,7 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn new_productions() {
@@ -123,15 +144,15 @@ mod tests {
     #[test]
     fn remove_from_rhs() {
         let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
         let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         // unnecessary expression to be removed from production
         let two_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         let expression_list = vec![last, one_more, two_more.clone()];
@@ -154,7 +175,7 @@ mod tests {
     #[test]
     fn remove_nonexistent_from_rhs() {
         let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
         let one_more = Expression::from_parts(vec![
             Term::Terminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
@@ -164,8 +185,8 @@ mod tests {
 
         // unused expression to fail being removed from production
         let two_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Terminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("base")),
             Term::Nonterminal(String::from("dna")),
         ]);
         let removed = production.remove_from_rhs(&two_more);
@@ -176,5 +197,48 @@ mod tests {
         assert_eq!(None, removed);
         // number of terms should not have decreased
         assert_eq!(production.rhs_iter().count(), expression_list.len());
+    }
+
+    #[test]
+    fn parse_complete() {
+        let lhs = Term::Nonterminal(String::from("dna"));
+        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
+        let one_more = Expression::from_parts(vec![
+            Term::Nonterminal(String::from("base")),
+            Term::Nonterminal(String::from("dna")),
+        ]);
+        let production = Production::from_parts(lhs, vec![last, one_more]);
+        assert_eq!(
+            Ok(production),
+            Production::from_str("<dna> ::= <base> | <base> <dna>")
+        );
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let result = Production::from_str("<base> ::= \"A\" | \"C\" | \"G\" |");
+        assert!(
+            result.is_err(),
+            "production result should be error {:?}",
+            result
+        );
+
+        let production = result.unwrap_err();
+        match production {
+            Error::ParseError(_) => (),
+            e => panic!("production error should be incomplete parsing: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn parse_semicolon_separated() {
+        let result = Production::from_str("<base> ::= \"A\" ; \"C\" ; \"G\" ; \"T\"");
+        assert!(result.is_err(), "{:?} should be error", result);
+
+        let production = result.unwrap_err();
+        match production {
+            Error::ParseError(_) => (),
+            e => panic!("invalid production should be parsing error: {:?}", e),
+        }
     }
 }

@@ -123,6 +123,7 @@ by a production such as `<PATTERN> := <PATTERN>`.
 
 ```rust
 extern crate bnf;
+use bnf::Grammar;
 
 fn main() {
     let input =
@@ -138,10 +139,12 @@ fn main() {
                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 
         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
-            <opt-apt-num> ::= <apt-num> | \"\"";
+            <opt-apt-num> ::= <apt-num> | \"\";"
 
-    let grammar = bnf::parse(input);
-    println!("{:#?}", grammar);
-    println!("Random sentence defined by grammar: {}", grammar.generate());
+    let grammar = Grammar::from_parse(input);
+    match grammar {
+        Ok(g) => println!("{:#?}", g),
+        Err(e) => println!("Failed to make grammar from String: {:?}", e),
+    }
 }
 ```

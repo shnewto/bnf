@@ -66,28 +66,29 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term) -> Option<String> {
+    fn eval_terminal(&self, term: &Term) -> Result<String, Error> {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(&nt),
-            Term::Terminal(ref t) => Some(t.clone()),
+            Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String) -> Option<String> {
+    fn traverse(&self, ident: &String) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
         if stacker::remaining_stack() <= stack_red_zone {
-            // TODO revise this to return an error result once that's implemented
-            panic!("Infinite loop detected!");
+            return Err(Error::GenerateError(
+                String::from("Infinite loop detected!"),
+            ));
         }
 
         let nonterm = Term::Nonterminal(ident.clone());
-        let mut res = String::new();
+        let mut result = String::new();
         let production;
         let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
         match find_lhs {
             Some(p) => production = p,
-            None => return Some(nonterm.to_string()),
+            None => return Ok(nonterm.to_string()),
         }
 
         let expression;
@@ -95,17 +96,21 @@ impl Grammar {
 
         match thread_rng().choose(&expressions) {
             Some(e) => expression = e.clone(),
-            None => return None,
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Couldn't select random Expression!"),
+                ));
+            }
         }
 
         for term in expression.terms_iter() {
             match self.eval_terminal(&term) {
-                Some(s) => res = res + &s,
-                None => return None,
+                Ok(s) => result = result + &s,
+                Err(e) => return Err(e),
             }
         }
 
-        Some(res)
+        Ok(result)
     }
 
     /// Generate a random sentence from self.
@@ -124,12 +129,12 @@ impl Grammar {
     ///     let grammar = Grammar::from_parse(input).unwrap();
     ///     let sentence = grammar.generate();
     ///     match sentence {
-    ///         Some(s) => println!("random sentence: {}", s),
-    ///         None => println!("something went wrong!")
+    ///         Ok(s) => println!("random sentence: {}", s),
+    ///         Err(e) => println!("something went wrong: {}!", e)
     ///     }
     /// }
     /// ```
-    pub fn generate(&self) -> Option<String> {
+    pub fn generate(&self) -> Result<String, Error> {
         let start_rule: String;
         let lhs = self.productions_iter().nth(0);
 
@@ -140,7 +145,11 @@ impl Grammar {
                     _ => start_rule = String::from(""), // TODO revise to return error result
                 }
             }
-            None => return None,
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Failed to get first production!"),
+                ));
+            }
         }
 
         self.traverse(&start_rule)

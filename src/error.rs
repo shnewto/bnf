@@ -6,6 +6,7 @@ use nom::{Err, Needed};
 pub enum Error {
     ParseError(String),
     ParseIncomplete(String),
+    GenerateError(String),
 }
 
 impl fmt::Display for Error {
@@ -13,6 +14,7 @@ impl fmt::Display for Error {
         match *self {
             Error::ParseError(ref s) => write!(f, "{}", s),
             Error::ParseIncomplete(ref s) => write!(f, "{}", s),
+            Error::GenerateError(ref s) => write!(f, "{}", s),
         }
     }
 }

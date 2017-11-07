@@ -30,7 +30,7 @@ impl Grammar {
     }
 
     // Get `Grammar` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::grammar_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -126,7 +126,7 @@ impl Grammar {
     ///     let input =
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar = Grammar::from_parse(input).unwrap();
+    ///     let grammar = Grammar::from_str(input).unwrap();
     ///     let sentence = grammar.generate();
     ///     match sentence {
     ///         Ok(s) => println!("random sentence: {}", s),
@@ -177,7 +177,7 @@ impl str::FromStr for Grammar {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn parse_incomplete() {
-        let grammar = Grammar::from_parse("<almost_grammar> ::= <test");
+        let grammar = Grammar::from_str("<almost_grammar> ::= <test");
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 }

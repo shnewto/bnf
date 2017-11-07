@@ -2,7 +2,6 @@ extern crate bnf;
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use bnf::{Grammar, Term};
 
     #[test]

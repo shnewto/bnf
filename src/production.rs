@@ -1,5 +1,5 @@
 use std::fmt;
-use std::str;
+use std::str::FromStr;
 use std::slice;
 use nom::IResult;
 use expression::Expression;
@@ -29,7 +29,7 @@ impl Production {
     }
 
     // Get `Production` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::production_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -83,11 +83,11 @@ impl fmt::Display for Production {
     }
 }
 
-impl str::FromStr for Production {
+impl FromStr for Production {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -118,7 +118,6 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn new_productions() {

@@ -1,5 +1,5 @@
 use std::fmt;
-use std::str;
+use std::str::FromStr;
 use nom::IResult;
 use parsers;
 use error::Error;
@@ -13,7 +13,7 @@ pub enum Term {
 
 impl Term {
     // Get `Term` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::term_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -22,11 +22,10 @@ impl Term {
     }
 }
 
-impl str::FromStr for Term {
+impl FromStr for Term {
     type Err = Error;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -42,7 +41,6 @@ impl fmt::Display for Term {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn parse_complete() {

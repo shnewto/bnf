@@ -48,11 +48,11 @@ mod tests {
             <rule-char>      ::= <letter> | <digit> | \"-\"
             <EOL>            ::= \"\n\"";
 
-        let grammar = bnf::Grammar::from_parse(bnf_for_bnf);
+        let grammar = bnf::Grammar::from_str(bnf_for_bnf);
         assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
         let sentence = grammar.unwrap().generate();
         assert!(sentence.is_ok());
-        let meta_grammar = bnf::Grammar::from_parse(&sentence.unwrap());
+        let meta_grammar = bnf::Grammar::from_str(&sentence.unwrap());
         assert!(meta_grammar.is_ok());
     }
 }

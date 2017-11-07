@@ -1,5 +1,5 @@
 use std::fmt;
-use std::str;
+use std::str::FromStr;
 use std::slice;
 use nom::IResult;
 use term::Term;
@@ -24,7 +24,7 @@ impl Expression {
     }
 
     // Get `Expression` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::expression_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -93,11 +93,11 @@ impl fmt::Display for Expression {
     }
 }
 
-impl str::FromStr for Expression {
+impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -128,7 +128,6 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn new_expressions() {

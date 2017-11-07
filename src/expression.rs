@@ -234,14 +234,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let expression = Expression::from_str("<base> <dna");
         assert!(expression.is_err(), "{:?} should be error", expression);
 
         let error = expression.unwrap_err();
         match error {
             Error::ParseError(_) => (),
-            _ => panic!("{} should be incomplete parsing", error),
+            _ => panic!("{} should be should be error", error),
         }
     }
 }

@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let result = Production::from_str("<base> ::= \"A\" | \"C\" | \"G\" |");
         assert!(
             result.is_err(),
@@ -225,7 +225,7 @@ mod tests {
         let production = result.unwrap_err();
         match production {
             Error::ParseError(_) => (),
-            e => panic!("production error should be incomplete parsing: {:?}", e),
+            e => panic!("production error should be error: {:?}", e),
         }
     }
 

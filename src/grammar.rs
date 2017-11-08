@@ -2,9 +2,13 @@ use std::fmt;
 use std::str;
 use std::slice;
 use nom::IResult;
+use expression::Expression;
 use production::Production;
+use term::Term;
 use parsers;
 use error::Error;
+use rand::{thread_rng, Rng};
+use stacker;
 
 /// A Grammar is comprised of any number of Productions
 #[derive(PartialEq, Debug, Clone)]
@@ -26,7 +30,7 @@ impl Grammar {
     }
 
     // Get `Grammar` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::grammar_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -48,18 +52,113 @@ impl Grammar {
         }
     }
 
-    /// Get iterator of the `Grammar`'s `Productions`s
+    /// Get iterator of the `Grammar`'s `Production`s
     pub fn productions_iter(&self) -> Iter {
         Iter {
             iterator: self.productions.iter(),
         }
     }
 
-    /// Get mutable iterator of the `Grammar`'s `Productions`s
+    /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> IterMut {
         IterMut {
             iterator: self.productions.iter_mut(),
         }
+    }
+
+    fn eval_terminal(&self, term: &Term) -> Result<String, Error> {
+        match *term {
+            Term::Nonterminal(ref nt) => self.traverse(&nt),
+            Term::Terminal(ref t) => Ok(t.clone()),
+        }
+    }
+
+    fn traverse(&self, ident: &String) -> Result<String, Error> {
+        let stack_red_zone: usize = 32 * 1024; // 32KB
+        if stacker::remaining_stack() <= stack_red_zone {
+            return Err(Error::GenerateError(
+                String::from("Infinite loop detected!"),
+            ));
+        }
+
+        let nonterm = Term::Nonterminal(ident.clone());
+        let production;
+        let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+
+        match find_lhs {
+            Some(p) => production = p,
+            None => return Ok(nonterm.to_string()),
+        }
+
+        let expression;
+        let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+
+        match thread_rng().choose(&expressions) {
+            Some(e) => expression = e.clone(),
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Couldn't select random Expression!"),
+                ));
+            }
+        }
+
+        let mut result = String::new();
+        for term in expression.terms_iter() {
+            match self.eval_terminal(&term) {
+                Ok(s) => result = result + &s,
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Generate a random sentence from self.
+    /// Begins from lhs of first production.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// extern crate bnf;
+    /// use bnf::Grammar;
+    ///
+    /// fn main() {
+    ///     let input =
+    ///         "<dna> ::= <base> | <base> <dna>
+    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     let grammar = Grammar::from_str(input).unwrap();
+    ///     let sentence = grammar.generate();
+    ///     # let sentence_clone = sentence.clone();
+    ///     match sentence {
+    ///         Ok(s) => println!("random sentence: {}", s),
+    ///         Err(e) => println!("something went wrong: {}!", e)
+    ///     }
+    ///
+    ///     # assert!(sentence_clone.is_ok());
+    /// }
+    /// ```
+    pub fn generate(&self) -> Result<String, Error> {
+        let start_rule: String;
+        let first_production = self.productions_iter().nth(0);
+
+        match first_production {
+            Some(term) => match term.lhs {
+                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                Term::Terminal(_) => {
+                    return Err(Error::GenerateError(format!(
+                        "Termainal type cannot define a production in '{}'!",
+                        term
+                    )));
+                }
+            },
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Failed to get first production!"),
+                ));
+            }
+        }
+
+        self.traverse(&start_rule)
     }
 }
 
@@ -81,7 +180,7 @@ impl str::FromStr for Grammar {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -115,7 +214,8 @@ mod tests {
     use term::Term;
     use expression::Expression;
     use production::Production;
-
+    // use grammar::Grammar;
+    
     #[test]
     fn new_grammars() {
         let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
@@ -229,7 +329,57 @@ mod tests {
 
     #[test]
     fn parse_incomplete() {
-        let grammar = Grammar::from_parse("<almost_grammar> ::= <test");
+        let grammar = Grammar::from_str("<almost_grammar> ::= <test");
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
+
+    #[test]
+    fn infinite_loop() {
+        let grammar = Grammar::from_str("<nonterm> ::= <nonterm>");
+        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        let sentence = grammar.unwrap().generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn lhs_not_found() {
+        let grammar = Grammar::from_str("<start> ::= <not-used>");
+        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        let sentence = grammar.unwrap().generate();
+        assert!(sentence.is_ok(), "{:?} should be ok", sentence);
+        assert_eq!(sentence.unwrap(), String::from("<not-used>"));
+    }
+
+    #[test]
+    fn lhs_is_terminal_parse() {
+        let grammar = Grammar::from_str("\"wrong place\" ::= <not-used>");
+        assert!(grammar.is_err(), "{:?} should be error", grammar);
+    }
+
+    #[test]
+    fn lhs_is_terminal_generate() {
+        let lhs = Term::Terminal(String::from("\"bad LHS\""));
+        let terminal = Term::Terminal(String::from("\"good RHS\""));
+        let expression = Expression::from_parts(vec![terminal]);
+        let production = Production::from_parts(lhs, vec![expression]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn no_productions() {
+        let grammar = Grammar::from_parts(vec![]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }    
+
+    #[test]
+    fn no_expressions() {
+        let lhs = Term::Terminal(String::from("<good-lhs>"));
+        let production = Production::from_parts(lhs, vec![]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }        
 }

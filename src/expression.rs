@@ -1,5 +1,5 @@
 use std::fmt;
-use std::str;
+use std::str::FromStr;
 use std::slice;
 use nom::IResult;
 use term::Term;
@@ -24,7 +24,7 @@ impl Expression {
     }
 
     // Get `Expression` by parsing a string
-    pub fn from_parse(s: &str) -> Result<Self, Error> {
+    pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::expression_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -44,19 +44,21 @@ impl Expression {
     /// # Example
     ///
     /// ```
-    /// # extern crate bnf;
-    /// # use bnf::{Expression, Term};
-    /// # fn main() {
-    /// let mut expression = Expression::from_parts(vec![]);
-    /// let to_remove = Term::Terminal(String::from("a_terminal"));
-    /// let removed = expression.remove_term(&to_remove);
-    /// # let removed_clone = removed.clone();
-    /// match removed {
-    ///     Some(term) => println!("removed {}", term),
-    ///     None => println!("term was not in expression, so could not be removed"),
+    /// extern crate bnf;
+    /// use bnf::{Expression, Term};
+    /// 
+    /// fn main() {
+    ///     let mut expression = Expression::from_parts(vec![]);
+    ///     let to_remove = Term::Terminal(String::from("a_terminal"));
+    ///     let removed = expression.remove_term(&to_remove);
+    ///     # let removed_clone = removed.clone();
+    ///     match removed {
+    ///         Some(term) => println!("removed {}", term),
+    ///         None => println!("term was not in expression, so could not be removed"),
+    ///     }
+    /// 
+    ///     # assert_eq!(removed_clone, None);
     /// }
-    /// # assert_eq!(removed_clone, None);
-    /// # }
     /// ```
     pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
         if let Some(pos) = self.terms.iter().position(|x| *x == *term) {
@@ -93,11 +95,11 @@ impl fmt::Display for Expression {
     }
 }
 
-impl str::FromStr for Expression {
+impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_parse(s)
+        Self::from_str(s)
     }
 }
 
@@ -128,7 +130,6 @@ impl<'a> Iterator for IterMut<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn new_expressions() {
@@ -235,14 +236,14 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let expression = Expression::from_str("<base> <dna");
         assert!(expression.is_err(), "{:?} should be error", expression);
 
         let error = expression.unwrap_err();
         match error {
             Error::ParseError(_) => (),
-            _ => panic!("{} should be incomplete parsing", error),
+            _ => panic!("{} should be should be error", error),
         }
     }
 }

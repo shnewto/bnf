@@ -15,6 +15,12 @@ license = "MIT"
 [features]
 unstable = []
 
+[dependencies.stacker]
+version = "0.1.2"
+
+[dependencies.rand]
+version = "0.3.17"
+
 [dependencies.nom]
 version = "^3.2"
 features = ["verbose-errors"]

@@ -117,7 +117,7 @@ If the generate function can't find a production for a nonterminal it tries
 to evaluate it will print the identifer as a nonterminal, i.e. `<identifier>`.
 
 The generate function will return an error if it detects an infinite loop caused
-by a production such as `<PATTERN> := <PATTERN>`.
+by a production such as `<PATTERN> ::= <PATTERN>`.
 
 ## Parse Example
 

@@ -111,7 +111,7 @@
 //! to evaluate it will produce the identifer as is, i.e. `<identifier>`.
 //!
 //! The generate function will return an error if it detects an infinite loop
-//! caused by a production such as `<PATTERN> := <PATTERN>`.
+//! caused by a production such as `<PATTERN> ::= <PATTERN>`.
 //!
 //! ## Parse Example
 //!

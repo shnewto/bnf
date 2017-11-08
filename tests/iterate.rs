@@ -2,14 +2,13 @@ extern crate bnf;
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use bnf::{Grammar, Term};
 
     #[test]
     fn iterate_grammar() {
         let dna_productions = "
-            <dna> ::= <dna> | <base> <dna>;
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
+            <dna> ::= <base> | <base> <dna>
+            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 
         let dna_grammar = Grammar::from_str(dna_productions).unwrap();
 

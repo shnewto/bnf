@@ -6,49 +6,73 @@
 //! The code is available on [Github](https://github.com/snewt/bnf)
 //!
 //! ## What does a parsable BNF grammar look like?
-//! 
+//!
 //! The following grammar from the [Wikipedia page on Backus-Naur form]
 //! (https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
-//! exemplifies a compatible grammar after adding ';' characters to indicate the end of each producion.
+//! exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
+//! to indicate the end of a producion)
 //!
 //! ```text
-//! <postal-address> ::= <name-part> <street-address> <zip-part>;
+//! <postal-address> ::= <name-part> <street-address> <zip-part>
 //!
 //!         <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-//!                     | <personal-part> <name-part>;
+//!                     | <personal-part> <name-part>
 //!
-//!     <personal-part> ::= <initial> "." | <first-name>;
+//!     <personal-part> ::= <initial> "." | <first-name>
 //!
-//!     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+//!     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 //!
-//!         <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>;
+//!         <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>
 //!
-//! <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | "";
-//!     <opt-apt-num> ::= <apt-num> | "";
+//! <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | ""
+//!     <opt-apt-num> ::= <apt-num> | ""
 //! ```
 //!
 //! ## Output
-//! Take the following grammar to be input to this library's `parse` function:
-//!
+//! Take the following grammar for DNA sequences to be input to this library's
+//! `parse` function.
 //! ```text
-//! <A> ::= <B> | "C";
-//! <B> ::= "D" | "E";
+//! <dna> ::= <base> | <base> <dna>;
+//! <base> ::= "A" | "C" | "G" | "T"
 //! ```
 //!
 //! The output is a `Grammar` object representing a tree that looks like this:
-//!
 //! ```text
 //! Grammar {
 //!     productions: [
 //!         Production {
 //!             lhs: Nonterminal(
-//!                 "A"
+//!                 "dna"
 //!             ),
 //!             rhs: [
 //!                 Expression {
 //!                     terms: [
 //!                         Nonterminal(
-//!                             "B"
+//!                             "base"
+//!                         )
+//!                     ]
+//!                 },
+//!                 Expression {
+//!                     terms: [
+//!                         Nonterminal(
+//!                             "base"
+//!                         ),
+//!                         Nonterminal(
+//!                             "dna"
+//!                         )
+//!                     ]
+//!                 }
+//!             ]
+//!         },
+//!         Production {
+//!             lhs: Nonterminal(
+//!                 "base"
+//!             ),
+//!             rhs: [
+//!                 Expression {
+//!                     terms: [
+//!                         Terminal(
+//!                             "A"
 //!                         )
 //!                     ]
 //!                 },
@@ -58,25 +82,18 @@
 //!                             "C"
 //!                         )
 //!                     ]
-//!                 }
-//!             ]
-//!         },
-//!         Production {
-//!             lhs: Nonterminal(
-//!                 "B"
-//!             ),
-//!             rhs: [
+//!                 },
 //!                 Expression {
 //!                     terms: [
 //!                         Terminal(
-//!                             "D"
+//!                             "G"
 //!                         )
 //!                     ]
 //!                 },
 //!                 Expression {
 //!                     terms: [
 //!                         Terminal(
-//!                             "E"
+//!                             "T"
 //!                         )
 //!                     ]
 //!                 }
@@ -86,50 +103,77 @@
 //! }
 //! ```
 //!
-//! ## Example
+//! Once the `Grammar` object is populated you can generate a random sentence
+//! from it by calling the object's generate function. `grammar.generate()`.
+//! For the above grammar you could expect something like "T" "TGGC" or "AG".
+//!
+//! If the generate function can't find a production for a nonterminal it tries
+//! to evaluate it will produce the identifer as is, i.e. `<identifier>`.
+//!
+//! The generate function will return an error if it detects an infinite loop
+//! caused by a production such as `<PATTERN> ::= <PATTERN>`.
+//!
+//! ## Parse Example
 //!
 //! ```rust
 //! extern crate bnf;
+//! use bnf::Grammar;
 //!
 //! fn main() {
 //!     let input =
-//!         "<postal-address> ::= <name-part> <street-address> <zip-part>;
+//!         "<postal-address> ::= <name-part> <street-address> <zip-part>
 //!
 //!               <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-//!                             | <personal-part> <name-part>;
+//!                             | <personal-part> <name-part>
 //!
-//!           <personal-part> ::= <initial> \".\" | <first-name>;
+//!           <personal-part> ::= <initial> \".\" | <first-name>
 //!
-//!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>;
+//!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 //!
-//!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>;
+//!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 //!
-//!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\";
-//!             <opt-apt-num> ::= <apt-num> | \"\";";
+//!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
+//!             <opt-apt-num> ::= <apt-num> | \"\"";
 //!
-//!     let grammar = bnf::parse(input);
-//!     println!("{:#?}", grammar);
+//!     let grammar = Grammar::from_str(input);
+//!     match grammar {
+//!         Ok(g) => println!("{:#?}", g),
+//!         Err(e) => println!("Failed to make grammar from String: {}", e),
+//!     }
+//! }
+//! ```
+//!
+//! ## Generate Example
+//!     
+//! ```rust
+//! extern crate bnf;
+//! use bnf::Grammar;
+//! 
+//! fn main() {
+//!     let input =
+//!         "<dna> ::= <base> | <base> <dna>
+//!         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+//!     let grammar = Grammar::from_str(input).unwrap();
+//!     let sentence = grammar.generate();
+//!     match sentence {
+//!         Ok(s) => println!("random sentence: {}", s),
+//!         Err(e) => println!("something went wrong: {}!", e)
+//!     }
 //! }
 //! ```
 //!
 
 #[macro_use]
 extern crate nom;
+extern crate rand;
+extern crate stacker;
 mod parsers;
-mod reports;
-pub mod node;
-use node::Grammar;
-use nom::IResult;
-
-/// Parse a BNF grammer
-pub fn parse(input: &str) -> Grammar {
-    match parsers::grammar(input.as_bytes()) {
-        IResult::Done(_, o) => return o,
-        IResult::Error(e) => {
-            reports::report_error(e);
-        }
-        IResult::Incomplete(n) => reports::report_incomplete(n, input.len()),
-    }
-
-    Grammar::new()
-}
+mod error;
+mod term;
+mod expression;
+mod production;
+mod grammar;
+pub use term::Term;
+pub use expression::Expression;
+pub use production::Production;
+pub use grammar::Grammar;

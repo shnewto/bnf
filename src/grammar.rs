@@ -82,7 +82,6 @@ impl Grammar {
         }
 
         let nonterm = Term::Nonterminal(ident.clone());
-        let mut result = String::new();
         let production;
         let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
@@ -103,6 +102,7 @@ impl Grammar {
             }
         }
 
+        let mut result = String::new();
         for term in expression.terms_iter() {
             match self.eval_terminal(&term) {
                 Ok(s) => result = result + &s,
@@ -128,17 +128,20 @@ impl Grammar {
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
     ///     let grammar = Grammar::from_str(input).unwrap();
     ///     let sentence = grammar.generate();
+    ///     # let sentence_clone = sentence.clone();
     ///     match sentence {
     ///         Ok(s) => println!("random sentence: {}", s),
     ///         Err(e) => println!("something went wrong: {}!", e)
     ///     }
+    ///
+    ///     # assert!(sentence_clone.is_ok());
     /// }
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
         let start_rule: String;
-        let lhs = self.productions_iter().nth(0);
+        let first_production = self.productions_iter().nth(0);
 
-        match lhs {
+        match first_production {
             Some(term) => match term.lhs {
                 Term::Nonterminal(ref nt) => start_rule = nt.clone(),
                 Term::Terminal(_) => {

@@ -144,7 +144,7 @@ fn main() {
     let grammar = Grammar::from_str(input);
     match grammar {
         Ok(g) => println!("{:#?}", g),
-        Err(e) => println!("Failed to make grammar from String: {:?}", e),
+        Err(e) => println!("Failed to make grammar from String: {}", e),
     }
 }
 ```

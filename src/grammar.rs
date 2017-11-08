@@ -211,7 +211,8 @@ mod tests {
     use term::Term;
     use expression::Expression;
     use production::Production;
-
+    // use grammar::Grammar;
+    
     #[test]
     fn new_grammars() {
         let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
@@ -328,4 +329,54 @@ mod tests {
         let grammar = Grammar::from_str("<almost_grammar> ::= <test");
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
+
+    #[test]
+    fn infinite_loop() {
+        let grammar = Grammar::from_str("<nonterm> ::= <nonterm>");
+        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        let sentence = grammar.unwrap().generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn lhs_not_found() {
+        let grammar = Grammar::from_str("<start> ::= <not-used>");
+        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        let sentence = grammar.unwrap().generate();
+        assert!(sentence.is_ok(), "{:?} should be ok", sentence);
+        assert_eq!(sentence.unwrap(), String::from("<not-used>"));
+    }
+
+    #[test]
+    fn lhs_is_terminal_parse() {
+        let grammar = Grammar::from_str("\"wrong place\" ::= <not-used>");
+        assert!(grammar.is_err(), "{:?} should be error", grammar);
+    }
+
+    #[test]
+    fn lhs_is_terminal_generate() {
+        let lhs = Term::Terminal(String::from("\"bad LHS\""));
+        let terminal = Term::Terminal(String::from("\"good RHS\""));
+        let expression = Expression::from_parts(vec![terminal]);
+        let production = Production::from_parts(lhs, vec![expression]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn no_productions() {
+        let grammar = Grammar::from_parts(vec![]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }    
+
+    #[test]
+    fn no_expressions() {
+        let lhs = Term::Terminal(String::from("<good-lhs>"));
+        let production = Production::from_parts(lhs, vec![]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let sentence = grammar.generate();
+        assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }        
 }

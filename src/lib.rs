@@ -113,7 +113,7 @@
 //! The generate function will return an error if it detects an infinite loop
 //! caused by a production such as `<PATTERN> := <PATTERN>`.
 //!
-//! ## Example
+//! ## Parse Example
 //!
 //! ```rust
 //! extern crate bnf;
@@ -139,6 +139,25 @@
 //!     match grammar {
 //!         Ok(g) => println!("{:#?}", g),
 //!         Err(e) => println!("Failed to make grammar from String: {:?}", e),
+//!     }
+//! }
+//! ```
+//!
+//! ## Generate Example
+//!     
+//! ```rust
+//! extern crate bnf;
+//! use bnf::Grammar;
+//! 
+//! fn main() {
+//!     let input =
+//!         "<dna> ::= <base> | <base> <dna>
+//!         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+//!     let grammar = Grammar::from_str(input).unwrap();
+//!     let sentence = grammar.generate();
+//!     match sentence {
+//!         Ok(s) => println!("random sentence: {}", s),
+//!         Err(e) => println!("something went wrong: {}!", e)
 //!     }
 //! }
 //! ```

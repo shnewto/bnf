@@ -63,7 +63,6 @@ impl From<Needed> for Error {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
     use nom::IResult;
     use error::Error;
 

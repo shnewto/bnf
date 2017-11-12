@@ -29,21 +29,27 @@ impl<'a> From<Err<&'a [u8]>> for Error {
     fn from(err: Err<&[u8]>) -> Self {
         let string = match err {
             Err::Code(_) => String::from("Parsing error: Unknown origin"),
-            Err::Node(_, n) => n.iter()
-                .fold(String::from("Parsing error: Unknown origin."), |s, e| {
-                    s + &format!(" {}", e)
-                }),
-            Err::Position(_, p) => format!(
-                "Parsing error: When input is {}",
-                String::from_utf8_lossy(p)
-            ),
-            Err::NodePosition(_, p, n) => n.iter().fold(
+            Err::Node(_, n) => {
+                n.iter().fold(
+                    String::from("Parsing error: Unknown origin."),
+                    |s, e| s + &format!(" {}", e),
+                )
+            }
+            Err::Position(_, p) => {
                 format!(
-                    "Parsing error: When input is {}.",
+                    "Parsing error: When input is {}",
                     String::from_utf8_lossy(p)
-                ),
-                |s, e| s + &format!(" {}", e),
-            ),
+                )
+            }
+            Err::NodePosition(_, p, n) => {
+                n.iter().fold(
+                    format!(
+                        "Parsing error: When input is {}.",
+                        String::from_utf8_lossy(p)
+                    ),
+                    |s, e| s + &format!(" {}", e),
+                )
+            }
         };
 
         Error::ParseError(string)
@@ -66,7 +72,8 @@ mod tests {
     use nom::IResult;
     use error::Error;
 
-    named!(give_error_kind, 
+    named!(
+        give_error_kind,
         do_parse!(
             tag!("1234") >>
             res: tag!("5678") >>
@@ -125,6 +132,6 @@ mod tests {
         match bnf_error {
             Error::GenerateError(_) => (),
             e => panic!("should match on generate error: {:?}", e),
-        }        
+        }
     }
 }

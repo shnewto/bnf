@@ -66,51 +66,60 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term, rng: StdRng) -> Result<String, Error> {
+    fn eval_terminal(&self, term: &Term, rng: &mut StdRng) -> Result<String, Error> {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(&nt, rng),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String, mut rng: StdRng) -> Result<String, Error> {
+    fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
-        if stacker::remaining_stack() <= stack_red_zone {
-            return Err(Error::GenerateError(
-                format!("Infinite loop detected for <{}>!", ident),
-            ));
-        }
+        let allowable_stack_size: usize = 1024 * 1024; // 2048KB
 
-        let nonterm = Term::Nonterminal(ident.clone());
-        let production;
-        let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+        stacker::maybe_grow(
+            stack_red_zone, 
+            allowable_stack_size, 
+            || {
+                // despite allowing for the stack to grow with heavy recursion, 
+                // we've hit out tolerable threshold
+                if stacker::remaining_stack() < stack_red_zone {
+                    return Err(Error::GenerateError(
+                        format!("Infinite loop detected for <{}>!", ident),
+                    ))
+                }
 
-        match find_lhs {
-            Some(p) => production = p,
-            None => return Ok(nonterm.to_string()),
-        }
+                let nonterm = Term::Nonterminal(ident.clone());
+                let production;
+                let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
-        let expression;
-        let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
-        
-        match rng.choose(&expressions) {
-            Some(e) => expression = e.clone(),
-            None => {
-                return Err(Error::GenerateError(
-                    String::from("Couldn't select random Expression!"),
-                ));
-            }
-        }
+                match find_lhs {
+                    Some(p) => production = p,
+                    None => return Ok(nonterm.to_string()),
+                }
 
-        let mut result = String::new();
-        for term in expression.terms_iter() {
-            match self.eval_terminal(&term, rng) {
-                Ok(s) => result = result + &s,
-                Err(e) => return Err(e),
-            }
-        }
+                let expression;
+                let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+                
+                match rng.choose(&expressions) {
+                    Some(e) => expression = e.clone(),
+                    None => {
+                        return Err(Error::GenerateError(
+                            String::from("Couldn't select random Expression!"),
+                        ));
+                    }
+                }
 
-        Ok(result)
+                let mut result = String::new();
+                for term in expression.terms_iter() {
+                    match self.eval_terminal(&term, rng) {
+                        Ok(s) => result = result + &s,
+                        Err(e) => return Err(e),
+                    }
+                }
+
+                return Ok(result)
+        })
     }
 
     /// Generate a random sentence from self and seed for random.
@@ -131,8 +140,8 @@ impl Grammar {
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
     ///     let grammar = Grammar::from_str(input).unwrap();
     ///     let seed: &[_] = &[1,2,3,4];
-    ///     let seeded: StdRng = SeedableRng::from_seed(seed);
-    ///     let sentence = grammar.generate_seeded(seeded);
+    ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
+    ///     let sentence = grammar.generate_seeded(&mut rng);
     ///     # let sentence_clone = sentence.clone();
     ///     match sentence {
     ///         Ok(s) => println!("random sentence: {}", s),
@@ -142,7 +151,7 @@ impl Grammar {
     ///     # assert!(sentence_clone.is_ok());
     /// }
     /// ```
-    pub fn generate_seeded(&self, rng: StdRng) -> Result<String, Error> {
+    pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
         let start_rule: String;
         let first_production = self.productions_iter().nth(0);
 
@@ -195,8 +204,8 @@ impl Grammar {
             .gen_iter::<usize>()
             .take(1000)
             .collect::<Vec<usize>>();        
-        let rng: StdRng = SeedableRng::from_seed(&seed[..]);            
-        self.generate_seeded(rng)
+        let mut rng: StdRng = SeedableRng::from_seed(&seed[..]);            
+        self.generate_seeded(&mut rng)
     }    
 }
 

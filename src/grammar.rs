@@ -368,9 +368,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let grammar = Grammar::from_str("<almost_grammar> ::= <test");
         assert!(grammar.is_err(), "{:?} should be error", grammar);
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let result = Grammar::from_str("");
+        assert!(result.is_err(), "{:?} should be error", result);
+
+        let grammar = result.unwrap_err();
+        match grammar {
+            Error::ParseIncomplete(_) => (),
+            e => panic!("grammar should be incomplete: {:?}", e),
+        }
     }
 
     #[test]

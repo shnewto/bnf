@@ -1,4 +1,3 @@
-
 extern crate quickcheck;
 extern crate bnf;
 
@@ -19,7 +18,7 @@ mod tests {
             <rule>           ::= <opt-whitespace> \"<\" <rule-name> \">\"
                                 <opt-whitespace> \"::=\" <opt-whitespace>
                                 <expression> <line-end>
-            <opt-whitespace> ::=  \"\" | \" \" 
+            <opt-whitespace> ::= \" \" <opt-whitespace> | \"\"
             <expression>     ::= <list> | <list> <opt-whitespace> \"|\"
                                 <opt-whitespace> <expression>
             <line-end>       ::= <opt-whitespace> <EOL> | <line-end> <line-end>

@@ -144,11 +144,11 @@
 //! ```
 //!
 //! ## Generate Example
-//!     
+//!
 //! ```rust
 //! extern crate bnf;
 //! use bnf::Grammar;
-//! 
+//!
 //! fn main() {
 //!     let input =
 //!         "<dna> ::= <base> | <base> <dna>

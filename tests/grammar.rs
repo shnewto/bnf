@@ -1,11 +1,12 @@
 extern crate quickcheck;
+extern crate rand;
 extern crate bnf;
 
 #[cfg(test)]
 mod tests {
     use quickcheck::{QuickCheck, TestResult, Arbitrary, Gen};
     use bnf::Grammar;
-
+    use rand::{SeedableRng, StdRng};
     #[derive(PartialEq, Debug, Clone)]
     struct Meta {
         bnf: String,
@@ -55,13 +56,15 @@ mod tests {
             <EOL>            ::= \"\n\"";
 
     impl Arbitrary for Meta {
-        fn arbitrary<G: Gen>(_: &mut G) -> Meta {
+        fn arbitrary<G: Gen>(g: &mut G) -> Meta {
             // Generate Grammar object from grammar for BNF grammars
             let grammar = Grammar::from_str(BNF_FOR_BNF);
             assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
 
             // generate a random valid grammar from the above
-            let sentence = grammar.unwrap().generate();
+            let seed: Vec<_> = Arbitrary::arbitrary(g);
+            let seeded: StdRng = SeedableRng::from_seed(&seed[..]);
+            let sentence = grammar.unwrap().generate_seeded(seeded);
             assert!(sentence.is_ok(), "{:?} should be Ok", sentence);
 
             Meta { bnf: sentence.unwrap() }

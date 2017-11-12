@@ -79,6 +79,6 @@ mod tests {
 
     #[test]
     fn test_generated_grammars() {
-        QuickCheck::new().tests(1000).quickcheck(prop_grammar_from_str as fn(Meta) -> TestResult)
+        QuickCheck::new().quickcheck(prop_grammar_from_str as fn(Meta) -> TestResult)
     }
 }

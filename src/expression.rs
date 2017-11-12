@@ -242,4 +242,16 @@ mod tests {
             _ => panic!("{} should be should be error", error),
         }
     }
+
+    #[test]
+    fn parse_incomplete() {
+        let expression = Expression::from_str("");
+        assert!(expression.is_err(), "{:?} should be error", expression);
+
+        let error = expression.unwrap_err();
+        match error {
+            Error::ParseIncomplete(_) => (),
+            _ => panic!("{} should be should be incomplete", error),
+        }
+    }
 }

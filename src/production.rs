@@ -226,6 +226,22 @@ mod tests {
     }
 
     #[test]
+    fn parse_incomplete() {
+        let result = Production::from_str("");
+        assert!(
+            result.is_err(),
+            "production result should be error {:?}",
+            result
+        );
+
+        let production = result.unwrap_err();
+        match production {
+            Error::ParseIncomplete(_) => (),
+            e => panic!("production should be incomplete: {:?}", e),
+        }
+    }
+
+    #[test]
     fn parse_semicolon_separated() {
         let result = Production::from_str("<base> ::= \"A\" ; \"C\" ; \"G\" ; \"T\"");
         assert!(result.is_err(), "{:?} should be error", result);

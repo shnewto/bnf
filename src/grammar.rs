@@ -7,7 +7,7 @@ use production::Production;
 use term::Term;
 use parsers;
 use error::Error;
-use rand::{thread_rng, Rng};
+use rand::{Rng, SeedableRng, StdRng, thread_rng};
 use stacker;
 
 /// A Grammar is comprised of any number of Productions
@@ -66,18 +66,18 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term) -> Result<String, Error> {
+    fn eval_terminal(&self, term: &Term, seed: &[usize]) -> Result<String, Error> {
         match *term {
-            Term::Nonterminal(ref nt) => self.traverse(&nt),
+            Term::Nonterminal(ref nt) => self.traverse(&nt, seed),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String) -> Result<String, Error> {
+    fn traverse(&self, ident: &String, seed: &[usize]) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
         if stacker::remaining_stack() <= stack_red_zone {
             return Err(Error::GenerateError(
-                String::from("Infinite loop detected!"),
+                format!("Infinite loop detected for <{}>!", ident),
             ));
         }
 
@@ -92,8 +92,9 @@ impl Grammar {
 
         let expression;
         let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
-
-        match thread_rng().choose(&expressions) {
+        
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+        match rng.choose(&expressions) {
             Some(e) => expression = e.clone(),
             None => {
                 return Err(Error::GenerateError(
@@ -104,13 +105,61 @@ impl Grammar {
 
         let mut result = String::new();
         for term in expression.terms_iter() {
-            match self.eval_terminal(&term) {
+            match self.eval_terminal(&term, seed) {
                 Ok(s) => result = result + &s,
                 Err(e) => return Err(e),
             }
         }
 
         Ok(result)
+    }
+
+    /// Generate a random sentence from self and seed for random.
+    /// Use if interested in reproducing the output generated.
+    /// Begins from lhs of first production.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// extern crate bnf;
+    /// use bnf::Grammar;
+    ///
+    /// fn main() {
+    ///     let input =
+    ///         "<dna> ::= <base> | <base> <dna>
+    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     let grammar = Grammar::from_str(input).unwrap();
+    ///     let sentence = grammar.generate_seeded(&[1,2,3,4]);
+    ///     # let sentence_clone = sentence.clone();
+    ///     match sentence {
+    ///         Ok(s) => println!("random sentence: {}", s),
+    ///         Err(e) => println!("something went wrong: {}!", e)
+    ///     }
+    ///
+    ///     # assert!(sentence_clone.is_ok());
+    /// }
+    /// ```
+    pub fn generate_seeded(&self, seed: &[usize]) -> Result<String, Error> {
+        let start_rule: String;
+        let first_production = self.productions_iter().nth(0);
+
+        match first_production {
+            Some(term) => match term.lhs {
+                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                Term::Terminal(_) => {
+                    return Err(Error::GenerateError(format!(
+                        "Termainal type cannot define a production in '{}'!",
+                        term
+                    )));
+                }
+            },
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Failed to get first production!"),
+                ));
+            }
+        }
+        self.traverse(&start_rule, seed)
     }
 
     /// Generate a random sentence from self.
@@ -138,28 +187,13 @@ impl Grammar {
     /// }
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
-        let start_rule: String;
-        let first_production = self.productions_iter().nth(0);
-
-        match first_production {
-            Some(term) => match term.lhs {
-                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
-                Term::Terminal(_) => {
-                    return Err(Error::GenerateError(format!(
-                        "Termainal type cannot define a production in '{}'!",
-                        term
-                    )));
-                }
-            },
-            None => {
-                return Err(Error::GenerateError(
-                    String::from("Failed to get first production!"),
-                ));
-            }
-        }
-
-        self.traverse(&start_rule)
-    }
+        // let seed: &[_] = &[1, 2, 3, 4];
+        let seed: Vec<usize> = thread_rng()
+            .gen_iter::<usize>()
+            .take(10)
+            .collect::<Vec<usize>>();        
+        self.generate_seeded(&seed)
+    }    
 }
 
 impl fmt::Display for Grammar {

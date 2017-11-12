@@ -63,7 +63,7 @@ mod tests {
 
             // generate a random valid grammar from the above
             let sentence = grammar.unwrap().generate();
-            assert!(sentence.is_ok());            
+            assert!(sentence.is_ok(), "{:?} should be Ok", sentence);
 
             Meta { bnf: sentence.unwrap() }
         }

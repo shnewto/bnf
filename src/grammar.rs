@@ -66,14 +66,14 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term, seed: &[usize]) -> Result<String, Error> {
+    fn eval_terminal(&self, term: &Term, rng: StdRng) -> Result<String, Error> {
         match *term {
-            Term::Nonterminal(ref nt) => self.traverse(&nt, seed),
+            Term::Nonterminal(ref nt) => self.traverse(&nt, rng),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String, seed: &[usize]) -> Result<String, Error> {
+    fn traverse(&self, ident: &String, mut rng: StdRng) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
         if stacker::remaining_stack() <= stack_red_zone {
             return Err(Error::GenerateError(
@@ -93,7 +93,6 @@ impl Grammar {
         let expression;
         let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
         
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
         match rng.choose(&expressions) {
             Some(e) => expression = e.clone(),
             None => {
@@ -105,7 +104,7 @@ impl Grammar {
 
         let mut result = String::new();
         for term in expression.terms_iter() {
-            match self.eval_terminal(&term, seed) {
+            match self.eval_terminal(&term, rng) {
                 Ok(s) => result = result + &s,
                 Err(e) => return Err(e),
             }
@@ -122,6 +121,8 @@ impl Grammar {
     ///
     /// ```rust
     /// extern crate bnf;
+    /// extern crate rand;
+    /// use rand::{SeedableRng, StdRng};
     /// use bnf::Grammar;
     ///
     /// fn main() {
@@ -129,7 +130,9 @@ impl Grammar {
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
     ///     let grammar = Grammar::from_str(input).unwrap();
-    ///     let sentence = grammar.generate_seeded(&[1,2,3,4]);
+    ///     let seed: &[_] = &[1,2,3,4];
+    ///     let seeded: StdRng = SeedableRng::from_seed(seed);
+    ///     let sentence = grammar.generate_seeded(seeded);
     ///     # let sentence_clone = sentence.clone();
     ///     match sentence {
     ///         Ok(s) => println!("random sentence: {}", s),
@@ -139,7 +142,7 @@ impl Grammar {
     ///     # assert!(sentence_clone.is_ok());
     /// }
     /// ```
-    pub fn generate_seeded(&self, seed: &[usize]) -> Result<String, Error> {
+    pub fn generate_seeded(&self, rng: StdRng) -> Result<String, Error> {
         let start_rule: String;
         let first_production = self.productions_iter().nth(0);
 
@@ -159,7 +162,7 @@ impl Grammar {
                 ));
             }
         }
-        self.traverse(&start_rule, seed)
+        self.traverse(&start_rule, rng)
     }
 
     /// Generate a random sentence from self.
@@ -190,9 +193,10 @@ impl Grammar {
         // let seed: &[_] = &[1, 2, 3, 4];
         let seed: Vec<usize> = thread_rng()
             .gen_iter::<usize>()
-            .take(10)
+            .take(1000)
             .collect::<Vec<usize>>();        
-        self.generate_seeded(&seed)
+        let rng: StdRng = SeedableRng::from_seed(&seed[..]);            
+        self.generate_seeded(rng)
     }    
 }
 

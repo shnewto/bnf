@@ -24,3 +24,6 @@ version = "0.3.17"
 [dependencies.nom]
 version = "^3.2"
 features = ["verbose-errors"]
+
+[dev-dependencies.quickcheck]
+version = "0.4.1"

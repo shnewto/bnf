@@ -1,14 +1,21 @@
+
+extern crate quickcheck;
 extern crate bnf;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use quickcheck::{QuickCheck, TestResult, Arbitrary, Gen};
+    use bnf::Grammar;
 
-    #[test]
-    fn parse_from_bnf_for_bnf() {
-        // Modified version of BNF for BNF from
-        // https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Further_examples
-        let bnf_for_bnf: &str = "<syntax>        ::= <rule> | <rule> <syntax>
+    #[derive(PartialEq, Debug, Clone)]
+    struct Meta {
+        bnf: String,
+    }
+
+    // Modified version of BNF for BNF from
+    // https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Further_examples
+    const BNF_FOR_BNF: &str = 
+            "<syntax>        ::= <rule> | <rule> <syntax>
             <rule>           ::= <opt-whitespace> \"<\" <rule-name> \">\"
                                 <opt-whitespace> \"::=\" <opt-whitespace>
                                 <expression> <line-end>
@@ -48,11 +55,28 @@ mod tests {
             <rule-char>      ::= <letter> | <digit> | \"-\"
             <EOL>            ::= \"\n\"";
 
-        let grammar = bnf::Grammar::from_str(bnf_for_bnf);
-        assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
-        let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_ok());
-        let meta_grammar = bnf::Grammar::from_str(&sentence.unwrap());
-        assert!(meta_grammar.is_ok());
+    impl Arbitrary for Meta {
+        fn arbitrary<G: Gen>(_: &mut G) -> Meta {
+            // Generate Grammar object from grammar for BNF grammars
+            let grammar = Grammar::from_str(BNF_FOR_BNF);
+            assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
+
+            // generate a random valid grammar from the above
+            let sentence = grammar.unwrap().generate();
+            assert!(sentence.is_ok());            
+
+            Meta { bnf: sentence.unwrap() }
+        }
+    }
+
+    fn prop_grammar_from_str(meta: Meta) -> TestResult {
+        // parse a randomly generated grammar to a Grammar object
+        let meta_grammar = Grammar::from_str(&meta.bnf);
+        TestResult::from_bool(meta_grammar.is_ok())
+    }
+
+    #[test]
+    fn test_generated_grammars() {
+        QuickCheck::new().quickcheck(prop_grammar_from_str as fn(Meta) -> TestResult)
     }
 }

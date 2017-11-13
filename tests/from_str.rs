@@ -1,9 +1,8 @@
 extern crate bnf;
 
-#[cfg(test)]
 mod std_trait {
     use std::str::FromStr;
-    
+
     use bnf::{Expression, Grammar, Production, Term};
 
     fn std_str_trait<T: FromStr>(_: T, input: &str) {
@@ -15,7 +14,7 @@ mod std_trait {
     fn expression_from_str() {
         let input = "\"😵\" \"😋\" \"😉\"";
         let expression = Expression::new();
-        std_str_trait(expression, input)        
+        std_str_trait(expression, input)
     }
 
     #[test]
@@ -35,20 +34,19 @@ mod std_trait {
 
     #[test]
     fn terminal_from_str() {
-        let input = "\"👏 \"";        
+        let input = "\"👏 \"";
         let terminal = Term::Terminal(String::new());
         std_str_trait(terminal, input)
     }
 
     #[test]
     fn nonterminal_from_str() {
-        let input = "<🤘>";        
+        let input = "<🤘>";
         let nonterminal = Term::Nonterminal(String::new());
         std_str_trait(nonterminal, input)
     }
 }
 
-#[cfg(test)]
 mod custom_trait {
     use bnf::{Expression, Grammar, Production, Term};
 
@@ -56,7 +54,7 @@ mod custom_trait {
     fn expression_from_str() {
         let input = "\"😵\" \"😋\" \"😉\"";
         let expression = Expression::from_str(input);
-        assert!(expression.is_ok())      
+        assert!(expression.is_ok())
     }
 
     #[test]
@@ -76,14 +74,14 @@ mod custom_trait {
 
     #[test]
     fn terminal_from_str() {
-        let input = "\"👏 \"";        
+        let input = "\"👏 \"";
         let terminal = Term::from_str(input);
         assert!(terminal.is_ok())
     }
 
     #[test]
     fn nonterminal_from_str() {
-        let input = "<🤘>";        
+        let input = "<🤘>";
         let nonterminal = Term::from_str(input);
         assert!(nonterminal.is_ok())
     }

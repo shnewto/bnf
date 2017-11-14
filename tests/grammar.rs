@@ -6,6 +6,7 @@ extern crate bnf;
 mod tests {
     use quickcheck::{QuickCheck, TestResult, Arbitrary, Gen};
     use bnf::Grammar;
+    use bnf::Error;
     use rand::{SeedableRng, StdRng};
     #[derive(PartialEq, Debug, Clone)]
     struct Meta {
@@ -14,7 +15,8 @@ mod tests {
 
     // Modified version of BNF for BNF from
     // https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Further_examples
-    const BNF_FOR_BNF: &str = "<syntax>        ::= <rule> | <rule> <syntax>
+    const BNF_FOR_BNF: &str = "
+            <syntax>         ::= <rule> | <rule> <syntax>
             <rule>           ::= <opt-whitespace> \"<\" <rule-name> \">\"
                                 <opt-whitespace> \"::=\" <opt-whitespace>
                                 <expression> <line-end>
@@ -64,14 +66,18 @@ mod tests {
             let seed: Vec<_> = Arbitrary::arbitrary(g);
             let mut rng: StdRng = SeedableRng::from_seed(&seed[..]);
             let sentence = grammar.unwrap().generate_seeded(&mut rng);
-            assert!(
-                sentence.is_ok(),
-                "{:?} should be Ok -- seed {:?}",
-                sentence,
-                seed
-            );
 
-            Meta { bnf: sentence.unwrap() }
+            match sentence {
+                Err(e) => {
+                    match e {
+                        // shouldn't cause parsing to fail if random generation
+                        // recurses too far
+                        Error::RecursionLimit(_) => Meta { bnf: String::new() },
+                        _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed)
+                    }
+                }
+                Ok(s) => Meta { bnf: s },
+            }
         }
     }
 

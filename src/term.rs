@@ -14,6 +14,12 @@ pub enum Term {
 impl Term {
     // Get `Term` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
+        // this is a little weird, should we default to Nonterminal?
+        // Seems like empty would correspond to a terminal that represents
+        // the empty string.
+        if s.len() == 0 {
+            return Ok(Term::Terminal(String::from("")))
+        }                
         match parsers::term_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),

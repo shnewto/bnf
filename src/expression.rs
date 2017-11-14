@@ -25,6 +25,9 @@ impl Expression {
 
     // Get `Expression` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
+        if s.len() == 0 {
+            return Ok(Expression::new())
+        }        
         match parsers::expression_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -244,14 +247,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
-        let expression = Expression::from_str("");
-        assert!(expression.is_err(), "{:?} should be error", expression);
-
-        let error = expression.unwrap_err();
-        match error {
-            Error::ParseIncomplete(_) => (),
-            _ => panic!("{} should be should be incomplete", error),
-        }
+    fn parse_empty() {
+        let result = Expression::from_str("");
+        assert!(result.is_ok(), "{:?} should be ok", result);
     }
 }

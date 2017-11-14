@@ -29,6 +29,9 @@ impl Grammar {
 
     // Get `Grammar` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
+        if s.len() == 0 {
+            return Ok(Grammar::new())
+        }
         match parsers::grammar_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -69,48 +72,43 @@ impl Grammar {
 
     fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
-        let allowable_stack_size: usize = 1024 * 1024; // 2048KB
+        // heavy recursion happening, we've hit out tolerable threshold
+        if stacker::remaining_stack() < stack_red_zone {
+            return Err(Error::RecursionLimit(
+                format!("Limit for recursion reached processing <{}>!", ident),
+            ));
+        }
 
-        stacker::maybe_grow(stack_red_zone, allowable_stack_size, || {
-            // despite allowing for the stack to grow with heavy recursion,
-            // we've hit out tolerable threshold
-            if stacker::remaining_stack() < stack_red_zone {
+        let nonterm = Term::Nonterminal(ident.clone());
+        let production;
+        let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+
+        match find_lhs {
+            Some(p) => production = p,
+            None => return Ok(nonterm.to_string()),
+        }
+
+        let expression;
+        let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+
+        match rng.choose(&expressions) {
+            Some(e) => expression = e.clone(),
+            None => {
                 return Err(Error::GenerateError(
-                    format!("Infinite loop detected for <{}>!", ident),
+                    String::from("Couldn't select random Expression!"),
                 ));
             }
+        }
 
-            let nonterm = Term::Nonterminal(ident.clone());
-            let production;
-            let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
-
-            match find_lhs {
-                Some(p) => production = p,
-                None => return Ok(nonterm.to_string()),
+        let mut result = String::new();
+        for term in expression.terms_iter() {
+            match self.eval_terminal(&term, rng) {
+                Ok(s) => result = result + &s,
+                Err(e) => return Err(e),
             }
+        }
 
-            let expression;
-            let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
-
-            match rng.choose(&expressions) {
-                Some(e) => expression = e.clone(),
-                None => {
-                    return Err(Error::GenerateError(
-                        String::from("Couldn't select random Expression!"),
-                    ));
-                }
-            }
-
-            let mut result = String::new();
-            for term in expression.terms_iter() {
-                match self.eval_terminal(&term, rng) {
-                    Ok(s) => result = result + &s,
-                    Err(e) => return Err(e),
-                }
-            }
-
-            return Ok(result);
-        })
+        return Ok(result);
     }
 
     /// Generate a random sentence from self and seed for random.
@@ -374,23 +372,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_empty() {
         let result = Grammar::from_str("");
-        assert!(result.is_err(), "{:?} should be error", result);
-
-        let grammar = result.unwrap_err();
-        match grammar {
-            Error::ParseIncomplete(_) => (),
-            e => panic!("grammar should be incomplete: {:?}", e),
-        }
+        assert!(result.is_ok(), "{:?} should be ok", result);
     }
 
     #[test]
-    fn infinite_loop() {
+    fn recursion_limit() {
         let grammar = Grammar::from_str("<nonterm> ::= <nonterm>");
         assert!(grammar.is_ok(), "{:?} should be ok", grammar);
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{:?} should be err", sentence);
+        // match sentence.unwrap() {
+        //     Error::RecursionLimit(_) => (),
+        //     e => panic!("should should be Error::RecursionLimit: {:?}", e),
+        // }
     }
 
     #[test]

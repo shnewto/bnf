@@ -51,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let incomplete = Term::from_str("<dna");
         assert!(incomplete.is_err());
 
@@ -59,6 +59,21 @@ mod tests {
         match error {
             Error::ParseError(ref s) => assert!(s.starts_with("Parsing error:")),
             _ => panic!("Incomplete term should be parse error"),
+        }
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let result = Term::from_str("");
+        assert!(result.is_err(), "{:?} should be err", result);
+        match result {
+            Err(e) => {
+                match e {
+                    Error::ParseIncomplete(_) => (),
+                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
         }
     }
 

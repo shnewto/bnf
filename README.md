@@ -37,7 +37,7 @@ to indicate the end of a producion)
 Take the following grammar for DNA sequences to be input to this library's 
 `parse` function.
 ```text
-<dna> ::= <base> | <base> <dna>;
+<dna> ::= <base> | <base> <dna>
 <base> ::= "A" | "C" | "G" | "T"
 ```
 

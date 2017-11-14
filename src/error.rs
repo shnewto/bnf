@@ -7,6 +7,7 @@ pub enum Error {
     ParseError(String),
     ParseIncomplete(String),
     GenerateError(String),
+    RecursionLimit(String),
 }
 
 impl fmt::Display for Error {
@@ -15,6 +16,7 @@ impl fmt::Display for Error {
             Error::ParseError(ref s) => write!(f, "{}", s),
             Error::ParseIncomplete(ref s) => write!(f, "{}", s),
             Error::GenerateError(ref s) => write!(f, "{}", s),
+            Error::RecursionLimit(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -29,21 +31,27 @@ impl<'a> From<Err<&'a [u8]>> for Error {
     fn from(err: Err<&[u8]>) -> Self {
         let string = match err {
             Err::Code(_) => String::from("Parsing error: Unknown origin"),
-            Err::Node(_, n) => n.iter()
-                .fold(String::from("Parsing error: Unknown origin."), |s, e| {
-                    s + &format!(" {}", e)
-                }),
-            Err::Position(_, p) => format!(
-                "Parsing error: When input is {}",
-                String::from_utf8_lossy(p)
-            ),
-            Err::NodePosition(_, p, n) => n.iter().fold(
+            Err::Node(_, n) => {
+                n.iter().fold(
+                    String::from("Parsing error: Unknown origin."),
+                    |s, e| s + &format!(" {}", e),
+                )
+            }
+            Err::Position(_, p) => {
                 format!(
-                    "Parsing error: When input is {}.",
+                    "Parsing error: When input is {}",
                     String::from_utf8_lossy(p)
-                ),
-                |s, e| s + &format!(" {}", e),
-            ),
+                )
+            }
+            Err::NodePosition(_, p, n) => {
+                n.iter().fold(
+                    format!(
+                        "Parsing error: When input is {}.",
+                        String::from_utf8_lossy(p)
+                    ),
+                    |s, e| s + &format!(" {}", e),
+                )
+            }
         };
 
         Error::ParseError(string)
@@ -66,7 +74,8 @@ mod tests {
     use nom::IResult;
     use error::Error;
 
-    named!(give_error_kind, 
+    named!(
+        give_error_kind,
         do_parse!(
             tag!("1234") >>
             res: tag!("5678") >>
@@ -120,11 +129,42 @@ mod tests {
     }
 
     #[test]
+    fn uses_error_recursion_limit() {
+        let bnf_error = Error::RecursionLimit(String::from("reucrsion limit reached!"));
+        match bnf_error {
+            Error::RecursionLimit(_) => (),
+            e => panic!("should match on reursion limit: {:?}", e),
+        }
+    }
+
+    #[test]
     fn uses_error_generate() {
-        let bnf_error = Error::GenerateError(String::from("Error Generating!"));
+        let bnf_error = Error::GenerateError(String::from("error generating!"));
         match bnf_error {
             Error::GenerateError(_) => (),
             e => panic!("should match on generate error: {:?}", e),
-        }        
+        }
+    }
+
+    #[test]
+    fn test_error_display() {
+        let parse_error = Error::ParseError(String::from("syntax error!"));
+        let incomplete_error = Error::ParseIncomplete(String::from("incomplete data size!"));
+        let generate_error = Error::GenerateError(String::from("error generating!"));
+        let recursion_error = Error::RecursionLimit(String::from("recursion limit reached!"));
+
+        assert_eq!(parse_error.to_string(), String::from("syntax error!"));
+        assert_eq!(
+            incomplete_error.to_string(),
+            String::from("incomplete data size!")
+        );
+        assert_eq!(
+            generate_error.to_string(),
+            String::from("error generating!")
+        );
+        assert_eq!(
+            recursion_error.to_string(),
+            String::from("recursion limit reached!")
+        );
     }
 }

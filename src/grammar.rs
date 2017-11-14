@@ -7,7 +7,7 @@ use production::Production;
 use term::Term;
 use parsers;
 use error::Error;
-use rand::{thread_rng, Rng};
+use rand::{Rng, SeedableRng, StdRng, thread_rng};
 use stacker;
 
 /// A Grammar is comprised of any number of Productions
@@ -19,9 +19,7 @@ pub struct Grammar {
 impl Grammar {
     /// Construct a new `Grammar`
     pub fn new() -> Grammar {
-        Grammar {
-            productions: vec![],
-        }
+        Grammar { productions: vec![] }
     }
 
     /// Construct an `Grammar` from `Production`s
@@ -54,31 +52,29 @@ impl Grammar {
 
     /// Get iterator of the `Grammar`'s `Production`s
     pub fn productions_iter(&self) -> Iter {
-        Iter {
-            iterator: self.productions.iter(),
-        }
+        Iter { iterator: self.productions.iter() }
     }
 
     /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> IterMut {
-        IterMut {
-            iterator: self.productions.iter_mut(),
-        }
+        IterMut { iterator: self.productions.iter_mut() }
     }
 
-    fn eval_terminal(&self, term: &Term) -> Result<String, Error> {
+    fn eval_terminal(&self, term: &Term, rng: &mut StdRng) -> Result<String, Error> {
         match *term {
-            Term::Nonterminal(ref nt) => self.traverse(&nt),
+            Term::Nonterminal(ref nt) => self.traverse(&nt, rng),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &String) -> Result<String, Error> {
+    fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
         let stack_red_zone: usize = 32 * 1024; // 32KB
-        if stacker::remaining_stack() <= stack_red_zone {
-            return Err(Error::GenerateError(
-                String::from("Infinite loop detected!"),
-            ));
+        // heavy recursion happening, we've hit out tolerable threshold
+        if stacker::remaining_stack() < stack_red_zone {
+            return Err(Error::RecursionLimit(format!(
+                "Limit for recursion reached processing <{}>!",
+                ident
+            )));
         }
 
         let nonterm = Term::Nonterminal(ident.clone());
@@ -93,7 +89,7 @@ impl Grammar {
         let expression;
         let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
-        match thread_rng().choose(&expressions) {
+        match rng.choose(&expressions) {
             Some(e) => expression = e.clone(),
             None => {
                 return Err(Error::GenerateError(
@@ -104,13 +100,67 @@ impl Grammar {
 
         let mut result = String::new();
         for term in expression.terms_iter() {
-            match self.eval_terminal(&term) {
+            match self.eval_terminal(&term, rng) {
                 Ok(s) => result = result + &s,
                 Err(e) => return Err(e),
             }
         }
 
-        Ok(result)
+        return Ok(result);
+    }
+
+    /// Generate a random sentence from self and seed for random.
+    /// Use if interested in reproducing the output generated.
+    /// Begins from lhs of first production.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// extern crate bnf;
+    /// extern crate rand;
+    /// use rand::{SeedableRng, StdRng};
+    /// use bnf::Grammar;
+    ///
+    /// fn main() {
+    ///     let input =
+    ///         "<dna> ::= <base> | <base> <dna>
+    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     let grammar = Grammar::from_str(input).unwrap();
+    ///     let seed: &[_] = &[1,2,3,4];
+    ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
+    ///     let sentence = grammar.generate_seeded(&mut rng);
+    ///     # let sentence_clone = sentence.clone();
+    ///     match sentence {
+    ///         Ok(s) => println!("random sentence: {}", s),
+    ///         Err(e) => println!("something went wrong: {}!", e)
+    ///     }
+    ///
+    ///     # assert!(sentence_clone.is_ok());
+    /// }
+    /// ```
+    pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
+        let start_rule: String;
+        let first_production = self.productions_iter().nth(0);
+
+        match first_production {
+            Some(term) => {
+                match term.lhs {
+                    Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                    Term::Terminal(_) => {
+                        return Err(Error::GenerateError(format!(
+                            "Termainal type cannot define a production in '{}'!",
+                            term
+                        )));
+                    }
+                }
+            }
+            None => {
+                return Err(Error::GenerateError(
+                    String::from("Failed to get first production!"),
+                ));
+            }
+        }
+        self.traverse(&start_rule, rng)
     }
 
     /// Generate a random sentence from self.
@@ -138,27 +188,13 @@ impl Grammar {
     /// }
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
-        let start_rule: String;
-        let first_production = self.productions_iter().nth(0);
-
-        match first_production {
-            Some(term) => match term.lhs {
-                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
-                Term::Terminal(_) => {
-                    return Err(Error::GenerateError(format!(
-                        "Termainal type cannot define a production in '{}'!",
-                        term
-                    )));
-                }
-            },
-            None => {
-                return Err(Error::GenerateError(
-                    String::from("Failed to get first production!"),
-                ));
-            }
-        }
-
-        self.traverse(&start_rule)
+        // let seed: &[_] = &[1, 2, 3, 4];
+        let seed: Vec<usize> = thread_rng()
+            .gen_iter::<usize>()
+            .take(1000)
+            .collect::<Vec<usize>>();
+        let mut rng: StdRng = SeedableRng::from_seed(&seed[..]);
+        self.generate_seeded(&mut rng)
     }
 }
 
@@ -215,7 +251,7 @@ mod tests {
     use expression::Expression;
     use production::Production;
     // use grammar::Grammar;
-    
+
     #[test]
     fn new_grammars() {
         let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
@@ -328,17 +364,41 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error() {
         let grammar = Grammar::from_str("<almost_grammar> ::= <test");
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 
     #[test]
-    fn infinite_loop() {
+    fn parse_incomplete() {
+        let result = Grammar::from_str("");
+        assert!(result.is_err(), "{:?} should be err", result);
+        match result {
+            Err(e) => {
+                match e {
+                    Error::ParseIncomplete(_) => (),
+                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
+        }
+    }
+
+    #[test]
+    fn recursion_limit() {
         let grammar = Grammar::from_str("<nonterm> ::= <nonterm>");
         assert!(grammar.is_ok(), "{:?} should be ok", grammar);
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{:?} should be err", sentence);
+        match sentence {
+            Err(e) => {
+                match e {
+                    Error::RecursionLimit(_) => (),
+                    e => panic!("should should be Error::RecursionLimit: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::RecursionLimit: {}", s),
+        }
     }
 
     #[test]
@@ -372,7 +432,7 @@ mod tests {
         let grammar = Grammar::from_parts(vec![]);
         let sentence = grammar.generate();
         assert!(sentence.is_err(), "{:?} should be error", sentence);
-    }    
+    }
 
     #[test]
     fn no_expressions() {
@@ -381,5 +441,5 @@ mod tests {
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
         assert!(sentence.is_err(), "{:?} should be error", sentence);
-    }        
+    }
 }

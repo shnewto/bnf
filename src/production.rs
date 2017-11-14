@@ -55,16 +55,12 @@ impl Production {
 
     /// Get iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter(&self) -> Iter {
-        Iter {
-            iterator: self.rhs.iter(),
-        }
+        Iter { iterator: self.rhs.iter() }
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter_mut(&mut self) -> IterMut {
-        IterMut {
-            iterator: self.rhs.iter_mut(),
-        }
+        IterMut { iterator: self.rhs.iter_mut() }
     }
 }
 
@@ -164,9 +160,9 @@ mod tests {
         assert_eq!(production.rhs_iter().count(), expression_list.len() - 1);
         // the unnecessary should no longer be found
         assert_eq!(
-            production
-                .rhs_iter()
-                .find(|&expression| *expression == two_more),
+            production.rhs_iter().find(
+                |&expression| *expression == two_more,
+            ),
             None
         );
     }
@@ -226,6 +222,21 @@ mod tests {
         match production {
             Error::ParseError(_) => (),
             e => panic!("production error should be error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn parse_incomplete() {
+        let result = Production::from_str("");
+        assert!(result.is_err(), "{:?} should be err", result);
+        match result {
+            Err(e) => {
+                match e {
+                    Error::ParseIncomplete(_) => (),
+                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
         }
     }
 

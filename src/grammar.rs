@@ -29,9 +29,6 @@ impl Grammar {
 
     // Get `Grammar` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        if s.len() == 0 {
-            return Ok(Grammar::new());
-        }
         match parsers::grammar_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -373,9 +370,18 @@ mod tests {
     }
 
     #[test]
-    fn parse_empty() {
+    fn parse_incomplete() {
         let result = Grammar::from_str("");
-        assert!(result.is_ok(), "{:?} should be ok", result);
+        assert!(result.is_err(), "{:?} should be err", result);
+        match result {
+            Err(e) => {
+                match e {
+                    Error::ParseIncomplete(_) => (),
+                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
+        }
     }
 
     #[test]
@@ -384,10 +390,15 @@ mod tests {
         assert!(grammar.is_ok(), "{:?} should be ok", grammar);
         let sentence = grammar.unwrap().generate();
         assert!(sentence.is_err(), "{:?} should be err", sentence);
-        // match sentence.unwrap() {
-        //     Error::RecursionLimit(_) => (),
-        //     e => panic!("should should be Error::RecursionLimit: {:?}", e),
-        // }
+        match sentence {
+            Err(e) => {
+                match e {
+                    Error::RecursionLimit(_) => (),
+                    e => panic!("should should be Error::RecursionLimit: {:?}", e),
+                }
+            }
+            Ok(s) => panic!("should should be Error::RecursionLimit: {}", s),
+        }
     }
 
     #[test]

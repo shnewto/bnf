@@ -166,8 +166,5 @@ mod tests {
             recursion_error.to_string(),
             String::from("recursion limit reached!")
         );
-
     }
-
-
 }

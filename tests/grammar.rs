@@ -68,7 +68,13 @@ impl Arbitrary for Meta {
                 match e {
                     // shouldn't cause parsing to fail if random generation
                     // recurses too far
-                    Error::RecursionLimit(_) => Meta { bnf: String::new() },
+                    Error::RecursionLimit(_) => {
+                        Meta {
+                            bnf: String::from(
+                                "<if-recursion-limit-reached> ::= \"parse shouldn't fail\"",
+                            ),
+                        }
+                    }
                     _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed),
                 }
             }

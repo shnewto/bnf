@@ -145,4 +145,29 @@ mod tests {
             e => panic!("should match on generate error: {:?}", e),
         }
     }
+
+    #[test]
+    fn test_error_display() {
+        let parse_error = Error::ParseError(String::from("syntax error!"));
+        let incomplete_error = Error::ParseIncomplete(String::from("incomplete data size!"));
+        let generate_error = Error::GenerateError(String::from("error generating!"));
+        let recursion_error = Error::RecursionLimit(String::from("recursion limit reached!"));
+
+        assert_eq!(parse_error.to_string(), String::from("syntax error!"));
+        assert_eq!(
+            incomplete_error.to_string(),
+            String::from("incomplete data size!")
+        );
+        assert_eq!(
+            generate_error.to_string(),
+            String::from("error generating!")
+        );
+        assert_eq!(
+            recursion_error.to_string(),
+            String::from("recursion limit reached!")
+        );
+
+    }
+
+
 }

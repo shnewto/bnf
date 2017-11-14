@@ -51,7 +51,7 @@ const BNF_FOR_BNF: &str = "
         <rule-name>      ::= <letter> | <rule-name> <rule-char>
         <rule-char>      ::= <letter> | <digit> | \"-\"
         <EOL>            ::= \"\n\"";
-        
+
 impl Arbitrary for Meta {
     fn arbitrary<G: Gen>(g: &mut G) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
@@ -69,7 +69,7 @@ impl Arbitrary for Meta {
                     // shouldn't cause parsing to fail if random generation
                     // recurses too far
                     Error::RecursionLimit(_) => Meta { bnf: String::new() },
-                    _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed)
+                    _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed),
                 }
             }
             Ok(s) => Meta { bnf: s },

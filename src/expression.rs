@@ -26,8 +26,8 @@ impl Expression {
     // Get `Expression` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
         if s.len() == 0 {
-            return Ok(Expression::new())
-        }        
+            return Ok(Expression::new());
+        }
         match parsers::expression_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),

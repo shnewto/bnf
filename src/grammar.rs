@@ -30,7 +30,7 @@ impl Grammar {
     // Get `Grammar` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
         if s.len() == 0 {
-            return Ok(Grammar::new())
+            return Ok(Grammar::new());
         }
         match parsers::grammar_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
@@ -74,9 +74,10 @@ impl Grammar {
         let stack_red_zone: usize = 32 * 1024; // 32KB
         // heavy recursion happening, we've hit out tolerable threshold
         if stacker::remaining_stack() < stack_red_zone {
-            return Err(Error::RecursionLimit(
-                format!("Limit for recursion reached processing <{}>!", ident),
-            ));
+            return Err(Error::RecursionLimit(format!(
+                "Limit for recursion reached processing <{}>!",
+                ident
+            )));
         }
 
         let nonterm = Term::Nonterminal(ident.clone());

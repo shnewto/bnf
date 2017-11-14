@@ -32,7 +32,7 @@
 //! Take the following grammar for DNA sequences to be input to this library's
 //! `parse` function.
 //! ```text
-//! <dna> ::= <base> | <base> <dna>;
+//! <dna> ::= <base> | <base> <dna>
 //! <base> ::= "A" | "C" | "G" | "T"
 //! ```
 //!
@@ -177,3 +177,4 @@ pub use term::Term;
 pub use expression::Expression;
 pub use production::Production;
 pub use grammar::Grammar;
+pub use error::Error;

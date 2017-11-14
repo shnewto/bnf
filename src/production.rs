@@ -30,6 +30,9 @@ impl Production {
 
     // Get `Production` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
+        if s.len() == 0 {
+            return Ok(Production::new())
+        }                
         match parsers::production_complete(s.as_bytes()) {
             IResult::Done(_, o) => Ok(o),
             IResult::Incomplete(n) => Err(Error::from(n)),
@@ -226,19 +229,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_empty() {
         let result = Production::from_str("");
-        assert!(
-            result.is_err(),
-            "production result should be error {:?}",
-            result
-        );
-
-        let production = result.unwrap_err();
-        match production {
-            Error::ParseIncomplete(_) => (),
-            e => panic!("production should be incomplete: {:?}", e),
-        }
+        assert!(result.is_ok(), "{:?} should be ok", result);
     }
 
     #[test]

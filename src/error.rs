@@ -7,6 +7,7 @@ pub enum Error {
     ParseError(String),
     ParseIncomplete(String),
     GenerateError(String),
+    RecursionLimit(String),
 }
 
 impl fmt::Display for Error {
@@ -15,6 +16,7 @@ impl fmt::Display for Error {
             Error::ParseError(ref s) => write!(f, "{}", s),
             Error::ParseIncomplete(ref s) => write!(f, "{}", s),
             Error::GenerateError(ref s) => write!(f, "{}", s),
+            Error::RecursionLimit(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -127,8 +129,17 @@ mod tests {
     }
 
     #[test]
+    fn uses_error_recursion_limit() {
+        let bnf_error = Error::RecursionLimit(String::from("reucrsion limit reached!"));
+        match bnf_error {
+            Error::RecursionLimit(_) => (),
+            e => panic!("should match on reursion limit: {:?}", e),
+        }
+    }
+
+    #[test]
     fn uses_error_generate() {
-        let bnf_error = Error::GenerateError(String::from("Error Generating!"));
+        let bnf_error = Error::GenerateError(String::from("error generating!"));
         match bnf_error {
             Error::GenerateError(_) => (),
             e => panic!("should match on generate error: {:?}", e),

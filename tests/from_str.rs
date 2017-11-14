@@ -1,6 +1,5 @@
 extern crate bnf;
 
-#[cfg(test)]
 mod std_trait {
     use std::str::FromStr;
 
@@ -48,7 +47,6 @@ mod std_trait {
     }
 }
 
-#[cfg(test)]
 mod custom_trait {
     use bnf::{Expression, Grammar, Production, Term};
 

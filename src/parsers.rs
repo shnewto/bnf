@@ -39,7 +39,7 @@ named!(pub term_complete< &[u8], Term >,
     )
 );
 
-named!(pub expression_next, 
+named!(pub expression_next,
     do_parse!(
         ws!(char!('|')) >>
         ret: recognize!(peek!(complete!(expression))) >>
@@ -51,11 +51,11 @@ named!(pub expression< &[u8], Expression >,
     do_parse!(
         terms: many1!(term) >>
         ws!(
-            alt!( 
-                recognize!(peek!(complete!(eof!()))) | 
-                recognize!(peek!(complete!(char!(';')))) | 
-                expression_next | 
-                recognize!(peek!(complete!(prod_lhs))) 
+            alt!(
+                recognize!(peek!(complete!(eof!()))) |
+                recognize!(peek!(complete!(char!(';')))) |
+                expression_next |
+                recognize!(peek!(complete!(prod_lhs)))
             )
         ) >>
         (Expression::from_parts(terms))
@@ -78,7 +78,7 @@ named!(pub production< &[u8], Production >,
             alt!(
                 recognize!(peek!(complete!(eof!()))) |
                 tag!(";") |
-                recognize!(peek!(complete!(prod_lhs))) 
+                recognize!(peek!(complete!(prod_lhs)))
             )
         ) >>
         (Production::from_parts(lhs, rhs))
@@ -169,8 +169,8 @@ mod tests {
         let expression_tuple = construct_expression_tuple();
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_nonterminal_tuple();
-        let production_pattern =
-            nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" + &terminal_tuple.1 + ";";
+        let production_pattern = nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" +
+            &terminal_tuple.1 + ";";
         let production_object = Production::from_parts(
             nonterminal_tuple.0,
             vec![

@@ -32,4 +32,4 @@ script:
       cargo doc
 
 after_success:
-  - cargo coveralls
+  - cargo coveralls --exclude '#[cfg(test)]:#[cfg(testkcovstopmarker)]'

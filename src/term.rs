@@ -46,7 +46,35 @@ impl fmt::Display for Term {
 
 #[cfg(test)]
 mod tests {
+    extern crate quickcheck;
+
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
     use super::*;
+
+    impl Arbitrary for Term {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            if bool::arbitrary(g) {
+                Term::Nonterminal(String::arbitrary(g))
+            } else {
+                let mut term = String::arbitrary(g);
+                if term.contains('"') {
+                    term = term.chars().filter(|&c| c != '\'').collect();
+                } else if term.contains('\'') {
+                    term = term.chars().filter(|&c| c != '"').collect();
+                }
+                Term::Terminal(term)
+            }
+        }
+    }
+
+    fn prop_to_string_and_back(term: Term) -> TestResult {
+        let to_string = term.to_string();
+        let from_str = Term::from_str(&to_string);
+        match from_str {
+            Ok(from_term) => TestResult::from_bool(from_term == term),
+            _ => TestResult::error(format!("{} to string and back should be safe", term)),
+        }
+    }
 
     #[test]
     fn parse_complete() {

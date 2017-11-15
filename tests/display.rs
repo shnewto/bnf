@@ -61,3 +61,36 @@ fn validate_nonterminated_display() {
 
     assert_eq!(grammar.to_string(), display_output);
 }
+
+#[test]
+fn grammar_with_quotes() {
+    let input = "
+        <permissive-string-definition>
+            ::= <single-quote> <message> <single-quote>
+            | <double-quote> <messag> <double-quote>
+
+        <double-quote>
+            ::= '\"'
+
+        <single-quote>
+            ::= \"'\"
+
+        <message>
+            ::= \"Hello, world!\"
+    ";
+
+    let display_output = "\
+        <permissive-string-definition> \
+            ::= <single-quote> <message> <single-quote> \
+            | <double-quote> <messag> <double-quote>\n\
+        <double-quote> \
+            ::= \'\"\'\n\
+        <single-quote> \
+            ::= \"\'\"\n\
+        <message> \
+            ::= \"Hello, world!\"\n\
+    ";
+
+    let grammar = Grammar::from_str(input).expect("Grammar with quotes should parse");
+    assert_eq!(grammar.to_string(), display_output);
+}

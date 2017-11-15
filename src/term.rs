@@ -32,7 +32,13 @@ impl FromStr for Term {
 impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Term::Terminal(ref s) => write!(f, "\"{}\"", s),
+            Term::Terminal(ref s) => {
+                if s.contains('"') {
+                    write!(f, "'{}'", s)
+                } else {
+                    write!(f, "\"{}\"", s)
+                }
+            }
             Term::Nonterminal(ref s) => write!(f, "<{}>", s),
         }
     }
@@ -102,5 +108,25 @@ mod tests {
             Ok(Term::Terminal(some_space.clone())),
             Term::from_str(&format!("\"{}\"", some_space))
         );
+    }
+
+    #[test]
+    fn parse_quote_term() {
+        let quote_term = Term::from_str("'\"'");
+        assert_eq!(Ok(Term::Terminal(String::from("\""))), quote_term);
+    }
+
+    #[test]
+    fn parse_single_quote_term() {
+        let quote_term = Term::from_str("\"'\"");
+        assert_eq!(Ok(Term::Terminal(String::from("'"))), quote_term);
+    }
+
+    #[test]
+    fn quote_term_to_string_and_back() {
+        let quote = Term::Terminal(String::from("\""));
+        let to_string = quote.to_string();
+        let from_string = Term::from_str(&to_string);
+        assert_eq!(Ok(Term::Terminal(String::from("\""))), from_string);
     }
 }

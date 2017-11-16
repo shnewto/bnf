@@ -78,7 +78,7 @@ mod tests {
     }
 
     #[test]
-    fn term_to_string_and_back() {
+    fn to_string_and_back() {
         QuickCheck::new().quickcheck(prop_to_string_and_back as fn(Term) -> TestResult)
     }
 

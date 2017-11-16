@@ -113,7 +113,45 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate quickcheck;
+    extern crate rand;
+
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
     use super::*;
+
+    impl Arbitrary for Production {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let lhs_str = String::arbitrary(g)
+                .chars()
+                .filter(|&c| (c != '>'))
+                .collect();
+
+            let lhs = Term::Nonterminal(lhs_str);
+
+            let mut rhs = Vec::<Expression>::arbitrary(g);
+            if rhs.len() < 1 {
+                rhs.push(Expression::arbitrary(g));
+            }
+            Production { lhs: lhs, rhs: rhs }
+        }
+    }
+
+    fn prop_to_string_and_back(prop: Production) -> TestResult {
+        let to_string = prop.to_string();
+        let from_str = Production::from_str(&to_string);
+        match from_str {
+            Ok(from_prod) => TestResult::from_bool(from_prod == prop),
+            _ => TestResult::error(format!("{} to string and back should be safe", prop)),
+        }
+    }
+
+    #[test]
+    fn to_string_and_back() {
+        QuickCheck::new()
+            .tests(1000)
+            .gen(StdGen::new(rand::thread_rng(), 25usize))
+            .quickcheck(prop_to_string_and_back as fn(Production) -> TestResult)
+    }
 
     #[test]
     fn new_productions() {

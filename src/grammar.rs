@@ -246,11 +246,42 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate quickcheck;
+    extern crate rand;
+
     use super::*;
     use term::Term;
     use expression::Expression;
     use production::Production;
-    // use grammar::Grammar;
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
+
+    impl Arbitrary for Grammar {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let mut productions = Vec::<Production>::arbitrary(g);
+            // grammar must always have atleast one production
+            if productions.len() < 1 {
+                productions.push(Production::arbitrary(g));
+            }
+            Grammar { productions: productions }
+        }
+    }
+
+    fn prop_to_string_and_back(gram: Grammar) -> TestResult {
+        let to_string = gram.to_string();
+        let from_str = Grammar::from_str(&to_string);
+        match from_str {
+            Ok(from_prod) => TestResult::from_bool(from_prod == gram),
+            _ => TestResult::error(format!("{} to string and back should be safe", gram)),
+        }
+    }
+
+    #[test]
+    fn to_string_and_back() {
+        QuickCheck::new()
+            .tests(1000)
+            .gen(StdGen::new(rand::thread_rng(), 12usize))
+            .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult)
+    }
 
     #[test]
     fn new_grammars() {

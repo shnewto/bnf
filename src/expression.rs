@@ -125,7 +125,35 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
+    extern crate quickcheck;
+
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
+
+    impl Arbitrary for Expression {
+        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            let mut terms = Vec::<Term>::arbitrary(g);
+            // expressions must always have atleast one term
+            if terms.len() < 1 {
+                terms.push(Term::arbitrary(g));
+            }
+            Expression { terms: terms }
+        }
+    }
+
+    fn prop_to_string_and_back(expr: Expression) -> TestResult {
+        let to_string = expr.to_string();
+        let from_str = Expression::from_str(&to_string);
+        match from_str {
+            Ok(from_expr) => TestResult::from_bool(from_expr == expr),
+            _ => TestResult::error(format!("{} to string and back should be safe", expr)),
+        }
+    }
+
+    #[test]
+    fn to_string_and_back() {
+        QuickCheck::new().quickcheck(prop_to_string_and_back as fn(Expression) -> TestResult)
+    }
 
     #[test]
     fn new_expressions() {

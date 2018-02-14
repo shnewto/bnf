@@ -3,7 +3,7 @@
 //! Inspired by the JavaScript library [prettybnf](https://github.com/dhconnelly/prettybnf)
 //!
 //!
-//! The code is available on [Github](https://github.com/snewt/bnf)
+//! The code is available on [Github](https://github.com/shnewto/bnf)
 //!
 //! ## What does a parsable BNF grammar look like?
 //!

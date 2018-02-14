@@ -1,7 +1,7 @@
 # bnf
 
-[![Build Status](https://travis-ci.org/snewt/bnf.svg?branch=master)](https://travis-ci.org/snewt/bnf)
-[![Coverage Status](https://coveralls.io/repos/github/snewt/bnf/badge.svg?branch=master)](https://coveralls.io/github/snewt/bnf?branch=master)
+[![Build Status](https://travis-ci.org/shnewto/bnf.svg?branch=master)](https://travis-ci.org/shnewto/bnf)
+[![Coverage Status](https://coveralls.io/repos/github/shnewto/bnf/badge.svg?branch=master)](https://coveralls.io/github/shnewto/bnf?branch=master)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -12,7 +12,7 @@ inspired by the JavaScript libraries [prettybnf](https://github.com/dhconnelly/p
 
 ## What does a parsable BNF grammar look like?
 
-The following grammar from the 
+The following grammar from the
 [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
 to indicate the end of a producion)
@@ -34,7 +34,7 @@ to indicate the end of a producion)
 ```
 
 ## Output
-Take the following grammar for DNA sequences to be input to this library's 
+Take the following grammar for DNA sequences to be input to this library's
 `parse` function.
 ```text
 <dna> ::= <base> | <base> <dna>
@@ -111,7 +111,7 @@ Grammar {
 
 Once the `Grammar` object is populated, to generate a random sentence from it
 call the object's generate function. `grammar.generate()`. For the above grammar
-you could expect something like `TGGC` or `AG`. 
+you could expect something like `TGGC` or `AG`.
 
 If the generate function can't find a production for a nonterminal it tries
 to evaluate it will print the identifer as a nonterminal, i.e. `<identifier>`.
@@ -149,7 +149,7 @@ fn main() {
 }
 ```
 ## Generate Example
-    
+
 ```rust
 extern crate bnf;
 use bnf::Grammar;

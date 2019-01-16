@@ -68,13 +68,14 @@ impl Grammar {
     }
 
     fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
-        let stack_red_zone: usize = 32 * 1024; // 32KB
+        const stack_red_zone: usize = 32 * 1024; // 32KB
         // heavy recursion happening, we've hit out tolerable threshold
-        if stacker::remaining_stack() < stack_red_zone {
-            return Err(Error::RecursionLimit(format!(
-                "Limit for recursion reached processing <{}>!",
-                ident
-            )));
+        if let Some(remaining) = stacker::remaining_stack() {
+            if remaining < stack_red_zone {
+                return Err(Error::RecursionLimit(format!(
+                            "Limit for recursion reached processing <{}>!",
+                            ident)));
+            }
         }
 
         let nonterm = Term::Nonterminal(ident.clone());

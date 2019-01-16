@@ -15,19 +15,19 @@ inspired by the JavaScript libraries [prettybnf](https://github.com/dhconnelly/p
 The following grammar from the
 [Wikipedia page on Backus-Naur form](https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
 exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
-to indicate the end of a producion)
+to indicate the end of a production)
 
 ```text
-<postal-address> ::= <name-part> <street-address> <zip-part>
+ <postal-address> ::= <name-part> <street-address> <zip-part>
 
-        <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
+      <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
                     | <personal-part> <name-part>
 
-    <personal-part> ::= <initial> "." | <first-name>
+  <personal-part> ::= <initial> "." | <first-name>
 
-    <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
+ <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 
-        <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>
+       <zip-part> ::= <town-name> "," <state-code> <ZIP-code> <EOL>
 
 <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | ""
     <opt-apt-num> ::= <apt-num> | ""

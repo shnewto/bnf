@@ -1,6 +1,6 @@
-use std::fmt;
-use std::error;
 use nom::{Err, Needed};
+use std::error;
+use std::fmt;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Error {
@@ -31,27 +31,22 @@ impl<'a> From<Err<&'a [u8]>> for Error {
     fn from(err: Err<&[u8]>) -> Self {
         let string = match err {
             Err::Code(_) => String::from("Parsing error: Unknown origin"),
-            Err::Node(_, n) => {
-                n.iter().fold(
-                    String::from("Parsing error: Unknown origin."),
-                    |s, e| s + &format!(" {}", e),
-                )
-            }
-            Err::Position(_, p) => {
+            Err::Node(_, n) => n
+                .iter()
+                .fold(String::from("Parsing error: Unknown origin."), |s, e| {
+                    s + &format!(" {}", e)
+                }),
+            Err::Position(_, p) => format!(
+                "Parsing error: When input is {}",
+                String::from_utf8_lossy(p)
+            ),
+            Err::NodePosition(_, p, n) => n.iter().fold(
                 format!(
-                    "Parsing error: When input is {}",
+                    "Parsing error: When input is {}.",
                     String::from_utf8_lossy(p)
-                )
-            }
-            Err::NodePosition(_, p, n) => {
-                n.iter().fold(
-                    format!(
-                        "Parsing error: When input is {}.",
-                        String::from_utf8_lossy(p)
-                    ),
-                    |s, e| s + &format!(" {}", e),
-                )
-            }
+                ),
+                |s, e| s + &format!(" {}", e),
+            ),
         };
 
         Error::ParseError(string)
@@ -71,16 +66,12 @@ impl From<Needed> for Error {
 
 #[cfg(test)]
 mod tests {
-    use nom::IResult;
     use error::Error;
+    use nom::IResult;
 
     named!(
         give_error_kind,
-        do_parse!(
-            tag!("1234") >>
-            res: tag!("5678") >>
-            (res)
-        )
+        do_parse!(tag!("1234") >> res: tag!("5678") >> (res))
     );
 
     #[test]

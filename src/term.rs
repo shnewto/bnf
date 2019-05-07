@@ -1,11 +1,11 @@
-use std::fmt;
-use std::str::FromStr;
+use error::Error;
 use nom::IResult;
 use parsers;
-use error::Error;
+use std::fmt;
+use std::str::FromStr;
 
 /// A Term can represent a Terminal or Nonterminal node
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Term {
     Terminal(String),
     Nonterminal(String),
@@ -107,12 +107,10 @@ mod tests {
         let result = Term::from_str("");
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
-            Err(e) => {
-                match e {
-                    Error::ParseIncomplete(_) => (),
-                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
-                }
-            }
+            Err(e) => match e {
+                Error::ParseIncomplete(_) => (),
+                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+            },
             Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
         }
     }

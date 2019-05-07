@@ -1,7 +1,7 @@
-use term::Term;
 use expression::Expression;
-use production::Production;
 use grammar::Grammar;
+use production::Production;
+use term::Term;
 
 named!(pub prod_lhs< &[u8], Term >,
     do_parse!(
@@ -100,7 +100,6 @@ named!(pub grammar< &[u8], Grammar >,
     )
 );
 
-
 named!(pub grammar_complete< &[u8], Grammar >,
     do_parse!(
         g: grammar >>
@@ -169,8 +168,8 @@ mod tests {
         let expression_tuple = construct_expression_tuple();
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_nonterminal_tuple();
-        let production_pattern = nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" +
-            &terminal_tuple.1 + ";";
+        let production_pattern =
+            nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" + &terminal_tuple.1 + ";";
         let production_object = Production::from_parts(
             nonterminal_tuple.0,
             vec![

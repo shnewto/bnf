@@ -1,13 +1,13 @@
-use std::fmt;
-use std::str::FromStr;
-use std::slice;
-use nom::IResult;
-use term::Term;
-use parsers;
 use error::Error;
+use nom::IResult;
+use parsers;
+use std::fmt;
+use std::slice;
+use std::str::FromStr;
+use term::Term;
 
 /// An Expression is comprised of any number of Terms
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Expression {
     terms: Vec<Term>,
 }
@@ -70,18 +70,23 @@ impl Expression {
 
     /// Get iterator of `Term`s within `Expression`
     pub fn terms_iter(&self) -> Iter {
-        Iter { iterator: self.terms.iter() }
+        Iter {
+            iterator: self.terms.iter(),
+        }
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
     pub fn terms_iter_mut(&mut self) -> IterMut {
-        IterMut { iterator: self.terms.iter_mut() }
+        IterMut {
+            iterator: self.terms.iter_mut(),
+        }
     }
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let display = self.terms
+        let display = self
+            .terms
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>()
@@ -239,9 +244,9 @@ mod tests {
 
         // the nonexistent term should not be found in the terms
         assert_eq!(
-            dna_expression.terms_iter().find(
-                |&term| *term == nonexistent,
-            ),
+            dna_expression
+                .terms_iter()
+                .find(|&term| *term == nonexistent,),
             None
         );
         // no term should have been removed
@@ -276,12 +281,10 @@ mod tests {
         let result = Expression::from_str("");
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
-            Err(e) => {
-                match e {
-                    Error::ParseIncomplete(_) => (),
-                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
-                }
-            }
+            Err(e) => match e {
+                Error::ParseIncomplete(_) => (),
+                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+            },
             Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
         }
     }

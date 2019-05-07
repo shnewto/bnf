@@ -1,17 +1,17 @@
-use std::fmt;
-use std::str;
-use std::slice;
-use nom::IResult;
-use expression::Expression;
-use production::Production;
-use term::Term;
-use parsers;
 use error::Error;
-use rand::{Rng, SeedableRng, StdRng, thread_rng};
+use expression::Expression;
+use nom::IResult;
+use parsers;
+use production::Production;
+use rand::{thread_rng, Rng, SeedableRng, StdRng};
 use stacker;
+use std::fmt;
+use std::slice;
+use std::str;
+use term::Term;
 
 /// A Grammar is comprised of any number of Productions
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Grammar {
     productions: Vec<Production>,
 }
@@ -19,7 +19,9 @@ pub struct Grammar {
 impl Grammar {
     /// Construct a new `Grammar`
     pub fn new() -> Grammar {
-        Grammar { productions: vec![] }
+        Grammar {
+            productions: vec![],
+        }
     }
 
     /// Construct an `Grammar` from `Production`s
@@ -52,12 +54,16 @@ impl Grammar {
 
     /// Get iterator of the `Grammar`'s `Production`s
     pub fn productions_iter(&self) -> Iter {
-        Iter { iterator: self.productions.iter() }
+        Iter {
+            iterator: self.productions.iter(),
+        }
     }
 
     /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> IterMut {
-        IterMut { iterator: self.productions.iter_mut() }
+        IterMut {
+            iterator: self.productions.iter_mut(),
+        }
     }
 
     fn eval_terminal(&self, term: &Term, rng: &mut StdRng) -> Result<String, Error> {
@@ -69,12 +75,13 @@ impl Grammar {
 
     fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
         const STACK_RED_ZONE: usize = 32 * 1024; // 32KB
-        // heavy recursion happening, we've hit out tolerable threshold
+                                                 // heavy recursion happening, we've hit out tolerable threshold
         if let Some(remaining) = stacker::remaining_stack() {
             if remaining < STACK_RED_ZONE {
                 return Err(Error::RecursionLimit(format!(
-                            "Limit for recursion reached processing <{}>!",
-                            ident)));
+                    "Limit for recursion reached processing <{}>!",
+                    ident
+                )));
             }
         }
 
@@ -93,9 +100,9 @@ impl Grammar {
         match rng.choose(&expressions) {
             Some(e) => expression = e.clone(),
             None => {
-                return Err(Error::GenerateError(
-                    String::from("Couldn't select random Expression!"),
-                ));
+                return Err(Error::GenerateError(String::from(
+                    "Couldn't select random Expression!",
+                )));
             }
         }
 
@@ -144,21 +151,19 @@ impl Grammar {
         let first_production = self.productions_iter().nth(0);
 
         match first_production {
-            Some(term) => {
-                match term.lhs {
-                    Term::Nonterminal(ref nt) => start_rule = nt.clone(),
-                    Term::Terminal(_) => {
-                        return Err(Error::GenerateError(format!(
-                            "Termainal type cannot define a production in '{}'!",
-                            term
-                        )));
-                    }
+            Some(term) => match term.lhs {
+                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+                Term::Terminal(_) => {
+                    return Err(Error::GenerateError(format!(
+                        "Termainal type cannot define a production in '{}'!",
+                        term
+                    )));
                 }
-            }
+            },
             None => {
-                return Err(Error::GenerateError(
-                    String::from("Failed to get first production!"),
-                ));
+                return Err(Error::GenerateError(String::from(
+                    "Failed to get first production!",
+                )));
             }
         }
         self.traverse(&start_rule, rng)
@@ -250,11 +255,11 @@ mod tests {
     extern crate quickcheck;
     extern crate rand;
 
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
     use super::*;
-    use term::Term;
     use expression::Expression;
     use production::Production;
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
+    use term::Term;
 
     impl Arbitrary for Grammar {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -263,7 +268,9 @@ mod tests {
             if productions.len() < 1 {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar { productions: productions }
+            Grammar {
+                productions: productions,
+            }
         }
     }
 
@@ -406,12 +413,10 @@ mod tests {
         let result = Grammar::from_str("");
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
-            Err(e) => {
-                match e {
-                    Error::ParseIncomplete(_) => (),
-                    e => panic!("should should be Error::ParseIncomplete: {:?}", e),
-                }
-            }
+            Err(e) => match e {
+                Error::ParseIncomplete(_) => (),
+                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+            },
             Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
         }
     }
@@ -423,12 +428,10 @@ mod tests {
         let sentence = grammar.unwrap().generate();
         assert!(sentence.is_err(), "{:?} should be err", sentence);
         match sentence {
-            Err(e) => {
-                match e {
-                    Error::RecursionLimit(_) => (),
-                    e => panic!("should should be Error::RecursionLimit: {:?}", e),
-                }
-            }
+            Err(e) => match e {
+                Error::RecursionLimit(_) => (),
+                e => panic!("should should be Error::RecursionLimit: {:?}", e),
+            },
             Ok(s) => panic!("should should be Error::RecursionLimit: {}", s),
         }
     }

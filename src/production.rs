@@ -66,6 +66,11 @@ impl Production {
             iterator: self.rhs.iter_mut(),
         }
     }
+
+    /// Get number of right hand side `Expression`s
+    pub fn len(&self) -> usize {
+        self.rhs.len()
+    }
 }
 
 impl fmt::Display for Production {

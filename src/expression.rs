@@ -1,5 +1,4 @@
 use error::Error;
-use nom::IResult;
 use parsers;
 use std::fmt;
 use std::slice;
@@ -26,9 +25,8 @@ impl Expression {
     // Get `Expression` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::expression_complete(s.as_bytes()) {
-            IResult::Done(_, o) => Ok(o),
-            IResult::Incomplete(n) => Err(Error::from(n)),
-            IResult::Error(e) => Err(Error::from(e)),
+            Result::Ok((_,o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e))
         }
     }
 

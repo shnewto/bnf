@@ -23,8 +23,8 @@ named!(pub terminal< &[u8], Term >,
 
 named!(pub nonterminal< &[u8], Term >,
     do_parse!(
-        nt: delimited!(char!('<'), take_until!(">"), ws!(char!('>'))) >>
-        ws!(not!(tag!("::="))) >>
+        nt: complete!(delimited!(char!('<'), take_until!(">"), ws!(char!('>')))) >>
+        ws!(not!(complete!(tag!("::=")))) >>
         (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );
@@ -49,7 +49,8 @@ named!(pub expression_next,
 
 named!(pub expression< &[u8], Expression >,
     do_parse!(
-        terms: many1!(term) >>
+        peek!(term) >>
+        terms: many1!(complete!(term)) >>
         ws!(
             alt!(
                 recognize!(peek!(complete!(eof!()))) |
@@ -73,7 +74,7 @@ named!(pub expression_complete< &[u8], Expression >,
 named!(pub production< &[u8], Production >,
     do_parse!(
         lhs: ws!(prod_lhs) >>
-        rhs: many1!(expression) >>
+        rhs: many1!(complete!(expression)) >>
         ws!(
             alt!(
                 recognize!(peek!(complete!(eof!()))) |
@@ -95,7 +96,8 @@ named!(pub production_complete< &[u8], Production >,
 
 named!(pub grammar< &[u8], Grammar >,
     do_parse!(
-        prods: many1!(production) >>
+        peek!(production) >>
+        prods: many1!(complete!(production)) >>
         (Grammar::from_parts(prods))
     )
 );

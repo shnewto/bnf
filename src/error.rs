@@ -1,6 +1,7 @@
-use nom::{Err, Needed};
+use nom::{Err, Needed, error::ErrorKind};
 use std::error;
 use std::fmt;
+use std::str;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Error {
@@ -27,28 +28,19 @@ impl error::Error for Error {
     }
 }
 
-impl<'a> From<Err<&'a [u8]>> for Error {
-    fn from(err: Err<&[u8]>) -> Self {
-        let string = match err {
-            Err::Code(_) => String::from("Parsing error: Unknown origin"),
-            Err::Node(_, n) => n
-                .iter()
-                .fold(String::from("Parsing error: Unknown origin."), |s, e| {
-                    s + &format!(" {}", e)
-                }),
-            Err::Position(_, p) => format!(
-                "Parsing error: When input is {}",
-                String::from_utf8_lossy(p)
-            ),
-            Err::NodePosition(_, p, n) => n.iter().fold(
-                format!(
-                    "Parsing error: When input is {}.",
-                    String::from_utf8_lossy(p)
-                ),
-                |s, e| s + &format!(" {}", e),
-            ),
-        };
+impl<'a> From<Err<(&'a [u8],ErrorKind)>> for Error {
+    fn from(err: Err<(&[u8],ErrorKind)>) -> Self {
+        match err {
+            Err::Incomplete(n) => Error::from(n),
+            Err::Error(e) => Error::from(e),
+            Err::Failure(e) => Error::from(e)
+        }
+    }
+}
 
+impl<'a> From<(&'a [u8],ErrorKind)> for Error {
+    fn from(err: (&[u8],ErrorKind)) -> Self {
+        let string = format!("Parsing error: {}\n {:?}", err.1.description(), str::from_utf8(err.0));
         Error::ParseError(string)
     }
 }
@@ -67,7 +59,7 @@ impl From<Needed> for Error {
 #[cfg(test)]
 mod tests {
     use error::Error;
-    use nom::IResult;
+    use nom::Err;
 
     named!(
         give_error_kind,
@@ -79,8 +71,11 @@ mod tests {
         let nom_result = give_error_kind("12340".as_bytes());
         let nom_error;
         match nom_result {
-            IResult::Error(e) => nom_error = e,
-            _ => panic!("gets_error_error should result in IResult::Error"),
+            Result::Err(e) => match e {
+                Err::Error(_) => nom_error = e,
+                _ => panic!("gets_error_error should result in IResult::Err(Err::Error(e))")
+            },
+            _ => panic!("gets_error_error should result in IResult::Err"),
         }
 
         let bnf_error: Result<String, Error> = Err(Error::from(nom_error));
@@ -102,8 +97,11 @@ mod tests {
         let nom_result = give_error_kind("".as_bytes());
         let nom_error;
         match nom_result {
-            IResult::Incomplete(e) => nom_error = e,
-            _ => panic!("gets_error_error should result in IResult::Error"),
+            Result::Err(e) => match e {
+                Err::Incomplete(n) => nom_error = n,
+                _ => panic!("gets_error_error should result in IResult::Err(Err::Incomplete(n))")
+            }
+            _ => panic!("gets_error_error should result in IResult::Err"),
         }
 
         let bnf_error: Result<String, Error> = Err(Error::from(nom_error));

@@ -6,7 +6,7 @@ use term::Term;
 named!(pub prod_lhs< &[u8], Term >,
     do_parse!(
             nt: delimited!(char!('<'), take_until!(">"), ws!(char!('>'))) >>
-            ret: ws!(tag!("::=")) >>
+            _ret: ws!(tag!("::=")) >>
             (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
     )
 );

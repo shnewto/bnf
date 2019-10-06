@@ -15,23 +15,9 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: install clippy
-        run: rustup component add clippy
-      - name: clippy warnings
-        run: cargo clippy -- -D warnings
-  
   test:
     name: test suite
-    needs: [format, clippy]
+    needs: [format]
     strategy:
       matrix:
         toolchain: [stable, beta, nightly]

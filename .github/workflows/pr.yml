@@ -1,20 +1,48 @@
 on: [pull_request]
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: install rustfmt
+        run: rustup component add rustfmt
+      - name: rustfmt check
+        run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: install clippy
+        run: rustup component add clippy
+      - name: clippy warnings
+        run: cargo clippy -- -D warnings
+  
   test:
-    name: Test Suite
+    name: test suite
+    needs: [format, clippy]
     strategy:
       matrix:
         toolchain: [stable, beta, nightly]
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-      - name: Toolchain
+      - uses: actions/checkout@v1
+      - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.toolchain }}
           override: true
-      - name: Test
+      - name: test
         run: cargo test

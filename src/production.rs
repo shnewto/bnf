@@ -1,3 +1,5 @@
+#![allow(clippy::should_implement_trait)]
+
 use error::Error;
 use expression::Expression;
 use parsers;
@@ -30,8 +32,8 @@ impl Production {
     // Get `Production` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
         match parsers::production_complete(s.as_bytes()) {
-            Result::Ok((_,o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e))
+            Result::Ok((_, o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e)),
         }
     }
 
@@ -68,6 +70,16 @@ impl Production {
     /// Get number of right hand side `Expression`s
     pub fn len(&self) -> usize {
         self.rhs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.rhs.is_empty()
+    }
+}
+
+impl Default for Production {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -139,7 +151,7 @@ mod tests {
             if rhs.len() < 1 {
                 rhs.push(Expression::arbitrary(g));
             }
-            Production { lhs: lhs, rhs: rhs }
+            Production { lhs, rhs }
         }
     }
 

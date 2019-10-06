@@ -1,0 +1,34 @@
+on: [pull_request]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: install rustfmt
+        run: rustup component add rustfmt
+      - name: rustfmt check
+        run: cargo fmt --all -- --check
+
+  test:
+    name: test suite
+    needs: [format]
+    strategy:
+      matrix:
+        toolchain: [stable, beta, nightly]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          override: true
+      - name: test
+        run: cargo test

@@ -1,10 +1,10 @@
+extern crate bnf;
 extern crate quickcheck;
 extern crate rand;
-extern crate bnf;
 
-use bnf::Grammar;
 use bnf::Error;
-use quickcheck::{QuickCheck, TestResult, Arbitrary, Gen};
+use bnf::Grammar;
+use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use rand::{SeedableRng, StdRng};
 
 #[derive(PartialEq, Debug, Clone)]
@@ -68,13 +68,11 @@ impl Arbitrary for Meta {
                 match e {
                     // shouldn't cause parsing to fail if random generation
                     // recurses too far
-                    Error::RecursionLimit(_) => {
-                        Meta {
-                            bnf: String::from(
-                                "<if-recursion-limit-reached> ::= \"parse shouldn't fail\"",
-                            ),
-                        }
-                    }
+                    Error::RecursionLimit(_) => Meta {
+                        bnf: String::from(
+                            "<if-recursion-limit-reached> ::= \"parse shouldn't fail\"",
+                        ),
+                    },
                     _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed),
                 }
             }

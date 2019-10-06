@@ -1,4 +1,4 @@
-use nom::{Err, Needed, error::ErrorKind};
+use nom::{error::ErrorKind, Err, Needed};
 use std::error;
 use std::fmt;
 use std::str;
@@ -28,19 +28,23 @@ impl error::Error for Error {
     }
 }
 
-impl<'a> From<Err<(&'a [u8],ErrorKind)>> for Error {
-    fn from(err: Err<(&[u8],ErrorKind)>) -> Self {
+impl<'a> From<Err<(&'a [u8], ErrorKind)>> for Error {
+    fn from(err: Err<(&[u8], ErrorKind)>) -> Self {
         match err {
             Err::Incomplete(n) => Error::from(n),
             Err::Error(e) => Error::from(e),
-            Err::Failure(e) => Error::from(e)
+            Err::Failure(e) => Error::from(e),
         }
     }
 }
 
-impl<'a> From<(&'a [u8],ErrorKind)> for Error {
-    fn from(err: (&[u8],ErrorKind)) -> Self {
-        let string = format!("Parsing error: {}\n {:?}", err.1.description(), str::from_utf8(err.0));
+impl<'a> From<(&'a [u8], ErrorKind)> for Error {
+    fn from(err: (&[u8], ErrorKind)) -> Self {
+        let string = format!(
+            "Parsing error: {}\n {:?}",
+            err.1.description(),
+            str::from_utf8(err.0)
+        );
         Error::ParseError(string)
     }
 }
@@ -73,7 +77,7 @@ mod tests {
         match nom_result {
             Result::Err(e) => match e {
                 Err::Error(_) => nom_error = e,
-                _ => panic!("gets_error_error should result in IResult::Err(Err::Error(e))")
+                _ => panic!("gets_error_error should result in IResult::Err(Err::Error(e))"),
             },
             _ => panic!("gets_error_error should result in IResult::Err"),
         }
@@ -99,8 +103,8 @@ mod tests {
         match nom_result {
             Result::Err(e) => match e {
                 Err::Incomplete(n) => nom_error = n,
-                _ => panic!("gets_error_error should result in IResult::Err(Err::Incomplete(n))")
-            }
+                _ => panic!("gets_error_error should result in IResult::Err(Err::Incomplete(n))"),
+            },
             _ => panic!("gets_error_error should result in IResult::Err"),
         }
 

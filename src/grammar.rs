@@ -204,9 +204,9 @@ impl Grammar {
 
 impl fmt::Display for Grammar {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
+        writeln!(
             f,
-            "{}\n",
+            "{}",
             self.productions
                 .iter()
                 .map(|s| s.to_string())
@@ -266,9 +266,7 @@ mod tests {
             if productions.len() < 1 {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar {
-                productions: productions,
-            }
+            Grammar { productions }
         }
     }
 

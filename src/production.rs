@@ -1,3 +1,5 @@
+#![allow(clippy::should_implement_trait)]
+
 use error::Error;
 use expression::Expression;
 use parsers;
@@ -69,6 +71,16 @@ impl Production {
     pub fn len(&self) -> usize {
         self.rhs.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.rhs.is_empty()
+    }
+}
+
+impl Default for Production {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl fmt::Display for Production {
@@ -139,7 +151,7 @@ mod tests {
             if rhs.len() < 1 {
                 rhs.push(Expression::arbitrary(g));
             }
-            Production { lhs: lhs, rhs: rhs }
+            Production { lhs, rhs }
         }
     }
 

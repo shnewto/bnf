@@ -1,3 +1,5 @@
+#![allow(clippy::should_implement_trait)]
+
 use error::Error;
 use parsers;
 use std::fmt;

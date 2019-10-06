@@ -140,7 +140,7 @@ mod tests {
             if terms.len() < 1 {
                 terms.push(Term::arbitrary(g));
             }
-            Expression { terms: terms }
+            Expression { terms }
         }
     }
 

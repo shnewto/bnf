@@ -28,7 +28,7 @@ fn iterate_grammar() {
         .collect();
 
     // check nonterminals are in left and right hand terms collection
-    for term in ["dna", "base"].into_iter() {
+    for term in ["dna", "base"].iter() {
         let term_string = String::from(*term);
         let expected_nonterminal = Term::Nonterminal(term_string);
 
@@ -52,7 +52,7 @@ fn iterate_grammar() {
         .collect();
 
     // check terminals are only on right hand side
-    for term in ["A", "C", "G", "T"].into_iter() {
+    for term in ["A", "C", "G", "T"].iter() {
         let term_string = String::from(*term);
         let expected_terminal = Term::Terminal(term_string);
 

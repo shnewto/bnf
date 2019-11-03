@@ -3,112 +3,155 @@ use grammar::Grammar;
 use production::Production;
 use term::Term;
 
-named!(pub prod_lhs< &[u8], Term >,
-    do_parse!(
-            nt: delimited!(char!('<'), take_until!(">"), ws!(char!('>'))) >>
-            _ret: ws!(tag!("::=")) >>
-            (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
-    )
-);
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, take_until},
+    character::complete,
+    combinator::{all_consuming, complete, peek, recognize},
+    error::VerboseError,
+    multi::many1,
+    sequence::{delimited, preceded, terminated},
+    IResult,
+};
 
-named!(pub terminal< &[u8], Term >,
-    do_parse!(
-        t: alt!(
-            delimited!(char!('"'), take_until!("\""), ws!(char!('"'))) |
-            delimited!(char!('\''), take_until!("'"), ws!(char!('\'')))
-            ) >>
-        (Term::Terminal(String::from_utf8_lossy(t).into_owned()))
-    )
-);
+fn prod_lhs<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+    let (input, _) = delimited(
+        complete::char('<'),
+        take_until(">"),
+        preceded(
+            complete::multispace0,
+            terminated(complete::char('>'), complete::multispace1),
+        ),
+    )(input)?;
 
-named!(pub nonterminal< &[u8], Term >,
-    do_parse!(
-        nt: complete!(delimited!(char!('<'), take_until!(">"), ws!(char!('>')))) >>
-        ws!(not!(complete!(tag!("::=")))) >>
-        (Term::Nonterminal(String::from_utf8_lossy(nt).into_owned()))
-    )
-);
+    let (input, nt) = preceded(
+        complete::multispace0,
+        terminated(tag("::="), complete::multispace1),
+    )(input)?;
 
-named!(pub term< &[u8], Term >, alt!(terminal | nonterminal));
+    Ok((input, Term::Nonterminal(String::from(nt))))
+}
 
-named!(pub term_complete< &[u8], Term >,
-    do_parse!(
-        t: term >>
-        eof!() >>
-        (t)
-    )
-);
+fn terminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+    let (input, t) = alt((
+        delimited(
+            complete::char('"'),
+            take_until("\""),
+            preceded(
+                complete::multispace0,
+                terminated(complete::char('"'), complete::multispace1),
+            ),
+        ),
+        preceded(
+            complete::multispace0,
+            terminated(tag("::="), complete::multispace1),
+        ),
+    ))(input)?;
 
-named!(pub expression_next,
-    do_parse!(
-        ws!(char!('|')) >>
-        ret: recognize!(peek!(complete!(expression))) >>
-        (ret)
-    )
-);
+    Ok((input, Term::Nonterminal(String::from(t))))
+}
 
-named!(pub expression< &[u8], Expression >,
-    do_parse!(
-        peek!(term) >>
-        terms: many1!(complete!(term)) >>
-        ws!(
-            alt!(
-                recognize!(peek!(complete!(eof!()))) |
-                recognize!(peek!(complete!(char!(';')))) |
-                expression_next |
-                recognize!(peek!(complete!(prod_lhs)))
-            )
-        ) >>
-        (Expression::from_parts(terms))
-    )
-);
+fn nonterminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+    let (input, nt) = complete(delimited(
+        complete::char('<'),
+        take_until(">"),
+        preceded(
+            complete::multispace0,
+            terminated(complete::char('>'), complete::multispace1),
+        ),
+    ))(input)?;
 
-named!(pub expression_complete< &[u8], Expression >,
-    do_parse!(
-        e: expression >>
-        eof!() >>
-        (e)
-    )
-);
+    let (input, _) = complete(preceded(
+        complete::multispace0,
+        terminated(tag("::="), complete::multispace1),
+    ))(input)?;
 
-named!(pub production< &[u8], Production >,
-    do_parse!(
-        lhs: ws!(prod_lhs) >>
-        rhs: many1!(complete!(expression)) >>
-        ws!(
-            alt!(
-                recognize!(peek!(complete!(eof!()))) |
-                tag!(";") |
-                recognize!(peek!(complete!(prod_lhs)))
-            )
-        ) >>
-        (Production::from_parts(lhs, rhs))
-    )
-);
+    Ok((input, Term::Nonterminal(String::from(nt))))
+}
 
-named!(pub production_complete< &[u8], Production >,
-    do_parse!(
-        p: production >>
-        eof!() >>
-        (p)
-    )
-);
+fn term<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+    let (input, t) = alt((terminal, nonterminal))(input)?;
 
-named!(pub grammar< &[u8], Grammar >,
-    do_parse!(
-        peek!(production) >>
-        prods: many1!(complete!(production)) >>
-        (Grammar::from_parts(prods))
-    )
-);
+    Ok((input, t))
+}
 
-named!(pub grammar_complete< &[u8], Grammar >,
-    do_parse!(
-        g: grammar >>
-        eof!() >>
-        (g)
-    )
-);
+fn term_complete<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+    let (input, t) = all_consuming(term)(input)?;
+
+    Ok((input, t))
+}
+
+fn expression_next<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {
+    let (input, _) = preceded(
+        complete::multispace0,
+        terminated(complete::char('|'), complete::multispace1),
+    )(input)?;
+
+    let (input, e) = recognize(peek(complete(expression)))(input)?;
+
+    Ok((input, e))
+}
+
+fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseError<&'a str>> {
+    let (input, _) = peek(term)(input)?;
+
+    let (input, terms) = many1(complete(term))(input)?;
+    let (input, _) = preceded(
+        complete::multispace0,
+        terminated(
+            alt((
+                recognize(peek(complete(complete::char(';')))),
+                expression_next,
+                recognize(peek(complete(prod_lhs))),
+            )),
+            complete::multispace1,
+        ),
+    )(input)?;
+
+    Ok((input, Expression::from_parts(terms)))
+}
+
+fn expression_complete<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseError<&'a str>> {
+    let (input, e) = all_consuming(expression)(input)?;
+
+    Ok((input, e))
+}
+
+fn production<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseError<&'a str>> {
+    let (input, lhs) = preceded(
+        complete::multispace0,
+        terminated(prod_lhs, complete::multispace1),
+    )(input)?;
+    let (input, rhs) = many1(complete(expression))(input)?;
+    let (input, _) = preceded(
+        complete::multispace0,
+        terminated(
+            alt((tag(";"), recognize(peek(complete(prod_lhs))))),
+            complete::multispace1,
+        ),
+    )(input)?;
+
+    Ok((input, Production::from_parts(lhs, rhs)))
+}
+
+fn production_complete<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseError<&'a str>> {
+    let (input, p) = all_consuming(production)(input)?;
+
+    Ok((input, p))
+}
+
+fn grammar<'a>(input: &'a str) -> IResult<&'a str, Grammar, VerboseError<&'a str>> {
+    let (input, _) = peek(production)(input)?;
+    let (input, prods) = many1(complete(production))(input)?;
+
+    Ok((input, Grammar::from_parts(prods)))
+}
+
+fn grammar_complete<'a>(input: &'a str) -> IResult<&'a str, Grammar, VerboseError<&'a str>> {
+    let (input, g) = all_consuming(grammar)(input)?;
+
+    Ok((input, g))
+}
 
 #[cfg(test)]
 mod tests {
@@ -127,7 +170,7 @@ mod tests {
         let terminal_tuple = construct_terminal_tuple();
         assert_eq!(
             terminal_tuple.0,
-            terminal(terminal_tuple.1.as_bytes()).unwrap().1
+            terminal(terminal_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -144,7 +187,7 @@ mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         assert_eq!(
             nonterminal_tuple.0,
-            nonterminal(nonterminal_tuple.1.as_bytes()).unwrap().1
+            nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -162,7 +205,7 @@ mod tests {
         let expression_tuple = construct_expression_tuple();
         assert_eq!(
             expression_tuple.0,
-            expression(expression_tuple.1.as_bytes()).unwrap().1
+            expression(expression_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -186,7 +229,7 @@ mod tests {
     #[test]
     fn production_match() {
         let production_tuple = construct_production_tuple();
-        let parsed = production(production_tuple.1.as_bytes());
+        let parsed = production(production_tuple.1.as_str());
         assert_eq!(production_tuple.0, parsed.unwrap().1);
     }
 
@@ -206,7 +249,7 @@ mod tests {
         let grammar_tuple = construct_grammar_tuple();
         assert_eq!(
             grammar_tuple.0,
-            grammar(grammar_tuple.1.as_bytes()).unwrap().1
+            grammar(grammar_tuple.1.as_str()).unwrap().1
         );
     }
 }

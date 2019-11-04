@@ -30,7 +30,7 @@ impl Grammar {
 
     // Get `Grammar` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match parsers::grammar_complete(s.as_bytes()) {
+        match parsers::grammar_complete(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
@@ -96,7 +96,7 @@ impl Grammar {
         let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
         match rng.choose(&expressions) {
-            Some(e) => expression = e.clone(),
+            Some(e) => expression = e,
             None => {
                 return Err(Error::GenerateError(String::from(
                     "Couldn't select random Expression!",
@@ -112,7 +112,7 @@ impl Grammar {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 
     /// Generate a random sentence from self and seed for random.
@@ -405,15 +405,15 @@ mod tests {
     }
 
     #[test]
-    fn parse_incomplete() {
+    fn parse_error_on_incomplete() {
         let result = Grammar::from_str("");
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
             Err(e) => match e {
-                Error::ParseIncomplete(_) => (),
-                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                Error::ParseError(_) => (),
+                e => panic!("should should be Error::ParseError: {:?}", e),
             },
-            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {}", s),
         }
     }
 

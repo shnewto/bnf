@@ -31,7 +31,7 @@ impl Production {
 
     // Get `Production` by parsing a string
     pub fn from_str(s: &str) -> Result<Self, Error> {
-        match parsers::production_complete(s.as_bytes()) {
+        match parsers::production_complete(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
@@ -288,10 +288,10 @@ mod tests {
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
             Err(e) => match e {
-                Error::ParseIncomplete(_) => (),
-                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                Error::ParseError(_) => (),
+                e => panic!("should should be Error::ParseError: {:?}", e),
             },
-            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {}", s),
         }
     }
 

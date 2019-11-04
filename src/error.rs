@@ -1,12 +1,15 @@
-use nom::{error::ErrorKind, Err, Needed};
 use std::error;
 use std::fmt;
 use std::str;
 
+use nom::{
+    error::{VerboseError, VerboseErrorKind},
+    Err,
+};
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Error {
     ParseError(String),
-    ParseIncomplete(String),
     GenerateError(String),
     RecursionLimit(String),
 }
@@ -15,7 +18,6 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::ParseError(ref s) => write!(f, "{}", s),
-            Error::ParseIncomplete(ref s) => write!(f, "{}", s),
             Error::GenerateError(ref s) => write!(f, "{}", s),
             Error::RecursionLimit(ref s) => write!(f, "{}", s),
         }
@@ -28,51 +30,39 @@ impl error::Error for Error {
     }
 }
 
-impl<'a> From<Err<(&'a [u8], ErrorKind)>> for Error {
-    fn from(err: Err<(&[u8], ErrorKind)>) -> Self {
-        match err {
-            Err::Incomplete(n) => Error::from(n),
-            Err::Error(e) => Error::from(e),
-            Err::Failure(e) => Error::from(e),
-        }
+impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
+    fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
+        Error::ParseError(format!("{:?}", err))
     }
 }
 
-impl<'a> From<(&'a [u8], ErrorKind)> for Error {
-    fn from(err: (&[u8], ErrorKind)) -> Self {
-        let string = format!(
-            "Parsing error: {}\n {:?}",
-            err.1.description(),
-            str::from_utf8(err.0)
-        );
+impl<'a> From<Err<VerboseError<&str>>> for Error {
+    fn from(err: Err<VerboseError<&str>>) -> Self {
+        Error::ParseError(format!("{:?}", err))
+    }
+}
+
+impl<'a> From<(&'a str, VerboseErrorKind)> for Error {
+    fn from(err: (&str, VerboseErrorKind)) -> Self {
+        let string = format!("Parsing error: {:?}\n {:?}", err.1, err.0);
         Error::ParseError(string)
-    }
-}
-
-impl From<Needed> for Error {
-    fn from(needed: Needed) -> Self {
-        let string = match needed {
-            Needed::Unknown => format!("Data error: insufficient size, expectation unknown"),
-            Needed::Size(s) => format!("Data error: insufficient size, expected {} bytes", s),
-        };
-
-        Error::ParseIncomplete(string)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use error::Error;
-    use nom::Err;
+    use nom::{bytes::complete::tag, error::VerboseError, Err, IResult};
 
-    named!(
-        give_error_kind,
-        do_parse!(tag!("1234") >> res: tag!("5678") >> (res))
-    );
+    fn give_error_kind<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {
+        let (input, _) = tag("1234")(input)?;
+        let (input, res) = tag("5678")(input)?;
+        Ok((input, res))
+    }
 
     #[test]
     fn gets_error_error() {
-        let nom_result = give_error_kind("12340".as_bytes());
+        let nom_result = give_error_kind("12340");
         let nom_error;
         match nom_result {
             Result::Err(e) => match e {
@@ -97,14 +87,11 @@ mod tests {
     }
 
     #[test]
-    fn gets_error_incomplete() {
-        let nom_result = give_error_kind("".as_bytes());
+    fn gets_error_on_incomplete() {
+        let nom_result = give_error_kind("");
         let nom_error;
         match nom_result {
-            Result::Err(e) => match e {
-                Err::Incomplete(n) => nom_error = n,
-                _ => panic!("gets_error_error should result in IResult::Err(Err::Incomplete(n))"),
-            },
+            Result::Err(e) => nom_error = e,
             _ => panic!("gets_error_error should result in IResult::Err"),
         }
 
@@ -116,8 +103,8 @@ mod tests {
             bnf_error
         );
         match bnf_error.unwrap_err() {
-            Error::ParseIncomplete(_) => (),
-            e => panic!("production error should be incomplete: {:?}", e),
+            Error::ParseError(_) => (),
+            e => panic!("production error should be parse error: {:?}", e),
         }
     }
 
@@ -141,16 +128,11 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let parse_error = Error::ParseError(String::from("syntax error!"));
-        let incomplete_error = Error::ParseIncomplete(String::from("incomplete data size!"));
+        let parse_error = Error::ParseError(String::from("parsing error!"));
         let generate_error = Error::GenerateError(String::from("error generating!"));
         let recursion_error = Error::RecursionLimit(String::from("recursion limit reached!"));
 
-        assert_eq!(parse_error.to_string(), String::from("syntax error!"));
-        assert_eq!(
-            incomplete_error.to_string(),
-            String::from("incomplete data size!")
-        );
+        assert_eq!(parse_error.to_string(), String::from("parsing error!"));
         assert_eq!(
             generate_error.to_string(),
             String::from("error generating!")

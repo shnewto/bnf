@@ -163,7 +163,6 @@
 //! ```
 //!
 
-#[macro_use]
 extern crate nom;
 extern crate rand;
 extern crate stacker;

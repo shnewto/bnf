@@ -99,7 +99,7 @@ fn mutably_iterate_grammar() {
             _ => false,
         })
         .all(|term| match *term {
-            Term::Terminal(ref s) => *s == String::from("Z"),
+            Term::Terminal(ref s) => *s == "Z",
             _ => false,
         });
 

@@ -12,20 +12,13 @@ pub enum Term {
     Nonterminal(String),
 }
 
-impl Term {
-    // Get `Term` by parsing a string
-    pub fn from_str(s: &str) -> Result<Self, Error> {
+impl FromStr for Term {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match parsers::term_complete(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
-    }
-}
-
-impl FromStr for Term {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str(s)
     }
 }
 

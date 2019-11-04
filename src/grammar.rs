@@ -10,7 +10,7 @@ use std::str;
 use term::Term;
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub struct Grammar {
     productions: Vec<Production>,
 }
@@ -26,14 +26,6 @@ impl Grammar {
     /// Construct an `Grammar` from `Production`s
     pub fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
-    }
-
-    // Get `Grammar` by parsing a string
-    pub fn from_str(s: &str) -> Result<Self, Error> {
-        match parsers::grammar_complete(s) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
-        }
     }
 
     /// Add `Production` to the `Grammar`
@@ -71,7 +63,7 @@ impl Grammar {
         }
     }
 
-    fn traverse(&self, ident: &String, rng: &mut StdRng) -> Result<String, Error> {
+    fn traverse(&self, ident: &str, rng: &mut StdRng) -> Result<String, Error> {
         const STACK_RED_ZONE: usize = 32 * 1024; // 32KB
                                                  // heavy recursion happening, we've hit out tolerable threshold
         if let Some(remaining) = stacker::remaining_stack() {
@@ -83,7 +75,7 @@ impl Grammar {
             }
         }
 
-        let nonterm = Term::Nonterminal(ident.clone());
+        let nonterm = Term::Nonterminal(ident.to_string());
         let production;
         let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
@@ -131,7 +123,7 @@ impl Grammar {
     ///     let input =
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar = Grammar::from_str(input).unwrap();
+    ///     let grammar: Grammar = input.parse().unwrap();
     ///     let seed: &[_] = &[1,2,3,4];
     ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
     ///     let sentence = grammar.generate_seeded(&mut rng);
@@ -180,7 +172,7 @@ impl Grammar {
     ///     let input =
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar = Grammar::from_str(input).unwrap();
+    ///     let grammar: Grammar = input.parse().unwrap();
     ///     let sentence = grammar.generate();
     ///     # let sentence_clone = sentence.clone();
     ///     match sentence {
@@ -220,7 +212,10 @@ impl str::FromStr for Grammar {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str(s)
+        match parsers::grammar_complete(s) {
+            Result::Ok((_, o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e)),
+        }
     }
 }
 
@@ -263,7 +258,7 @@ mod tests {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut productions = Vec::<Production>::arbitrary(g);
             // grammar must always have atleast one production
-            if productions.len() < 1 {
+            if productions.is_empty() {
                 productions.push(Production::arbitrary(g));
             }
             Grammar { productions }
@@ -272,7 +267,7 @@ mod tests {
 
     fn prop_to_string_and_back(gram: Grammar) -> TestResult {
         let to_string = gram.to_string();
-        let from_str = Grammar::from_str(&to_string);
+        let from_str: Result<Grammar, _> = to_string.parse();
         match from_str {
             Ok(from_prod) => TestResult::from_bool(from_prod == gram),
             _ => TestResult::error(format!("{} to string and back should be safe", gram)),
@@ -400,13 +395,13 @@ mod tests {
 
     #[test]
     fn parse_error() {
-        let grammar = Grammar::from_str("<almost_grammar> ::= <test");
+        let grammar: Result<Grammar, _> = "<almost_grammar> ::= <test".parse();
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 
     #[test]
     fn parse_error_on_incomplete() {
-        let result = Grammar::from_str("");
+        let result: Result<Grammar, _> = "".parse();
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
             Err(e) => match e {
@@ -419,7 +414,7 @@ mod tests {
 
     #[test]
     fn recursion_limit() {
-        let grammar = Grammar::from_str("<nonterm> ::= <nonterm>");
+        let grammar: Result<Grammar, _> = "<nonterm> ::= <nonterm>".parse();
         assert!(grammar.is_ok(), "{:?} should be ok", grammar);
         let sentence = grammar.unwrap().generate();
         assert!(sentence.is_err(), "{:?} should be err", sentence);
@@ -434,7 +429,7 @@ mod tests {
 
     #[test]
     fn lhs_not_found() {
-        let grammar = Grammar::from_str("<start> ::= <not-used>");
+        let grammar: Result<Grammar, _> = "<start> ::= <not-used>".parse();
         assert!(grammar.is_ok(), "{:?} should be ok", grammar);
         let sentence = grammar.unwrap().generate();
         assert!(sentence.is_ok(), "{:?} should be ok", sentence);
@@ -443,7 +438,7 @@ mod tests {
 
     #[test]
     fn lhs_is_terminal_parse() {
-        let grammar = Grammar::from_str("\"wrong place\" ::= <not-used>");
+        let grammar: Result<Grammar, _> = "\"wrong place\" ::= <not-used>".parse();
         assert!(grammar.is_err(), "{:?} should be error", grammar);
     }
 

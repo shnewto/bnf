@@ -8,80 +8,35 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete,
-    combinator::{all_consuming, complete, peek, recognize},
-    error::{ErrorKind, ParseError, VerboseError, VerboseErrorKind},
+    combinator::{all_consuming, complete, not, peek, recognize},
+    error::{ErrorKind, ParseError, VerboseError},
     multi::many1,
     sequence::{delimited, preceded, terminated},
-    IResult,
+    IResult, InputLength,
 };
 
-fn eoi<I: Clone + std::string::ToString, O, E: ParseError<I>, F>(
-    f: F,
-) -> impl Fn(I) -> IResult<I, O, E>
-where
-    F: Fn(I) -> IResult<I, O, E>,
-{
-    move |input: I| {
-        if input.to_string().len() == 0 {
-            Ok((input, input))
-        } else {
-            Err(nom::Err::Error(VerboseError {
-                errors: vec![("EOI not found", VerboseErrorKind::Nom(ErrorKind::Eof))],
-            }))
-        }
+/// Not sure how to get this from nom 5 so taking a stab at implemeting it myself.
+pub fn eoi<I: Copy + InputLength, E: ParseError<I>>(input: I) -> IResult<I, I, E> {
+    if input.input_len() == 0 {
+        Ok((input, input))
+    } else {
+        Err(nom::Err::Error(E::from_error_kind(input, ErrorKind::Eof)))
     }
 }
-// //
-// macro_rules! eof (
-//   ($i:expr,) => (
-//     {
-//       if ($i).input_len() == 0 {
-//         Ok(($i, $i))
-//       } else {
-//         Err(Err::Error(error_position!($i, ErrorKind::Eof)))
-//       }
-//     }
-//   );
-// )
-//     // if input.len() == 0 {
-//     Ok((input, input))
-// } else {
-//     Err(nom::Err::Error(VerboseError {
-//         errors: vec![("EOI not found", VerboseErrorKind::Nom(ErrorKind::Eof))],
-//     }))
-// }
-
-// pub fn complete<I: Clone, O, E: ParseError<I>, F>(f: F) -> impl Fn(I) -> IResult<I, O, E>
-// where
-//   F: Fn(I) -> IResult<I, O, E>,
-// {
-//   move |input: I| {
-//     let i = input.clone();
-//     match f(input) {
-//       Err(Err::Incomplete(_)) => {
-//         Err(Err::Error(E::from_error_kind(i, ErrorKind::Complete)))
-//       },
-//       rest => rest
-//     }
-//   }
-// }
 
 pub fn prod_lhs<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
-    let (input, _) = delimited(
+    let (input, nt) = delimited(
         complete::char('<'),
         take_until(">"),
-        preceded(
-            complete::multispace0,
-            terminated(complete::char('>'), complete::multispace1),
-        ),
+        terminated(complete::char('>'), complete::multispace0),
     )(input)?;
 
-    let (input, nt) = preceded(
+    let (input, _) = preceded(
         complete::multispace0,
-        terminated(tag("::="), complete::multispace1),
+        terminated(tag("::="), complete::multispace0),
     )(input)?;
 
-    Ok((input, Term::Nonterminal(String::from(nt))))
+    Ok((input, Term::Nonterminal(nt.to_string())))
 }
 
 pub fn terminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
@@ -89,36 +44,31 @@ pub fn terminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a s
         delimited(
             complete::char('"'),
             take_until("\""),
-            preceded(
-                complete::multispace0,
-                terminated(complete::char('"'), complete::multispace1),
-            ),
+            terminated(complete::char('"'), complete::multispace0),
         ),
-        preceded(
-            complete::multispace0,
-            terminated(tag("::="), complete::multispace1),
+        delimited(
+            complete::char('\''),
+            take_until("'"),
+            terminated(complete::char('\''), complete::multispace0),
         ),
     ))(input)?;
 
-    Ok((input, Term::Nonterminal(String::from(t))))
+    Ok((input, Term::Terminal(t.to_string())))
 }
 
 pub fn nonterminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
     let (input, nt) = complete(delimited(
         complete::char('<'),
         take_until(">"),
-        preceded(
-            complete::multispace0,
-            terminated(complete::char('>'), complete::multispace1),
-        ),
+        terminated(complete::char('>'), complete::multispace0),
     ))(input)?;
 
-    let (input, _) = complete(preceded(
+    let (input, _) = preceded(
         complete::multispace0,
-        terminated(tag("::="), complete::multispace1),
-    ))(input)?;
+        not(complete(terminated(tag("::="), complete::multispace0))),
+    )(input)?;
 
-    Ok((input, Term::Nonterminal(String::from(nt))))
+    Ok((input, Term::Nonterminal(nt.to_string())))
 }
 
 pub fn term<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
@@ -136,13 +86,15 @@ pub fn term_complete<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<
 pub fn expression_next<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {
     let (input, _) = preceded(
         complete::multispace0,
-        terminated(complete::char('|'), complete::multispace1),
+        terminated(complete::char('|'), complete::multispace0),
     )(input)?;
 
     let (input, e) = recognize(peek(complete(expression)))(input)?;
 
     Ok((input, e))
 }
+
+// delimited(complete::multispace0, tk, opt(complete::multispace1(input: T))
 
 pub fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseError<&'a str>> {
     let (input, _) = peek(term)(input)?;
@@ -152,12 +104,12 @@ pub fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseErr
         complete::multispace0,
         terminated(
             alt((
-                recognize(peek(complete(eoi()))),
+                recognize(peek(complete(eoi))),
                 recognize(peek(complete(complete::char(';')))),
                 expression_next,
                 recognize(peek(complete(prod_lhs))),
             )),
-            complete::multispace1,
+            complete::multispace0,
         ),
     )(input)?;
 
@@ -175,18 +127,18 @@ pub fn expression_complete<'a>(
 pub fn production<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseError<&'a str>> {
     let (input, lhs) = preceded(
         complete::multispace0,
-        terminated(prod_lhs, complete::multispace1),
+        terminated(prod_lhs, complete::multispace0),
     )(input)?;
     let (input, rhs) = many1(complete(expression))(input)?;
     let (input, _) = preceded(
         complete::multispace0,
         terminated(
             alt((
-                recognize(peek(complete(tag("")))),
+                recognize(peek(complete(eoi))),
                 tag(";"),
                 recognize(peek(complete(prod_lhs))),
             )),
-            complete::multispace1,
+            complete::multispace0,
         ),
     )(input)?;
 
@@ -221,9 +173,9 @@ mod tests {
     fn construct_terminal_tuple() -> (Term, String) {
         let terminal_pattern = "\"terminal pattern\"";
         let terminal_value = "terminal pattern";
-        let terminal_object = Term::Terminal(String::from(terminal_value));
+        let terminal_object = Term::Terminal(terminal_value.to_string());
 
-        (terminal_object, String::from(terminal_pattern))
+        (terminal_object, terminal_pattern.to_string())
     }
 
     #[test]
@@ -238,9 +190,9 @@ mod tests {
     fn construct_nonterminal_tuple() -> (Term, String) {
         let nonterminal_pattern = "<nonterminal-pattern>";
         let nonterminal_value = "nonterminal-pattern";
-        let nonterminal_object = Term::Nonterminal(String::from(nonterminal_value));
+        let nonterminal_object = Term::Nonterminal(nonterminal_value.to_string());
 
-        (nonterminal_object, String::from(nonterminal_pattern))
+        (nonterminal_object, nonterminal_pattern.to_string())
     }
 
     #[test]
@@ -255,7 +207,7 @@ mod tests {
     fn construct_expression_tuple() -> (Expression, String) {
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_terminal_tuple();
-        let expression_pattern = nonterminal_tuple.1 + &terminal_tuple.1;
+        let expression_pattern = nonterminal_tuple.1 + terminal_tuple.1.as_str();
         let expression_object = Expression::from_parts(vec![nonterminal_tuple.0, terminal_tuple.0]);
 
         (expression_object, expression_pattern)
@@ -302,7 +254,7 @@ mod tests {
             construct_production_tuple().0,
         ]);
 
-        (grammar_object, String::from(grammar_pattern))
+        (grammar_object, grammar_pattern.to_string())
     }
 
     #[test]

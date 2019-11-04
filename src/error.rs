@@ -32,13 +32,13 @@ impl error::Error for Error {
 
 impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
     fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
-        Error::ParseError(format!("{:?}", err))
+        Error::ParseError(format!("Parsing error: {:?}", err))
     }
 }
 
 impl<'a> From<Err<VerboseError<&str>>> for Error {
     fn from(err: Err<VerboseError<&str>>) -> Self {
-        Error::ParseError(format!("{:?}", err))
+        Error::ParseError(format!("Parsing error: {:?}", err))
     }
 }
 

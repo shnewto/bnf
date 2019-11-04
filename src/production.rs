@@ -29,14 +29,6 @@ impl Production {
         Production { lhs: t, rhs: e }
     }
 
-    // Get `Production` by parsing a string
-    pub fn from_str(s: &str) -> Result<Self, Error> {
-        match parsers::production_complete(s) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
-        }
-    }
-
     /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
         self.rhs.push(expr)
@@ -100,9 +92,11 @@ impl fmt::Display for Production {
 
 impl FromStr for Production {
     type Err = Error;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str(s)
+        match parsers::production_complete(s) {
+            Result::Ok((_, o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e)),
+        }
     }
 }
 
@@ -148,7 +142,7 @@ mod tests {
             let lhs = Term::Nonterminal(lhs_str);
 
             let mut rhs = Vec::<Expression>::arbitrary(g);
-            if rhs.len() < 1 {
+            if rhs.is_empty() {
                 rhs.push(Expression::arbitrary(g));
             }
             Production { lhs, rhs }

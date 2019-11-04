@@ -53,7 +53,7 @@ mod custom_trait {
     #[test]
     fn expression_from_str() {
         let input = "\"😵\" \"😋\" \"😉\"";
-        let expression = Expression::from_str(input);
+        let expression: Result<Expression, _> = input.parse();
         assert!(expression.is_ok())
     }
 
@@ -61,28 +61,28 @@ mod custom_trait {
     fn grammar_from_str() {
         let input = "<🙃> ::= \"😵\" \"😋\" | \"😉\"
         <🤘> ::= \"👏 \" \"👊\" | \"👌\"";
-        let grammar = Grammar::from_str(input);
+        let grammar: Result<Grammar, _> = input.parse();
         assert!(grammar.is_ok())
     }
 
     #[test]
     fn production_from_str() {
         let input = "<🤘> ::= \"👏 \" \"👊\" | \"👌\"";
-        let production = Production::from_str(input);
+        let production: Result<Production, _> = input.parse();
         assert!(production.is_ok())
     }
 
     #[test]
     fn terminal_from_str() {
         let input = "\"👏 \"";
-        let terminal = Term::from_str(input);
+        let terminal: Result<Term, _> = input.parse();
         assert!(terminal.is_ok())
     }
 
     #[test]
     fn nonterminal_from_str() {
         let input = "<🤘>";
-        let nonterminal = Term::from_str(input);
+        let nonterminal: Result<Term, _> = input.parse();
         assert!(nonterminal.is_ok())
     }
 }

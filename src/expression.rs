@@ -6,7 +6,7 @@ use std::str::FromStr;
 use term::Term;
 
 /// An Expression is comprised of any number of Terms
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Expression {
     terms: Vec<Term>,
 }
@@ -20,14 +20,6 @@ impl Expression {
     /// Construct an `Expression` from `Term`s
     pub fn from_parts(v: Vec<Term>) -> Expression {
         Expression { terms: v }
-    }
-
-    // Get `Expression` by parsing a string
-    pub fn from_str(s: &str) -> Result<Self, Error> {
-        match parsers::expression_complete(s.as_bytes()) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
-        }
     }
 
     /// Add `Term` to `Expression`
@@ -98,7 +90,10 @@ impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str(s)
+        match parsers::expression_complete(s) {
+            Result::Ok((_, o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e)),
+        }
     }
 }
 
@@ -137,7 +132,7 @@ mod tests {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut terms = Vec::<Term>::arbitrary(g);
             // expressions must always have atleast one term
-            if terms.len() < 1 {
+            if terms.is_empty() {
                 terms.push(Term::arbitrary(g));
             }
             Expression { terms }
@@ -145,8 +140,8 @@ mod tests {
     }
 
     fn prop_to_string_and_back(expr: Expression) -> TestResult {
-        let to_string = expr.to_string();
-        let from_str = Expression::from_str(&to_string);
+        let to_string: String = expr.to_string();
+        let from_str: Result<Expression, _> = to_string.parse();
         match from_str {
             Ok(from_expr) => TestResult::from_bool(from_expr == expr),
             _ => TestResult::error(format!("{} to string and back should be safe", expr)),
@@ -280,10 +275,10 @@ mod tests {
         assert!(result.is_err(), "{:?} should be err", result);
         match result {
             Err(e) => match e {
-                Error::ParseIncomplete(_) => (),
-                e => panic!("should should be Error::ParseIncomplete: {:?}", e),
+                Error::ParseError(_) => (),
+                e => panic!("should should be Error::ParseError: {:?}", e),
             },
-            Ok(s) => panic!("should should be Error::ParseIncomplete: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {}", s),
         }
     }
 }

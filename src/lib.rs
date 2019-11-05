@@ -135,7 +135,7 @@
 //!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
 //!             <opt-apt-num> ::= <apt-num> | \"\"";
 //!
-//!     let grammar = Grammar::from_str(input);
+//!     let grammar: Result<Grammar, _> = input.parse();
 //!     match grammar {
 //!         Ok(g) => println!("{:#?}", g),
 //!         Err(e) => println!("Failed to make grammar from String: {}", e),
@@ -153,7 +153,7 @@
 //!     let input =
 //!         "<dna> ::= <base> | <base> <dna>
 //!         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-//!     let grammar = Grammar::from_str(input).unwrap();
+//!     let grammar: Grammar = input.parse().unwrap();
 //!     let sentence = grammar.generate();
 //!     match sentence {
 //!         Ok(s) => println!("random sentence: {}", s),
@@ -163,7 +163,6 @@
 //! ```
 //!
 
-#[macro_use]
 extern crate nom;
 extern crate rand;
 extern crate stacker;

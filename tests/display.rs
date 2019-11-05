@@ -27,7 +27,7 @@ fn validate_terminated_display() {
                           <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
                           <opt-apt-num> ::= <apt-num> | \"\"\n";
 
-    let grammar = Grammar::from_str(input).unwrap();
+    let grammar: Grammar = input.parse().unwrap();
 
     assert_eq!(grammar.to_string(), display_output);
 }
@@ -57,7 +57,7 @@ fn validate_nonterminated_display() {
                           <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"\n\
                           <opt-apt-num> ::= <apt-num> | \"\"\n";
 
-    let grammar = Grammar::from_str(input).unwrap();
+    let grammar: Grammar = input.parse().unwrap();
 
     assert_eq!(grammar.to_string(), display_output);
 }
@@ -91,6 +91,6 @@ fn grammar_with_quotes() {
                           ::= \"Hello, world!\"\n\
                           ";
 
-    let grammar = Grammar::from_str(input).expect("Grammar with quotes should parse");
+    let grammar: Grammar = input.parse().expect("Grammar with quotes should parse");
     assert_eq!(grammar.to_string(), display_output);
 }

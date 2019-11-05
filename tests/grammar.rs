@@ -55,7 +55,7 @@ const BNF_FOR_BNF: &str = "
 impl Arbitrary for Meta {
     fn arbitrary<G: Gen>(g: &mut G) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
-        let grammar = Grammar::from_str(BNF_FOR_BNF);
+        let grammar: Result<Grammar, _> = BNF_FOR_BNF.parse();
         assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
 
         // generate a random valid grammar from the above
@@ -83,7 +83,7 @@ impl Arbitrary for Meta {
 
 fn prop_grammar_from_str(meta: Meta) -> TestResult {
     // parse a randomly generated grammar to a Grammar object
-    let meta_grammar = Grammar::from_str(&meta.bnf);
+    let meta_grammar: Result<Grammar, _> = meta.bnf.parse();
     TestResult::from_bool(meta_grammar.is_ok())
 }
 

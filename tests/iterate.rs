@@ -8,7 +8,7 @@ fn iterate_grammar() {
         <dna> ::= <base> | <base> <dna>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 
-    let dna_grammar = Grammar::from_str(dna_productions).unwrap();
+    let dna_grammar: Grammar = dna_productions.parse().unwrap();
 
     let left_hand_terms: Vec<&Term> = dna_grammar
         .productions_iter()
@@ -70,7 +70,7 @@ fn mutably_iterate_grammar() {
         <dna> ::= <dna> | <base> <dna>;
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
 
-    let mut dna_grammar = Grammar::from_str(dna_productions).unwrap();
+    let mut dna_grammar: Grammar = dna_productions.parse().unwrap();
 
     // scope mutable borrow
     {
@@ -99,7 +99,7 @@ fn mutably_iterate_grammar() {
             _ => false,
         })
         .all(|term| match *term {
-            Term::Terminal(ref s) => *s == String::from("Z"),
+            Term::Terminal(ref s) => *s == "Z",
             _ => false,
         });
 

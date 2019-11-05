@@ -22,6 +22,7 @@ jobs:
       matrix:
         toolchain: [stable, beta, nightly]
         os: [ubuntu-latest, macos-latest, windows-latest]
+        idtimeout-minutes: [30, 30, 30]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v1

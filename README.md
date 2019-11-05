@@ -129,19 +129,19 @@ fn main() {
     let input =
         "<postal-address> ::= <name-part> <street-address> <zip-part>
 
-              <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
+            <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
                             | <personal-part> <name-part>
 
-          <personal-part> ::= <initial> \".\" | <first-name>
+        <personal-part> ::= <initial> \".\" | <first-name>
 
-         <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
+        <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 
-               <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
+            <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 
         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
-            <opt-apt-num> ::= <apt-num> | \"\";"
+            <opt-apt-num> ::= <apt-num> | \"\"";
 
-    let grammar = Grammar::from_str(input);
+    let grammar: Result<Grammar, _> = input.parse();
     match grammar {
         Ok(g) => println!("{:#?}", g),
         Err(e) => println!("Failed to make grammar from String: {}", e),
@@ -158,7 +158,7 @@ fn main() {
     let input =
         "<dna> ::= <base> | <base> <dna>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    let grammar = Grammar::from_str(input).unwrap();
+    let grammar: Grammar = input.parse().unwrap();
     let sentence = grammar.generate();
     match sentence {
         Ok(s) => println!("random sentence: {}", s),

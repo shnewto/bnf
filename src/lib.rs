@@ -166,6 +166,7 @@
 extern crate nom;
 extern crate rand;
 extern crate stacker;
+pub mod ebnf;
 mod error;
 mod expression;
 mod grammar;

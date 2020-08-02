@@ -7,23 +7,17 @@ labels: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+Usually helps to describe the behavior you're seeing vs what you expected to see.
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Use this file... (include that here please!)
-2. Run doing...
-3. Etc. 
-
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+Steps to reproduce the behavior. If there's input that causes this, that'd be really helpful to include here!
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. iOS] (could matter?)
  - Version [e.g. 22]
+ - Maybe OS matters?
 
 **Additional context**
 Add any other context about the problem here.

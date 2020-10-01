@@ -5,7 +5,7 @@ extern crate rand;
 use bnf::Error;
 use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
-use rand::{SeedableRng, StdRng};
+use rand::{rngs::StdRng, SeedableRng};
 
 #[derive(PartialEq, Debug, Clone)]
 struct Meta {
@@ -59,8 +59,9 @@ impl Arbitrary for Meta {
         assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
 
         // generate a random valid grammar from the above
-        let seed: Vec<_> = Arbitrary::arbitrary(g);
-        let mut rng: StdRng = SeedableRng::from_seed(&seed[..]);
+        let mut seed: [u8; 32] = [0; 32];
+        g.fill_bytes(&mut seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         let sentence = grammar.unwrap().generate_seeded(&mut rng);
 
         match sentence {

@@ -2,7 +2,7 @@ use error::Error;
 use expression::Expression;
 use parsers;
 use production::Production;
-use rand::{thread_rng, Rng, SeedableRng, StdRng};
+use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use stacker;
 use std::fmt;
 use std::slice;
@@ -87,7 +87,7 @@ impl Grammar {
         let expression;
         let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
-        match rng.choose(&expressions) {
+        match expressions.choose(rng) {
             Some(e) => expression = e,
             None => {
                 return Err(Error::GenerateError(String::from(
@@ -116,7 +116,7 @@ impl Grammar {
     /// ```rust
     /// extern crate bnf;
     /// extern crate rand;
-    /// use rand::{SeedableRng, StdRng};
+    /// use rand::{SeedableRng, rngs::StdRng};
     /// use bnf::Grammar;
     ///
     /// fn main() {
@@ -124,7 +124,7 @@ impl Grammar {
     ///         "<dna> ::= <base> | <base> <dna>
     ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
     ///     let grammar: Grammar = input.parse().unwrap();
-    ///     let seed: &[_] = &[1,2,3,4];
+    ///     let seed: [u8; 32] = [0; 32];
     ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
     ///     let sentence = grammar.generate_seeded(&mut rng);
     ///     # let sentence_clone = sentence.clone();
@@ -138,7 +138,7 @@ impl Grammar {
     /// ```
     pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
         let start_rule: String;
-        let first_production = self.productions_iter().nth(0);
+        let first_production = self.productions_iter().next();
 
         match first_production {
             Some(term) => match term.lhs {
@@ -185,11 +185,9 @@ impl Grammar {
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
         // let seed: &[_] = &[1, 2, 3, 4];
-        let seed: Vec<usize> = thread_rng()
-            .gen_iter::<usize>()
-            .take(1000)
-            .collect::<Vec<usize>>();
-        let mut rng: StdRng = SeedableRng::from_seed(&seed[..]);
+        let mut seed: [u8; 32] = [0; 32];
+        thread_rng().fill(&mut seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         self.generate_seeded(&mut rng)
     }
 }
@@ -321,13 +319,13 @@ mod tests {
         // grammar starts empty
         assert_eq!(grammar.productions_iter().count(), 0);
 
-        grammar.add_production(production.clone());
+        grammar.add_production(production);
 
         // grammar now has production
         assert_eq!(grammar.productions_iter().count(), 1);
 
         // mutated grammar identical to new grammar built from same productions
-        let filled_grammar = Grammar::from_parts(productions.clone());
+        let filled_grammar = Grammar::from_parts(productions);
         assert_eq!(grammar, filled_grammar);
     }
 

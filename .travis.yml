@@ -18,10 +18,6 @@ addons:
         packages:
             - libssl-dev
 
-branches:
-  only:
-  - master
-
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all

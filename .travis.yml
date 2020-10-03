@@ -1,9 +1,6 @@
 sudo: false
 language: rust
-addons:
-    apt:
-        packages:
-            - libssl-dev
+
 cache: cargo
 rust:
   - stable

@@ -1,5 +1,9 @@
-sudo: required
+sudo: false
 language: rust
+addons:
+    apt:
+        packages:
+            - libssl-dev
 cache: cargo
 rust:
   - stable
@@ -8,29 +12,22 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
-addons:
-  apt:
-    packages:
-      - libcurl4-openssl-dev
-      - libelf-dev
-      - libdw-dev
-      - binutils-dev
-      - cmake
-    sources:
-      - kalakris-cmake
 
-before_script:
-  - export PATH=$HOME/.cargo/bin:$PATH
-  - if [ ! -f $HOME/.cargo/bin/cargo-coveralls ]; then
-      cargo install cargo-travis;
-    fi
+addons:
+    apt:
+        packages:
+            - libssl-dev
+
+branches:
+  only:
+  - master
 
 script:
-  - |
-      cargo build &&
-      cargo test &&
-      cargo doc
+  - cargo build --verbose --all
+  - cargo test --verbose --all
 
-after_success:
-  - cargo coveralls
-  
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    pushd .. && git clone https://github.com/xd009642/tarpaulin.git ct && cd ct && git checkout develop && cargo build && popd && 
+    ../ct/target/debug/cargo-tarpaulin tarpaulin --ignore-tests --out Xml --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+  fi

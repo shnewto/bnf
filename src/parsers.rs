@@ -231,7 +231,7 @@ mod tests {
         let production_object = Production::from_parts(
             nonterminal_tuple.0,
             vec![
-                expression_tuple.0.clone(),
+                expression_tuple.0,
                 Expression::from_parts(vec![terminal_tuple.0]),
             ],
         );
@@ -250,7 +250,7 @@ mod tests {
         let production_tuple = construct_production_tuple();
         let grammar_pattern = production_tuple.1.clone() + &production_tuple.1;
         let grammar_object = Grammar::from_parts(vec![
-            construct_production_tuple().0.clone(),
+            construct_production_tuple().0,
             construct_production_tuple().0,
         ]);
 

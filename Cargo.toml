@@ -16,6 +16,10 @@ license = "MIT"
 [features]
 unstable = []
 
+[dependencies]
+pest = "2.1.3"
+pest_derive = "2.1.0"
+
 [dependencies.stacker]
 version = "0.1.2"
 

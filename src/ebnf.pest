@@ -1,0 +1,231 @@
+// The syntax of Extended BNF can be defined using
+// itself. There are four parts in this example,
+// the first part names the characters, the second
+// part defines the removal of unnecessary nonprinting characters, the third part defines the
+// removal of textual comments, and the final part
+// defines the structure of Extended BNF itself.
+// Each syntax rule in this example starts with a
+// comment that identifies the corresponding clause
+// in the standard.
+// The meaning of special-sequences is not defined
+// in the standard. In this example (see the
+// reference to 7.6) they represent control
+// functions defined by ISO/IEC 6429:1992.
+// Another special-sequence defines a
+// syntactic-exception (see the reference to 4.7).
+
+// The first part of the lexical syntax defines the
+// characters in the 7-bit character set (ISO/IEC
+// 646:1991) that represent each terminal-character
+// and gap-separator in Extended BNF.
+
+//  see 7.2
+letter = {
+"a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" |
+"u" | "v" | "w" | "x" | "y" | "z" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" |
+"O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
+}
+
+// see 7.2
+decimal_digit = {
+"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+}
+
+// The representation of the following
+// terminal-characters is defined in clauses 7.3,
+// 7.4 and tables 1, 2.
+concatenate_symbol = { "," }
+defining_symbol = { "=" }
+definition_separator_symbol = {
+"|" |
+"//" |
+"!"
+}
+end_comment_symbol = { "*)" }
+end_group_symbol = { ")" }
+end_option_symbol = {
+"]"
+| "/)"
+}
+end_repeat_symbol = {
+"}"
+| ":)"
+}
+except_symbol = { "-" }
+first_quote_symbol = { "\"" }
+repetition_symbol = { "*" }
+second_quote_symbol = { "\"" }
+special_sequence_symbol = { "?" }
+start_comment_symbol = { "(*" }
+start_group_symbol = { "(" }
+start_option_symbol = {
+"["
+| "(/"
+}
+start_repeat_symbol = {
+"{"
+| "(:"
+}
+terminator_symbol = {
+" }"
+| "."
+}
+
+// see 7.5
+other_character = {
+" " | ":" | "+" | "_" | "%" | "@" | "&" | "#" | "$" | "<" | ">" | "\\" | "ˆ" | "‘" | "˜"
+}
+
+// see 7.6
+space_character = { " " }
+
+// ISO 6429 character Carriage Return
+carriage_return = { "\r" }
+
+// ISO 6429 character Horizontal Tabulation
+horizontal_tabulation_character = { "\n" }
+
+new_line = { carriage_return* ~ horizontal_tabulation_character ~ carriage_return* }
+
+// ISO 6429 character Vertical Tabulation
+vertical_tabulation_character = {
+"\v" |
+"\u{000B}"
+}
+
+// ISO 6429 character Form Feed
+form_feed = { "\f" }
+
+// The second part of the syntax defines the
+// removal of unnecessary non-printing characters
+// from a syntax.
+// See 6.4 Gap-separators.
+
+terminal_character = {
+letter
+| decimal_digit
+| concatenate_symbol
+| defining_symbol
+| definition_separator_symbol
+| end_comment_symbol
+| end_group_symbol
+| end_option_symbol
+| end_repeat_symbol
+| except_symbol
+| first_quote_symbol
+| repetition_symbol
+| second_quote_symbol
+| special_sequence_symbol
+| start_comment_symbol
+| start_group_symbol
+| start_option_symbol
+| start_repeat_symbol
+| terminator_symbol
+| other_character
+}
+
+// see 6.3
+
+terminal_character_without_quote_symbols = {
+letter
+| decimal_digit
+| concatenate_symbol
+| defining_symbol
+| definition_separator_symbol
+| end_comment_symbol
+| end_group_symbol
+| end_option_symbol
+| end_repeat_symbol
+| except_symbol
+| repetition_symbol
+| special_sequence_symbol
+| start_comment_symbol
+| start_group_symbol
+| start_option_symbol
+| start_repeat_symbol
+| terminator_symbol
+| other_character
+}
+
+gap_free_symbol = {
+terminal_character_without_quote_symbols
+| terminal_string
+}
+
+// see 4.16
+terminal_string = {
+first_quote_symbol ~ (first_terminal_character)+ ~ first_quote_symbol
+| second_quote_symbol ~ (second terminal character)+ ~ second quote symbol
+}
+
+// see 4.17
+
+terminal_character_without_first_quote_symbol = {
+letter
+| decimal_digit
+| concatenate_symbol
+| defining_symbol
+| definition_separator_symbol
+| end_comment_symbol
+| end_group_symbol
+| end_option_symbol
+| end_repeat_symbol
+| except_symbol
+| repetition_symbol
+| second_quote_symbol
+| special_sequence_symbol
+| start_comment_symbol
+| start_group_symbol
+| start_option_symbol
+| start_repeat_symbol
+| terminator_symbol
+| other_character
+}
+
+first_terminal_character = { terminal_character_without_first_quote_symbol }
+
+// see 4.18
+
+terminal_character_without_second_quote_symbol = {
+letter
+| decimal_digit
+| concatenate_symbol
+| defining_symbol
+| definition_separator_symbol
+| end_comment_symbol
+| end_group_symbol
+| end_option_symbol
+| end_repeat_symbol
+| except_symbol
+| first_quote_symbol
+| repetition_symbol
+| special_sequence_symbol
+| start_comment_symbol
+| start_group_symbol
+| start_option_symbol
+| start_repeat_symbol
+| terminator_symbol
+| other_character
+}
+
+second_terminal_character = { terminal_character_without_second_quote_symbol }
+
+// See 6.4
+gap_separator = {
+space_character
+| horizontal_tabulation_character
+| new_line
+| vertical_tabulation_character
+| form_feed
+}
+
+// See 6.5
+syntax = {
+(gap_separator)* ~ gap_free_symbol ~ (gap_separator)* ~ gap_free_symbol ~ (gap_separator)*
+}
+
+// The third part of the syntax defines the
+// removal of bracketed-textual-comments from
+// gap-free-symbols that form a syntax.
+// See 6.6
+commentless_symbol = terminal character - (letter

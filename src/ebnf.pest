@@ -19,61 +19,49 @@
 // 646:1991) that represent each terminal-character
 // and gap-separator in Extended BNF.
 
-//  see 7.2
-letter = {
-"a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" |
-"u" | "v" | "w" | "x" | "y" | "z" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" |
-"O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
-}
-
-// see 7.2
-decimal_digit = {
-"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
-}
-
 // The representation of the following
 // terminal-characters is defined in clauses 7.3,
 // 7.4 and tables 1, 2.
 concatenate_symbol = { "," }
 defining_symbol = { "=" }
 definition_separator_symbol = {
-"|" |
-"//" |
-"!"
+    "|" 
+    | "//" 
+    | "!"
 }
 end_comment_symbol = { "*)" }
 end_group_symbol = { ")" }
 end_option_symbol = {
-"]"
-| "/)"
+    "]"
+    | "/)"
 }
 end_repeat_symbol = {
-"}"
-| ":)"
+    "}"
+    | ":)"
 }
 except_symbol = { "-" }
-first_quote_symbol = { "\"" }
+first_quote_symbol = { "’" }
 repetition_symbol = { "*" }
 second_quote_symbol = { "\"" }
 special_sequence_symbol = { "?" }
 start_comment_symbol = { "(*" }
 start_group_symbol = { "(" }
 start_option_symbol = {
-"["
-| "(/"
+    "["
+    | "(/"
 }
 start_repeat_symbol = {
-"{"
-| "(:"
+    "{"
+    | "(:"
 }
 terminator_symbol = {
-" }"
-| "."
+    ";"
+    | "."
 }
 
 // see 7.5
 other_character = {
-" " | ":" | "+" | "_" | "%" | "@" | "&" | "#" | "$" | "<" | ">" | "\\" | "ˆ" | "‘" | "˜"
+    " " | ":" | "+" | "_" | "%" | "@" | "&" | "#" | "$" | "<" | ">" | "\\" | "ˆ" | "‘" | "˜"
 }
 
 // see 7.6
@@ -83,18 +71,16 @@ space_character = { " " }
 carriage_return = { "\r" }
 
 // ISO 6429 character Horizontal Tabulation
-horizontal_tabulation_character = { "\n" }
-
-new_line = { carriage_return* ~ horizontal_tabulation_character ~ carriage_return* }
+horizontal_tabulation_character = { "\t" }
 
 // ISO 6429 character Vertical Tabulation
 vertical_tabulation_character = {
-"\v" |
-"\u{000B}"
+    "\\v" 
+    | "\u{000B}"
 }
 
 // ISO 6429 character Form Feed
-form_feed = { "\f" }
+form_feed = { "\\f" }
 
 // The second part of the syntax defines the
 // removal of unnecessary non-printing characters
@@ -102,130 +88,202 @@ form_feed = { "\f" }
 // See 6.4 Gap-separators.
 
 terminal_character = {
-letter
-| decimal_digit
-| concatenate_symbol
-| defining_symbol
-| definition_separator_symbol
-| end_comment_symbol
-| end_group_symbol
-| end_option_symbol
-| end_repeat_symbol
-| except_symbol
-| first_quote_symbol
-| repetition_symbol
-| second_quote_symbol
-| special_sequence_symbol
-| start_comment_symbol
-| start_group_symbol
-| start_option_symbol
-| start_repeat_symbol
-| terminator_symbol
-| other_character
+    ASCII_ALPHA
+    | ASCII_DIGIT
+    | concatenate_symbol
+    | defining_symbol
+    | definition_separator_symbol
+    | end_comment_symbol
+    | end_group_symbol
+    | end_option_symbol
+    | end_repeat_symbol
+    | except_symbol
+    | first_quote_symbol
+    | repetition_symbol
+    | second_quote_symbol
+    | special_sequence_symbol
+    | start_comment_symbol
+    | start_group_symbol
+    | start_option_symbol
+    | start_repeat_symbol
+    | terminator_symbol
+    | other_character
 }
 
 // see 6.3
 
 terminal_character_without_quote_symbols = {
-letter
-| decimal_digit
-| concatenate_symbol
-| defining_symbol
-| definition_separator_symbol
-| end_comment_symbol
-| end_group_symbol
-| end_option_symbol
-| end_repeat_symbol
-| except_symbol
-| repetition_symbol
-| special_sequence_symbol
-| start_comment_symbol
-| start_group_symbol
-| start_option_symbol
-| start_repeat_symbol
-| terminator_symbol
-| other_character
+    ASCII_ALPHA
+    | ASCII_DIGIT
+    | concatenate_symbol
+    | defining_symbol
+    | definition_separator_symbol
+    | end_comment_symbol
+    | end_group_symbol
+    | end_option_symbol
+    | end_repeat_symbol
+    | except_symbol
+    | repetition_symbol
+    | special_sequence_symbol
+    | start_comment_symbol
+    | start_group_symbol
+    | start_option_symbol
+    | start_repeat_symbol
+    | terminator_symbol
+    | other_character
 }
 
 gap_free_symbol = {
-terminal_character_without_quote_symbols
-| terminal_string
+    terminal_character_without_quote_symbols
+    | terminal_string
 }
 
 // see 4.16
-terminal_string = {
-first_quote_symbol ~ (first_terminal_character)+ ~ first_quote_symbol
-| second_quote_symbol ~ (second terminal character)+ ~ second quote symbol
+terminal_string = @{
+    (first_quote_symbol ~ (first_terminal_character)+ ~ first_quote_symbol)
+    | (second_quote_symbol ~ (second_terminal_character)+ ~ second_quote_symbol)
 }
 
 // see 4.17
 
-terminal_character_without_first_quote_symbol = {
-letter
-| decimal_digit
-| concatenate_symbol
-| defining_symbol
-| definition_separator_symbol
-| end_comment_symbol
-| end_group_symbol
-| end_option_symbol
-| end_repeat_symbol
-| except_symbol
-| repetition_symbol
-| second_quote_symbol
-| special_sequence_symbol
-| start_comment_symbol
-| start_group_symbol
-| start_option_symbol
-| start_repeat_symbol
-| terminator_symbol
-| other_character
-}
-
-first_terminal_character = { terminal_character_without_first_quote_symbol }
+first_terminal_character = { 
+    !(first_quote_symbol) ~ terminal_character
+ }
 
 // see 4.18
 
-terminal_character_without_second_quote_symbol = {
-letter
-| decimal_digit
-| concatenate_symbol
-| defining_symbol
-| definition_separator_symbol
-| end_comment_symbol
-| end_group_symbol
-| end_option_symbol
-| end_repeat_symbol
-| except_symbol
-| first_quote_symbol
-| repetition_symbol
-| special_sequence_symbol
-| start_comment_symbol
-| start_group_symbol
-| start_option_symbol
-| start_repeat_symbol
-| terminator_symbol
-| other_character
-}
-
-second_terminal_character = { terminal_character_without_second_quote_symbol }
+second_terminal_character = { 
+    !(second_quote_symbol) ~ terminal_character
+ }
 
 // See 6.4
 gap_separator = {
-space_character
-| horizontal_tabulation_character
-| new_line
-| vertical_tabulation_character
-| form_feed
+    space_character
+    | horizontal_tabulation_character
+    | NEWLINE
+    | vertical_tabulation_character
+    | form_feed
 }
 
 // See 6.5
-syntax = {
-(gap_separator)* ~ gap_free_symbol ~ (gap_separator)* ~ gap_free_symbol ~ (gap_separator)*
+syntax_without_gap_separators = {
+    ((gap_separator)* ~ gap_free_symbol)+ ~ (gap_separator)*
 }
 
 // The third part of the syntax defines the
 // removal of bracketed-textual-comments from
 // gap-free-symbols that form a syntax.
 // See 6.6
-commentless_symbol = terminal character - (letter
+
+// See 4.9
+integer = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+
+// See 4.14
+meta_identifier = @{ ASCII_ALPHA ~ (meta_identifier_character)* }
+
+// See 4.15
+meta_identifier_character = _{
+    ASCII_ALPHA
+    | ASCII_DIGIT
+    | "_"
+}
+
+// See 4.19
+special_sequence = {
+    special_sequence_symbol ~ (special_sequence_character)* ~ special_sequence_symbol
+}
+
+// See 4.20
+special_sequence_character = {
+    ASCII_ALPHA
+    | ASCII_DIGIT
+    | concatenate_symbol
+    | defining_symbol
+    | definition_separator_symbol
+    | end_comment_symbol
+    | end_group_symbol
+    | end_option_symbol
+    | end_repeat_symbol
+    | except_symbol
+    | first_quote_symbol
+    | repetition_symbol
+    | second_quote_symbol
+    | start_comment_symbol
+    | start_group_symbol
+    | start_option_symbol
+    | start_repeat_symbol
+    | terminator_symbol
+    | other_character
+}
+
+// The final part of the syntax defines the
+// abstract syntax of Extended BNF, i.e. the
+// structure in terms of the commentless symbols.
+
+// See 4.3
+syntax_rule = {
+    meta_identifier ~ defining_symbol ~ definition_list ~ terminator_symbol
+}
+
+// See 4.4
+definition_list = {
+    single_definition ~ (definition_separator_symbol ~ single_definition)*
+}
+
+// See 4.5
+single_definition = {
+    syntactic_term ~ (concatenate_symbol ~ syntactic_term)*
+}
+
+// See 4.6
+syntactic_term = {
+    syntactic_factor ~ (except_symbol ~ syntactic_exception)?
+}
+
+// See 4.7
+// syntactic_exception must be checked ourselves.
+syntactic_exception = {
+    (integer ~ repetition_symbol)? ~ syntactic_primary
+}
+
+// See 4.8
+syntactic_factor = {
+    (integer ~ repetition_symbol)? ~ syntactic_primary
+}
+
+// See 4.10
+syntactic_primary = {
+    optional_sequence 
+    | repeated_sequence
+    | grouped_sequence
+    | meta_identifier
+    | terminal_string
+    | special_sequence
+//  | empty_sequence
+}
+
+// See 4.11
+optional_sequence = {
+    start_option_symbol ~ definition_list ~ end_option_symbol
+}
+
+// See 4.12
+repeated_sequence = {
+    start_repeat_symbol ~ definition_list ~ end_repeat_symbol
+}
+
+// See 4.13
+grouped_sequence = {
+    start_group_symbol ~ definition_list ~ end_group_symbol
+}
+
+// See 4.21
+// empty_sequence = {};
+
+// See 4.2
+syntax = {
+    SOI ~ syntax_rule+ ~ EOI
+}
+
+WHITESPACE = _{ " " | NEWLINE | "\t" | "\u{000B}" }
+COMMENT = _{ "(*" ~ (!"*)" ~ ANY)* ~ "*)" }

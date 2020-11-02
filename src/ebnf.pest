@@ -82,11 +82,6 @@ vertical_tabulation_character = {
 // ISO 6429 character Form Feed
 form_feed = { "\\f" }
 
-// The second part of the syntax defines the
-// removal of unnecessary non-printing characters
-// from a syntax.
-// See 6.4 Gap-separators.
-
 terminal_character = {
     ASCII_ALPHA
     | ASCII_DIGIT
@@ -110,70 +105,21 @@ terminal_character = {
     | other_character
 }
 
-// see 6.3
-
-terminal_character_without_quote_symbols = {
-    ASCII_ALPHA
-    | ASCII_DIGIT
-    | concatenate_symbol
-    | defining_symbol
-    | definition_separator_symbol
-    | end_comment_symbol
-    | end_group_symbol
-    | end_option_symbol
-    | end_repeat_symbol
-    | except_symbol
-    | repetition_symbol
-    | special_sequence_symbol
-    | start_comment_symbol
-    | start_group_symbol
-    | start_option_symbol
-    | start_repeat_symbol
-    | terminator_symbol
-    | other_character
-}
-
-gap_free_symbol = {
-    terminal_character_without_quote_symbols
-    | terminal_string
-}
-
 // see 4.16
 terminal_string = @{
     (first_quote_symbol ~ (first_terminal_character)+ ~ first_quote_symbol)
     | (second_quote_symbol ~ (second_terminal_character)+ ~ second_quote_symbol)
 }
 
-// see 4.17
-
+// See 4.17
 first_terminal_character = { 
     !(first_quote_symbol) ~ terminal_character
  }
 
-// see 4.18
-
+// See 4.18
 second_terminal_character = { 
     !(second_quote_symbol) ~ terminal_character
- }
-
-// See 6.4
-gap_separator = {
-    space_character
-    | horizontal_tabulation_character
-    | NEWLINE
-    | vertical_tabulation_character
-    | form_feed
 }
-
-// See 6.5
-syntax_without_gap_separators = {
-    ((gap_separator)* ~ gap_free_symbol)+ ~ (gap_separator)*
-}
-
-// The third part of the syntax defines the
-// removal of bracketed-textual-comments from
-// gap-free-symbols that form a syntax.
-// See 6.6
 
 // See 4.9
 integer = @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
@@ -218,7 +164,7 @@ special_sequence_character = {
 
 // The final part of the syntax defines the
 // abstract syntax of Extended BNF, i.e. the
-// structure in terms of the commentless symbols.
+// structure in terms of the comment-less symbols.
 
 // See 4.3
 syntax_rule = {
@@ -241,7 +187,7 @@ syntactic_term = {
 }
 
 // See 4.7
-// syntactic_exception must be checked ourselves.
+// NOTE: syntactic_exception must be checked ourselves.
 syntactic_exception = {
     (integer ~ repetition_symbol)? ~ syntactic_primary
 }
@@ -259,7 +205,6 @@ syntactic_primary = {
     | meta_identifier
     | terminal_string
     | special_sequence
-//  | empty_sequence
 }
 
 // See 4.11
@@ -277,13 +222,11 @@ grouped_sequence = {
     start_group_symbol ~ definition_list ~ end_group_symbol
 }
 
-// See 4.21
-// empty_sequence = {};
-
 // See 4.2
 syntax = {
     SOI ~ syntax_rule+ ~ EOI
 }
 
+// See chapter 6.4 on Gap Separators
 WHITESPACE = _{ " " | NEWLINE | "\t" | "\u{000B}" }
 COMMENT = _{ "(*" ~ (!"*)" ~ ANY)* ~ "*)" }

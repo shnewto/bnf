@@ -9,10 +9,53 @@ pub struct MetaIdentifier {
     name: String,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct SyntaxRule {
+    content: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct DefinitionList {
+    content: Vec<SingleDefinition>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SingleDefinition {
+    definition: Vec<SyntacticTerm>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SyntacticException {
+    content: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SyntacticTerm {
+    factor: SyntacticFactor,
+    except: Option<SyntacticException>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SyntacticFactor {
+    repetition: usize,
+    primary: SyntacticPrimary,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum SyntacticPrimary {
+    Optional(DefinitionList),
+    Repeated(DefinitionList),
+    Grouped(DefinitionList),
+    // By definition, we have no idea how to parse special sequences.
+    // just pass the string to the user.
+    Special(String),
+    MetaIdentifier(MetaIdentifier),
+    TerminalString(String),
+}
+
 impl EBNFParser {
     pub fn new(input: &str) -> Result<(), Box<dyn std::error::Error>> {
         let first_pass = EBNFParser::parse(Rule::syntax, input)?;
-        println!("first_pass:{:#?}", first_pass);
         Ok(())
     }
 
@@ -23,6 +66,98 @@ impl EBNFParser {
             }),
             _ => None,
         }
+    }
+
+    pub fn parse_syntax_rule(pair: Pair<Rule>) -> Option<SyntaxRule> {
+        match pair.as_rule() {
+            Rule::syntax_rule => Some(SyntaxRule {
+                content: String::from(pair.as_str()),
+            }),
+            _ => None,
+        }
+    }
+
+    pub fn parse_definition_list(pair: Pair<Rule>) -> Option<DefinitionList> {
+        let mut pair = pair.into_inner();
+        Some(DefinitionList {
+            content: pair
+                .step_by(2)
+                .map(|definition_list| EBNFParser::parse_single_definition(definition_list))
+                .collect::<Option<Vec<SingleDefinition>>>()?,
+        })
+    }
+
+    pub fn parse_single_definition(pair: Pair<Rule>) -> Option<SingleDefinition> {
+        let mut pair = pair.into_inner();
+        Some(SingleDefinition {
+            definition: pair
+                .step_by(2)
+                .map(|syntactic_term| EBNFParser::parse_syntactic_term(syntactic_term))
+                .collect::<Option<Vec<SyntacticTerm>>>()?,
+        })
+    }
+
+    pub fn parse_syntactic_term(pair: Pair<Rule>) -> Option<SyntacticTerm> {
+        let mut pair = pair.into_inner();
+        println!("parse_syntactic_term:\n{:#?}", pair);
+        None
+    }
+
+    pub fn parse_syntactic_factor(pair: Pair<Rule>) -> Option<SyntacticFactor> {
+        let mut pair = pair.into_inner();
+        println!("parse_syntactic_factor:\n{:#?}", pair);
+        match (pair.next(), pair.next(), pair.next()) {
+            (Some(integer), Some(repetition_symbol), Some(syntactic_primary)) => match (
+                integer.as_rule(),
+                repetition_symbol.as_rule(),
+                syntactic_primary.as_rule(),
+            ) {
+                (Rule::integer, Rule::repetition_symbol, Rule::syntactic_primary) => {
+                    Some(SyntacticFactor {
+                        repetition: integer
+                            .as_str()
+                            .parse::<usize>()
+                            .expect("Unable to parse integer required for syntactic_factor."),
+                        primary: EBNFParser::parse_syntactic_primary(syntactic_primary)?,
+                    })
+                }
+                _ => panic!("parse_syntactic_factor is unable to match with the pattern (integer, repetition_symbol, syntactic_primary)"),
+            },
+            (Some(syntactic_primary), None, None) => match syntactic_primary.as_rule() {
+                Rule::syntactic_primary => Some(SyntacticFactor {
+                    repetition: 1,
+                    primary: EBNFParser::parse_syntactic_primary(syntactic_primary)?,
+                }),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn parse_syntactic_primary(pair: Pair<Rule>) -> Option<SyntacticPrimary> {
+        let mut pair = pair.into_inner().next()?;
+        Some(match pair.as_rule() {
+            Rule::optional_sequence => {
+                SyntacticPrimary::Optional(EBNFParser::parse_definition_list(pair)?)
+            }
+            Rule::repeated_sequence => {
+                SyntacticPrimary::Repeated(EBNFParser::parse_definition_list(pair)?)
+            }
+            Rule::grouped_sequence => {
+                SyntacticPrimary::Grouped(EBNFParser::parse_definition_list(pair)?)
+            }
+            Rule::meta_identifier => {
+                SyntacticPrimary::MetaIdentifier(EBNFParser::parse_meta_identifier(pair)?)
+            }
+            Rule::terminal_string => SyntacticPrimary::TerminalString(String::from(pair.as_str())),
+            Rule::special_sequence => SyntacticPrimary::Special(String::from(pair.as_str())),
+            _ => panic!(
+                r#"
+            parse_syntactic_primary is unable to match any of the expected enum.
+            Instead, we got {:#?}"#,
+                pair
+            ),
+        })
     }
 }
 
@@ -40,7 +175,7 @@ mod tests {
                 Some(MetaIdentifier {
                     name: "letter".to_string()
                 })
-            )
+            );
         };
 
         Ok(())
@@ -71,24 +206,62 @@ mod tests {
 
     #[test]
     fn parse_syntactic_factor() -> Result<(), Box<dyn std::error::Error>> {
-        let successful_parse = EBNFParser::parse(Rule::syntactic_factor, r#"5 * "abcde""#)?;
-        let successful_parse = EBNFParser::parse(Rule::syntactic_factor, r#"5 * {"abcde"}"#)?;
+        if let Some(pair) = EBNFParser::parse(Rule::syntactic_factor, r#"5 * {"abcde"}"#)?.next() {
+            let result = EBNFParser::parse_syntactic_factor(pair);
+            println!("result:\n{:#?}", result);
+        };
         Ok(())
     }
 
     #[test]
     fn parse_definition_list() -> Result<(), Box<dyn std::error::Error>> {
-        let _ = EBNFParser::parse(
+        if let Some(pair) = EBNFParser::parse(
             Rule::definition_list,
-            r#"(5 * {"abcde"} - "xyz") | "fghi";"#,
-        )?;
+            r#"(5 * {"abcde"} - "xyz") | "fghi", "ghi";"#,
+        )?
+        .next()
+        {
+            EBNFParser::parse_definition_list(pair);
+        };
         Ok(())
     }
 
     #[test]
-    fn parse_syntax_rule() {
-        let successful_parse = EBNFParser::parse(Rule::syntax, r#"letter = "a" | "b";"#);
-        println!("{:#?}", successful_parse);
+    fn parse_syntax_rule() -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(pair) = EBNFParser::parse(Rule::syntax_rule, r#"letter = "a" | "b";"#)?.next() {
+            let mut pair = pair.into_inner();
+            match (pair.next(), pair.next(), pair.next(), pair.next()) {
+                (
+                    Some(meta_identifier),
+                    Some(defining_symbol),
+                    Some(definition_list),
+                    Some(terminator_symbol),
+                ) => match (
+                    meta_identifier.as_rule(),
+                    defining_symbol.as_rule(),
+                    definition_list.as_rule(),
+                    terminator_symbol.as_rule(),
+                ) {
+                    (
+                        Rule::meta_identifier,
+                        Rule::defining_symbol,
+                        Rule::definition_list,
+                        Rule::terminator_symbol,
+                    ) => {
+                        assert_eq!(
+                            Some(MetaIdentifier {
+                                name: "letter".to_string(),
+                            }),
+                            EBNFParser::parse_meta_identifier(meta_identifier)
+                        );
+                        assert_eq!(r#""a" | "b""#, definition_list.as_str());
+                    }
+                    _ => {}
+                },
+                _ => {}
+            };
+        };
+        Ok(())
     }
 
     #[test]

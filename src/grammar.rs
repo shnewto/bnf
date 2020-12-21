@@ -246,7 +246,7 @@ mod tests {
     extern crate quickcheck;
     extern crate rand;
 
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdGen, TestResult};
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdThreadGen, TestResult};
     use super::*;
     use expression::Expression;
     use production::Production;
@@ -276,8 +276,8 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(StdGen::new(rand::thread_rng(), 12usize))
-            .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult)
+            .gen(StdThreadGen::new(12usize))
+            .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
     }
 
     #[test]

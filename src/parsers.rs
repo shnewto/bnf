@@ -4,18 +4,17 @@ use production::Production;
 use term::Term;
 
 use nom::{
-    self,
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete,
-    combinator::{all_consuming, complete, not, peek, recognize, eof},
-    error::{ErrorKind, ParseError, VerboseError},
+    combinator::{all_consuming, complete, eof, not, peek, recognize},
+    error::VerboseError,
     multi::many1,
     sequence::{delimited, preceded, terminated},
-    IResult, InputLength,
+    IResult,
 };
 
-pub fn prod_lhs<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+pub fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, nt) = delimited(
         complete::char('<'),
         take_until(">"),
@@ -30,7 +29,7 @@ pub fn prod_lhs<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a s
     Ok((input, Term::Nonterminal(nt.to_string())))
 }
 
-pub fn terminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = alt((
         delimited(
             complete::char('"'),
@@ -47,7 +46,7 @@ pub fn terminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a s
     Ok((input, Term::Terminal(t.to_string())))
 }
 
-pub fn nonterminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, nt) = complete(delimited(
         complete::char('<'),
         take_until(">"),
@@ -62,13 +61,13 @@ pub fn nonterminal<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'
     Ok((input, Term::Nonterminal(nt.to_string())))
 }
 
-pub fn term<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+pub fn term(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = alt((terminal, nonterminal))(input)?;
 
     Ok((input, t))
 }
 
-pub fn term_complete<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
+pub fn term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = all_consuming(term)(input)?;
 
     Ok((input, t))
@@ -85,9 +84,7 @@ pub fn expression_next<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseErro
     Ok((input, e))
 }
 
-// delimited(complete::multispace0, tk, opt(complete::multispace1(input: T))
-
-pub fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseError<&'a str>> {
+pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, _) = peek(term)(input)?;
 
     let (input, terms) = many1(complete(term))(input)?;
@@ -107,15 +104,13 @@ pub fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseErr
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn expression_complete<'a>(
-    input: &'a str,
-) -> IResult<&'a str, Expression, VerboseError<&'a str>> {
+pub fn expression_complete(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, e) = all_consuming(expression)(input)?;
 
     Ok((input, e))
 }
 
-pub fn production<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseError<&'a str>> {
+pub fn production(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, lhs) = preceded(
         complete::multispace0,
         terminated(prod_lhs, complete::multispace0),
@@ -136,22 +131,20 @@ pub fn production<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseErr
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
-pub fn production_complete<'a>(
-    input: &'a str,
-) -> IResult<&'a str, Production, VerboseError<&'a str>> {
+pub fn production_complete(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, p) = all_consuming(production)(input)?;
 
     Ok((input, p))
 }
 
-pub fn grammar<'a>(input: &'a str) -> IResult<&'a str, Grammar, VerboseError<&'a str>> {
+pub fn grammar(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
     let (input, _) = peek(production)(input)?;
     let (input, prods) = many1(complete(production))(input)?;
 
     Ok((input, Grammar::from_parts(prods)))
 }
 
-pub fn grammar_complete<'a>(input: &'a str) -> IResult<&'a str, Grammar, VerboseError<&'a str>> {
+pub fn grammar_complete(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
     let (input, g) = all_consuming(grammar)(input)?;
 
     Ok((input, g))

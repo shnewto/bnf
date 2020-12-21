@@ -19,62 +19,104 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-  test-macos-latest:
-    name: macos-latest test suite
+  test-macos-latest-stable:
+    name: macos-latest test suite stable
     needs: [format]
-    strategy:
-      matrix:
-        toolchain: [stable, beta, nightly]
-        idtimeout-minutes: [30, 30, 30]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v1
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable
           override: true
-      - name: test
-        run: cargo test
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
 
-  test-windows-latest:
-    name: windows-latest test suite
+  test-macos-latest-nightly:
+    name: macos-latest test suite nightly
     needs: [format]
-    strategy:
-      matrix:
-        toolchain: [stable, beta, nightly]
-        idtimeout-minutes: [30, 30, 30]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-windows-latest-stable:
+    name: windows-latest test suite stable
+    needs: [format]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v1
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable
           override: true
-      - name: test
-        run: cargo test
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
 
-  test-ubuntu-latest:
-    name: ubuntu-latest test suite
+  test-windows-latest-nightly:
+    name: windows-latest test suite nightly
     needs: [format]
-    strategy:
-      matrix:
-        toolchain: [stable, beta, nightly]
-        idtimeout-minutes: [30, 30, 30]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-ubuntu-latest-stable:
+    name: ubuntu-latest test suite stable
+    needs: [format]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable
           override: true
-      - name: test
-        run: cargo test
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-ubuntu-latest-nightly:
+    name: ubuntu-latest test suite nightly
+    needs: [format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
 
   coverage:
-    needs: [test-ubuntu-latest]
+    needs: [test-ubuntu-latest-stable]
     runs-on: ubuntu-latest
     steps:
       - name: run cargo-tarpaulin

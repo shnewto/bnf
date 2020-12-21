@@ -39,6 +39,7 @@ jobs:
         run: cargo test
 
   coverage:
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - name: run cargo-tarpaulin

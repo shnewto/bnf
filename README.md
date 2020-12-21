@@ -1,7 +1,7 @@
 # bnf
 
 [![Build Status](https://travis-ci.org/shnewto/bnf.svg?branch=main)](https://travis-ci.org/shnewto/bnf)
-[![Coverage Status](https://coveralls.io/repos/github/shnewto/bnf/badge.svg?branch=main)](https://coveralls.io/github/shnewto/bnf?branch=main)
+[![codecov](https://codecov.io/gh/shnewto/bnf/branch/main/graph/badge.svg?token=Pl9Xm3nyFD)](https://codecov.io/gh/shnewto/bnf)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

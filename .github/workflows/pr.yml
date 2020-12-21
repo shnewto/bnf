@@ -19,23 +19,6 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-      - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.16.0'
-          args: '-- --test-threads 1'
-
-      - name: upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
-
-      - name: archive code coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
-
   test:
     name: test suite
     needs: [format]
@@ -54,3 +37,23 @@ jobs:
           override: true
       - name: test
         run: cargo test
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.16.0'
+          args: '-- --test-threads 1'
+
+      - name: upload to codecov.io
+        uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+
+      - name: archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml

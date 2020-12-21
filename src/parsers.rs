@@ -8,21 +8,12 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_until},
     character::complete,
-    combinator::{all_consuming, complete, not, peek, recognize},
+    combinator::{all_consuming, complete, not, peek, recognize, eof},
     error::{ErrorKind, ParseError, VerboseError},
     multi::many1,
     sequence::{delimited, preceded, terminated},
     IResult, InputLength,
 };
-
-/// Not sure how to get this from nom 5 so taking a stab at implemeting it myself.
-pub fn eoi<I: Copy + InputLength, E: ParseError<I>>(input: I) -> IResult<I, I, E> {
-    if input.input_len() == 0 {
-        Ok((input, input))
-    } else {
-        Err(nom::Err::Error(E::from_error_kind(input, ErrorKind::Eof)))
-    }
-}
 
 pub fn prod_lhs<'a>(input: &'a str) -> IResult<&'a str, Term, VerboseError<&'a str>> {
     let (input, nt) = delimited(
@@ -104,7 +95,7 @@ pub fn expression<'a>(input: &'a str) -> IResult<&'a str, Expression, VerboseErr
         complete::multispace0,
         terminated(
             alt((
-                recognize(peek(complete(eoi))),
+                recognize(peek(complete(eof))),
                 recognize(peek(complete(complete::char(';')))),
                 expression_next,
                 recognize(peek(complete(prod_lhs))),
@@ -134,7 +125,7 @@ pub fn production<'a>(input: &'a str) -> IResult<&'a str, Production, VerboseErr
         complete::multispace0,
         terminated(
             alt((
-                recognize(peek(complete(eoi))),
+                recognize(peek(complete(eof))),
                 tag(";"),
                 recognize(peek(complete(prod_lhs))),
             )),

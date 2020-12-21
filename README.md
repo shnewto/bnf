@@ -1,6 +1,6 @@
 # bnf
 
-[![build status](https://github.com/shnewto/bnf/workflows/.github/workflows/main.yml/badge.svg?branch=main)](https://github.com/shnewto/bnf/actions)
+[![.github/workflows/ci.yml](https://github.com/shnewto/bnf/workflows/.github/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shnewto/bnf/actions)
 [![codecov](https://codecov.io/gh/shnewto/bnf/branch/main/graph/badge.svg?token=Pl9Xm3nyFD)](https://codecov.io/gh/shnewto/bnf)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)

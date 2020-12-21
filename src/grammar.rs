@@ -64,8 +64,9 @@ impl Grammar {
     }
 
     fn traverse(&self, ident: &str, rng: &mut StdRng) -> Result<String, Error> {
-        const STACK_RED_ZONE: usize = 32 * 1024; // 32KB
-                                                 // heavy recursion happening, we've hit out tolerable threshold
+        // If we only have 64KB left, we've hit our tolerable threshold for recursion
+        const STACK_RED_ZONE: usize = 64 * 1024;
+
         if let Some(remaining) = stacker::remaining_stack() {
             if remaining < STACK_RED_ZONE {
                 return Err(Error::RecursionLimit(format!(

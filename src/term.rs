@@ -2,9 +2,9 @@
 
 use error::Error;
 use parsers;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
-use serde::{Deserialize, Serialize};
 
 /// A Term can represent a Terminal or Nonterminal node
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]

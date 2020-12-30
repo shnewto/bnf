@@ -3,12 +3,12 @@ use expression::Expression;
 use parsers;
 use production::Production;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 use stacker;
 use std::fmt;
 use std::slice;
 use std::str;
 use term::Term;
-use serde::{Deserialize, Serialize};
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]

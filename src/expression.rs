@@ -4,9 +4,10 @@ use std::fmt;
 use std::slice;
 use std::str::FromStr;
 use term::Term;
+use serde::{Deserialize, Serialize};
 
 /// An Expression is comprised of any number of Terms
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Expression {
     terms: Vec<Term>,
 }

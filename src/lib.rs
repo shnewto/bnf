@@ -166,6 +166,8 @@
 extern crate nom;
 extern crate rand;
 extern crate stacker;
+extern crate serde;
+extern crate serde_json;
 mod error;
 mod expression;
 mod grammar;

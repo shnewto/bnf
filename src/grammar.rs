@@ -8,9 +8,10 @@ use std::fmt;
 use std::slice;
 use std::str;
 use term::Term;
+use serde::{Deserialize, Serialize};
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub struct Grammar {
     productions: Vec<Production>,
 }

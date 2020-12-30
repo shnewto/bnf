@@ -3,13 +3,14 @@
 use error::Error;
 use expression::Expression;
 use parsers;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::slice;
 use std::str::FromStr;
 use term::Term;
 
 /// A Production is comprised of any number of Expressions
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Production {
     pub lhs: Term,
     rhs: Vec<Expression>,

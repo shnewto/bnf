@@ -2,11 +2,12 @@
 
 use error::Error;
 use parsers;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
 /// A Term can represent a Terminal or Nonterminal node
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Term {
     Terminal(String),
     Nonterminal(String),

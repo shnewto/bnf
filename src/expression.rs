@@ -130,9 +130,9 @@ mod tests {
     use super::*;
 
     impl Arbitrary for Expression {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut terms = Vec::<Term>::arbitrary(g);
-            // expressions must always have atleast one term
+            // expressions must always have at least one term
             if terms.is_empty() {
                 terms.push(Term::arbitrary(g));
             }

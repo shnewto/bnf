@@ -248,14 +248,14 @@ mod tests {
     extern crate quickcheck;
     extern crate rand;
 
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdThreadGen, TestResult};
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
     use expression::Expression;
     use production::Production;
     use term::Term;
 
     impl Arbitrary for Grammar {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut productions = Vec::<Production>::arbitrary(g);
             // grammar must always have atleast one production
             if productions.is_empty() {
@@ -278,7 +278,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(StdThreadGen::new(12usize))
+            .gen(Gen::new(12usize))
             .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
     }
 

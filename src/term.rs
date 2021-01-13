@@ -46,7 +46,7 @@ mod tests {
     use super::*;
 
     impl Arbitrary for Term {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let mut term = String::arbitrary(g);
             if bool::arbitrary(g) {
                 term = term.chars().filter(|&c| (c != '>')).collect();

@@ -53,14 +53,13 @@ const BNF_FOR_BNF: &str = "
         <EOL>            ::= \"\n\"";
 
 impl Arbitrary for Meta {
-    fn arbitrary<G: Gen>(g: &mut G) -> Meta {
+    fn arbitrary(_: &mut Gen) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
         let grammar: Result<Grammar, _> = BNF_FOR_BNF.parse();
         assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
 
         // generate a random valid grammar from the above
-        let mut seed: [u8; 32] = [0; 32];
-        g.fill_bytes(&mut seed);
+        let seed: [u8; 32] = [0; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let sentence = grammar.unwrap().generate_seeded(&mut rng);
 

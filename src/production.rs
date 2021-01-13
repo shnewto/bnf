@@ -130,11 +130,11 @@ mod tests {
     extern crate quickcheck;
     extern crate rand;
 
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, StdThreadGen, TestResult};
+    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
 
     impl Arbitrary for Production {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let lhs_str = String::arbitrary(g)
                 .chars()
                 .filter(|&c| (c != '>'))
@@ -163,7 +163,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(StdThreadGen::new(25usize))
+            .gen(Gen::new(25usize))
             .quickcheck(prop_to_string_and_back as fn(Production) -> TestResult)
     }
 

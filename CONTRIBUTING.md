@@ -5,7 +5,7 @@
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [shnewto@gmail.com](mailto:shnewto@gmail.com).
+This project and everyone participating in it is governed by the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [bnf@shnewto.dev](mailto:bnf@shnewto.dev).
 
 
 ## Questions

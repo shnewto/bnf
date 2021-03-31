@@ -33,4 +33,5 @@
 <character2>     ::= <character> | '"'
 <rule-name>      ::= <letter> | <rule-name> <rule-char>
 <rule-char>      ::= <letter> | <digit> | "-"
-<EOL>            ::= "\n"
+<EOL>            ::= "
+"

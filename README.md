@@ -6,9 +6,7 @@
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A library for parsing Backus–Naur form context-free grammars
-inspired by the JavaScript libraries [prettybnf](https://github.com/dhconnelly/prettybnf) and
-[erratic](https://github.com/dhconnelly/erratic)
+A library for parsing Backus–Naur form context-free grammars.
 
 ## What does a parsable BNF grammar look like?
 

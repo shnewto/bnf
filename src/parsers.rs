@@ -238,7 +238,7 @@ mod tests {
             construct_production_tuple().0,
         ]);
 
-        (grammar_object, grammar_pattern.to_string())
+        (grammar_object, grammar_pattern)
     }
 
     #[test]

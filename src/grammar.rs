@@ -59,7 +59,7 @@ impl Grammar {
 
     fn eval_terminal(&self, term: &Term, rng: &mut StdRng) -> Result<String, Error> {
         match *term {
-            Term::Nonterminal(ref nt) => self.traverse(&nt, rng),
+            Term::Nonterminal(ref nt) => self.traverse(nt, rng),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
@@ -100,7 +100,7 @@ impl Grammar {
 
         let mut result = String::new();
         for term in expression.terms_iter() {
-            match self.eval_terminal(&term, rng) {
+            match self.eval_terminal(term, rng) {
                 Ok(s) => result = result + &s,
                 Err(e) => return Err(e),
             }

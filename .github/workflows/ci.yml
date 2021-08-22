@@ -94,21 +94,27 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
           override: true
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+      - name: install cargo-tarpaulin
+        uses: actions-rs/cargo@v1
         with:
-          version: '0.15.0'
-          args: '-- --test-threads 1'
+          command: install
+          args: cargo-tarpaulin --version 0.18.0-alpha3
+      - name: Run cargo tarpaulin
+        uses: actions-rs/cargo@v1
+        with:
+          command: tarpaulin
+          args: --avoid-cfg-tarpaulin
       - name: upload to codecov.io
         uses: codecov/codecov-action@v1
       - name: archive code coverage results

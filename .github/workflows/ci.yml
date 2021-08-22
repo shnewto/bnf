@@ -93,8 +93,12 @@ jobs:
     name: ubuntu-latest test suite stable with coverage
     needs: [format]
     runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
     steps:
-      - uses: actions/checkout@v1
+      - name: checkout
+        uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -105,10 +109,8 @@ jobs:
         with:
           command: test
       - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.18.0-alpha3'
-          args: '-- --test-threads 1 --avoid-cfg-tarpaulin'
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
       - name: upload to codecov.io
         uses: codecov/codecov-action@v1
       - name: archive code coverage results

@@ -89,6 +89,34 @@ jobs:
         with:
           command: test
 
+  test-ubuntu-latest-stable-with-coverage:
+    name: ubuntu-latest test suite stable with coverage
+    needs: [format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.16.0'
+          args: '-- --test-threads 1'
+      - name: upload to codecov.io
+        uses: codecov/codecov-action@v1
+      - name: archive code coverage results
+        uses: actions/upload-artifact@v1
+        with:
+          name: code-coverage-report
+          path: cobertura.xml
+
   test-ubuntu-latest-nightly:
     name: ubuntu-latest test suite nightly
     needs: [format]

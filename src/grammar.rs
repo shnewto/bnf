@@ -57,56 +57,70 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term, rng: &mut StdRng) -> Result<String, Error> {
+    fn eval_terminal(
+        &self,
+        term: &Term,
+        rng: &mut StdRng,
+        f: &impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
         match *term {
-            Term::Nonterminal(ref nt) => self.traverse(nt, rng),
+            Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &str, rng: &mut StdRng) -> Result<String, Error> {
-        // If we only have 64KB left, we've hit our tolerable threshold for recursion
-        const STACK_RED_ZONE: usize = 64 * 1024;
+    fn traverse(
+        &self,
+        ident: &str,
+        rng: &mut StdRng,
+        f: &impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
+        loop {
+            // If we only have 64KB left, we've hit our tolerable threshold for recursion
+            const STACK_RED_ZONE: usize = 64 * 1024;
 
-        if let Some(remaining) = stacker::remaining_stack() {
-            if remaining < STACK_RED_ZONE {
-                return Err(Error::RecursionLimit(format!(
-                    "Limit for recursion reached processing <{}>!",
-                    ident
-                )));
+            if let Some(remaining) = stacker::remaining_stack() {
+                if remaining < STACK_RED_ZONE {
+                    return Err(Error::RecursionLimit(format!(
+                        "Limit for recursion reached processing <{}>!",
+                        ident
+                    )));
+                }
+            }
+
+            let nonterm = Term::Nonterminal(ident.to_string());
+            let production;
+            let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+
+            match find_lhs {
+                Some(p) => production = p,
+                None => return Ok(nonterm.to_string()),
+            }
+
+            let expression;
+            let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+
+            match expressions.choose(rng) {
+                Some(e) => expression = e,
+                None => {
+                    return Err(Error::GenerateError(String::from(
+                        "Couldn't select random Expression!",
+                    )));
+                }
+            }
+
+            let mut result = String::new();
+            for term in expression.terms_iter() {
+                match self.eval_terminal(term, rng, f) {
+                    Ok(s) => result = result + &s,
+                    Err(e) => return Err(e),
+                }
+            }
+
+            if f(ident, &result) {
+                return Ok(result);
             }
         }
-
-        let nonterm = Term::Nonterminal(ident.to_string());
-        let production;
-        let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
-
-        match find_lhs {
-            Some(p) => production = p,
-            None => return Ok(nonterm.to_string()),
-        }
-
-        let expression;
-        let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
-
-        match expressions.choose(rng) {
-            Some(e) => expression = e,
-            None => {
-                return Err(Error::GenerateError(String::from(
-                    "Couldn't select random Expression!",
-                )));
-            }
-        }
-
-        let mut result = String::new();
-        for term in expression.terms_iter() {
-            match self.eval_terminal(term, rng) {
-                Ok(s) => result = result + &s,
-                Err(e) => return Err(e),
-            }
-        }
-
-        Ok(result)
     }
 
     /// Generate a random sentence from self and seed for random.
@@ -139,6 +153,22 @@ impl Grammar {
     /// }
     /// ```
     pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
+        self.generate_seeded_callback(rng, |_, _| true)
+    }
+
+    /// Does the same as [`generate_seeded`], except it takes a callback which is
+    /// executed on every production that is generated to check if it is okay.
+    /// When the callback returns `true`, the generation continues as normal,
+    /// but when the callback returns `false`, a new random option is tried.
+    ///
+    /// The first parameter to the callback is the current production name,
+    /// and the second parameter is the value that was attempted to be
+    /// generated, but may be rejected.
+    pub fn generate_seeded_callback(
+        &self,
+        rng: &mut StdRng,
+        f: impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
         let start_rule: String;
         let first_production = self.productions_iter().next();
 
@@ -158,7 +188,7 @@ impl Grammar {
                 )));
             }
         }
-        self.traverse(&start_rule, rng)
+        self.traverse(&start_rule, rng, &f)
     }
 
     /// Generate a random sentence from self.
@@ -186,11 +216,23 @@ impl Grammar {
     /// }
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
+        self.generate_callback(|_, _| true)
+    }
+
+    /// Does the same as [`generate`], except it takes a callback which is
+    /// executed on every production that is generated to check if it is okay.
+    /// When the callback returns `true`, the generation continues as normal,
+    /// but when the callback returns `false`, a new random option is tried.
+    ///
+    /// The first parameter to the callback is the current production name,
+    /// and the second parameter is the value that was attempted to be
+    /// generated, but may be rejected.
+    pub fn generate_callback(&self, f: impl Fn(&str, &str) -> bool) -> Result<String, Error> {
         // let seed: &[_] = &[1, 2, 3, 4];
         let mut seed: [u8; 32] = [0; 32];
         thread_rng().fill(&mut seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        self.generate_seeded(&mut rng)
+        self.generate_seeded_callback(&mut rng, f)
     }
 }
 

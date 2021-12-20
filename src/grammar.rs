@@ -57,14 +57,24 @@ impl Grammar {
         }
     }
 
-    fn eval_terminal(&self, term: &Term, rng: &mut StdRng, f: &impl Fn(&str, &str) -> bool) -> Result<String, Error> {
+    fn eval_terminal(
+        &self,
+        term: &Term,
+        rng: &mut StdRng,
+        f: &impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
             Term::Terminal(ref t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(&self, ident: &str, rng: &mut StdRng, f: &impl Fn(&str, &str) -> bool) -> Result<String, Error> {
+    fn traverse(
+        &self,
+        ident: &str,
+        rng: &mut StdRng,
+        f: &impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
         loop {
             // If we only have 64KB left, we've hit our tolerable threshold for recursion
             const STACK_RED_ZONE: usize = 64 * 1024;
@@ -108,7 +118,7 @@ impl Grammar {
             }
 
             if f(ident, &result) {
-                return Ok(result)
+                return Ok(result);
             }
         }
     }
@@ -154,7 +164,11 @@ impl Grammar {
     /// The first parameter to the callback is the current production name,
     /// and the second parameter is the value that was attempted to be
     /// generated, but may be rejected.
-    pub fn generate_seeded_callback(&self, rng: &mut StdRng, f: impl Fn(&str, &str) -> bool) -> Result<String, Error> {
+    pub fn generate_seeded_callback(
+        &self,
+        rng: &mut StdRng,
+        f: impl Fn(&str, &str) -> bool,
+    ) -> Result<String, Error> {
         let start_rule: String;
         let first_production = self.productions_iter().next();
 

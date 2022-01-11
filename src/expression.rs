@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::slice;
 use std::str::FromStr;
+use std::ops;
 use term::Term;
 
 /// An Expression is comprised of any number of Terms
@@ -95,6 +96,32 @@ impl FromStr for Expression {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
+    }
+}
+
+impl ops::BitOr<Expression> for Expression {
+    type Output = Expression;
+    fn bitor(self, rhs: Expression) -> Self::Output {
+        let mut new_expression = Expression::new();
+        for t in self.terms_iter() {
+            new_expression.add_term(t.clone());
+        }
+        for t in rhs.terms_iter() {
+            new_expression.add_term(t.clone());
+        }
+        new_expression
+    }
+}
+
+impl ops::BitOr<Term> for Expression {
+    type Output = Expression;
+    fn bitor(self, rhs: Term) -> Self::Output {
+        let mut new_expression = Expression::new();
+        for t in self.terms_iter() {
+            new_expression.add_term(t.clone());
+        }
+        new_expression.add_term(rhs);
+        new_expression
     }
 }
 
@@ -281,5 +308,25 @@ mod tests {
             },
             Ok(s) => panic!("should should be Error::ParseError: {}", s),
         }
+    }
+
+    #[test]
+    fn or_operator() {
+        let t1: Term = Term::Terminal(String::from("terminal"));
+        let nt1: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t2: Term = Term::Terminal(String::from("terminal"));
+        let nt2: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t3: Term = Term::Terminal(String::from("terminal"));
+        let nt3: Term = Term::Nonterminal(String::from("nonterminal"));
+
+        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let e2_1 = Expression::from_parts(vec![nt2]);
+        let e2_2 = Expression::from_parts(vec![t2]);
+        let e2 = e2_1 | e2_2;
+        let e3_1 = Expression::from_parts(vec![nt3]);
+        let e3 = e3_1 | t3;
+
+        assert_eq!(e1, e2);
+        assert_eq!(e1, e3);
     }
 }

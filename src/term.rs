@@ -5,6 +5,8 @@ use parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
+use std::ops;
+use expression::Expression;
 
 /// A Term can represent a Terminal or Nonterminal node
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
@@ -20,6 +22,27 @@ impl FromStr for Term {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
+    }
+}
+
+impl ops::BitOr<Term> for Term {
+    type Output = Expression;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Expression::from_parts(vec![self, rhs])
+    }
+}
+
+impl ops::BitOr<Expression> for Term {
+    type Output = Expression;
+
+    fn bitor(self, rhs: Expression) -> Self::Output {
+        let mut new_expression = Expression::new();
+        for t in rhs.terms_iter() {
+            new_expression.add_term(t.clone());
+        }
+        new_expression.add_term(self);
+        new_expression
     }
 }
 
@@ -154,5 +177,23 @@ mod tests {
         let to_string = quote.to_string();
         let from_string = Term::from_str(&to_string);
         assert_eq!(Ok(Term::Terminal(String::from("\""))), from_string);
+    }
+
+    #[test]
+    fn or_operator() {
+        let t1: Term = Term::Terminal(String::from("terminal"));
+        let nt1: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t2: Term = Term::Terminal(String::from("terminal"));
+        let nt2: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t3: Term = Term::Terminal(String::from("terminal"));
+        let nt3: Term = Term::Nonterminal(String::from("nonterminal"));
+
+        let e1: Expression = Expression::from_parts(vec![nt1, t1]);
+        let e2: Expression = nt2 | t2;
+        let e3_1: Expression = Expression::from_parts(vec![t3]);
+        let e3: Expression = nt3 | e3_1;
+
+        assert_eq!(e1, e2);
+        assert_eq!(e1, e3);
     }
 }

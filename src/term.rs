@@ -35,14 +35,21 @@ impl ops::BitOr<Term> for Term {
 
 impl ops::BitOr<Expression> for Term {
     type Output = Expression;
+    fn bitor(self, mut rhs: Expression) -> Self::Output {
+        rhs.add_term(self);
+        rhs
+    }
+}
 
-    fn bitor(self, rhs: Expression) -> Self::Output {
-        let mut new_expression = Expression::new();
+impl ops::BitOr<&Expression> for Term {
+    type Output = Expression;
+    fn bitor(self, rhs: &Expression) -> Self::Output {
+        let mut new = Expression::new();
         for t in rhs.terms_iter() {
-            new_expression.add_term(t.clone());
+            new.add_term(t.clone());
         }
-        new_expression.add_term(self);
-        new_expression
+        new.add_term(self);
+        new
     }
 }
 
@@ -181,19 +188,29 @@ mod tests {
 
     #[test]
     fn or_operator() {
-        let t1: Term = Term::Terminal(String::from("terminal"));
-        let nt1: Term = Term::Nonterminal(String::from("nonterminal"));
-        let t2: Term = Term::Terminal(String::from("terminal"));
-        let nt2: Term = Term::Nonterminal(String::from("nonterminal"));
-        let t3: Term = Term::Terminal(String::from("terminal"));
-        let nt3: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = Term::Terminal(String::from("terminal"));
+        let nt1 = Term::Nonterminal(String::from("nonterminal"));
+        let t2 = Term::Terminal(String::from("terminal"));
+        let nt2 = Term::Nonterminal(String::from("nonterminal"));
+        let t3 = Term::Terminal(String::from("terminal"));
+        let nt3 = Term::Nonterminal(String::from("nonterminal"));
+        let t4 = Term::Terminal(String::from("terminal"));
+        let nt4 = Term::Nonterminal(String::from("nonterminal"));
 
-        let e1: Expression = Expression::from_parts(vec![nt1, t1]);
-        let e2: Expression = nt2 | t2;
-        let e3_1: Expression = Expression::from_parts(vec![t3]);
-        let e3: Expression = nt3 | e3_1;
+        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let e2 = nt2 | t2;
+        let e3_1 = Expression::from_parts(vec![nt3]);
+        let e3 = t3 | e3_1;
+        let mut e4_1 = Expression::from_parts(vec![nt4]);
+        let e4 = t4 | e4_1;
+
+        // Term get's pushed to the end of expression.
+        // functionally identical, but different to eq
+        // example:
+        // nt3 | Expression::from_parts(vec![t3]) != Expression::from_parts(vec![nt3, t3])
 
         assert_eq!(e1, e2);
         assert_eq!(e1, e3);
+        assert_eq!(e1, e4);
     }
 }

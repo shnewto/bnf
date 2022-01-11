@@ -99,7 +99,7 @@ impl FromStr for Expression {
     }
 }
 
-impl ops::BitOr<Expression> for Expression {
+impl ops::BitOr<Expression> for &Expression {
     type Output = Expression;
     fn bitor(self, rhs: Expression) -> Self::Output {
         let mut new_expression = Expression::new();
@@ -113,7 +113,7 @@ impl ops::BitOr<Expression> for Expression {
     }
 }
 
-impl ops::BitOr<Term> for Expression {
+impl ops::BitOr<Term> for &Expression {
     type Output = Expression;
     fn bitor(self, rhs: Term) -> Self::Output {
         let mut new_expression = Expression::new();
@@ -122,6 +122,24 @@ impl ops::BitOr<Term> for Expression {
         }
         new_expression.add_term(rhs);
         new_expression
+    }
+}
+
+impl ops::BitOr<Expression> for Expression {
+    type Output = Expression;
+    fn bitor(mut self, rhs: Expression) -> Self::Output {
+        for t in rhs.terms_iter() {
+            self.add_term(t.clone());
+        }
+        self
+    }
+}
+
+impl ops::BitOr<Term> for Expression {
+    type Output = Expression;
+    fn bitor(mut self, rhs: Term) -> Self::Output {
+        self.add_term(rhs);
+        self
     }
 }
 
@@ -312,21 +330,36 @@ mod tests {
 
     #[test]
     fn or_operator() {
-        let t1: Term = Term::Terminal(String::from("terminal"));
-        let nt1: Term = Term::Nonterminal(String::from("nonterminal"));
-        let t2: Term = Term::Terminal(String::from("terminal"));
-        let nt2: Term = Term::Nonterminal(String::from("nonterminal"));
-        let t3: Term = Term::Terminal(String::from("terminal"));
-        let nt3: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = Term::Terminal(String::from("terminal"));
+        let nt1 = Term::Nonterminal(String::from("nonterminal"));
+        let t2 = Term::Terminal(String::from("terminal"));
+        let nt2 = Term::Nonterminal(String::from("nonterminal"));
+        let t3 = Term::Terminal(String::from("terminal"));
+        let nt3 = Term::Nonterminal(String::from("nonterminal"));
+        let t4 = Term::Terminal(String::from("terminal"));
+        let nt4 = Term::Nonterminal(String::from("nonterminal"));
+        let t5 = Term::Terminal(String::from("terminal"));
+        let nt5 = Term::Nonterminal(String::from("nonterminal"));
 
         let e1 = Expression::from_parts(vec![nt1, t1]);
+
         let e2_1 = Expression::from_parts(vec![nt2]);
         let e2_2 = Expression::from_parts(vec![t2]);
         let e2 = e2_1 | e2_2;
+        
         let e3_1 = Expression::from_parts(vec![nt3]);
         let e3 = e3_1 | t3;
 
+        let mut e4_1 = Expression::from_parts(vec![nt4]);
+        let e4_2 = Expression::from_parts(vec![t4]);
+        let e4 = e4_1 | e4_2;
+        
+        let mut e5_1 = Expression::from_parts(vec![nt5]);
+        let e5 = e5_1 | t5;
+
         assert_eq!(e1, e2);
         assert_eq!(e1, e3);
+        assert_eq!(e1, e4);
+        assert_eq!(e1, e5);
     }
 }

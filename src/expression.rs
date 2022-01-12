@@ -102,7 +102,6 @@ impl FromStr for Expression {
 impl ops::Add<Expression> for &Expression {
     type Output = Expression;
     fn add(self, rhs: Expression) -> Self::Output {
-        println!("expression for & expression");
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -117,7 +116,6 @@ impl ops::Add<Expression> for &Expression {
 impl ops::Add<Term> for &Expression {
     type Output = Expression;
     fn add(self, rhs: Term) -> Self::Output {
-        println!("Term for & expression");
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -130,7 +128,6 @@ impl ops::Add<Term> for &Expression {
 impl ops::Add<Expression> for Expression {
     type Output = Expression;
     fn add(mut self, rhs: Expression) -> Self::Output {
-        println!("expression for mut expression");
         for t in rhs.terms_iter() {
             self.add_term(t.clone());
         }
@@ -141,7 +138,6 @@ impl ops::Add<Expression> for Expression {
 impl ops::Add<Term> for Expression {
     type Output = Expression;
     fn add(mut self, rhs: Term) -> Self::Output {
-        println!("term for mut expression");
         self.add_term(rhs);
         self
     }

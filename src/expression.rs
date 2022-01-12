@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn or_operator() {
+    fn add_operator() {
         let t1 = Term::Terminal(String::from("terminal"));
         let nt1 = Term::Nonterminal(String::from("nonterminal"));
         let t2 = Term::Terminal(String::from("terminal"));

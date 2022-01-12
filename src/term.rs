@@ -1,9 +1,11 @@
 #![allow(clippy::should_implement_trait)]
 
 use error::Error;
+use expression::Expression;
 use parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::ops;
 use std::str::FromStr;
 
 /// A Term can represent a Terminal or Nonterminal node
@@ -20,6 +22,34 @@ impl FromStr for Term {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
+    }
+}
+
+impl ops::Add<Term> for Term {
+    type Output = Expression;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Expression::from_parts(vec![self, rhs])
+    }
+}
+
+impl ops::Add<Expression> for Term {
+    type Output = Expression;
+    fn add(self, mut rhs: Expression) -> Self::Output {
+        rhs.add_term(self);
+        rhs
+    }
+}
+
+impl ops::Add<&Expression> for Term {
+    type Output = Expression;
+    fn add(self, rhs: &Expression) -> Self::Output {
+        let mut new = Expression::new();
+        for t in rhs.terms_iter() {
+            new.add_term(t.clone());
+        }
+        new.add_term(self);
+        new
     }
 }
 
@@ -154,5 +184,36 @@ mod tests {
         let to_string = quote.to_string();
         let from_string = Term::from_str(&to_string);
         assert_eq!(Ok(Term::Terminal(String::from("\""))), from_string);
+    }
+
+    #[test]
+    fn add_operator() {
+        let t1 = Term::Terminal(String::from("terminal"));
+        let nt1 = Term::Nonterminal(String::from("nonterminal"));
+        let t2 = Term::Terminal(String::from("terminal"));
+        let nt2 = Term::Nonterminal(String::from("nonterminal"));
+        let t3 = Term::Terminal(String::from("terminal"));
+        let nt3 = Term::Nonterminal(String::from("nonterminal"));
+        let t4 = Term::Terminal(String::from("terminal"));
+        let nt4 = Term::Nonterminal(String::from("nonterminal"));
+
+        // term + term
+        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let e2 = nt2 + t2;
+        // term + &expression
+        let e3_1 = Expression::from_parts(vec![nt3]);
+        let e3 = t3 + &e3_1;
+        //term + expression
+        let e4_1 = Expression::from_parts(vec![nt4]);
+        let e4 = t4 + e4_1;
+
+        // Term get's pushed to the end of expression.
+        // functionally identical, but different to eq
+        // example:
+        // nt3 | Expression::from_parts(vec![t3]) != Expression::from_parts(vec![nt3, t3])
+
+        assert_eq!(e1, e2);
+        assert_eq!(e1, e3);
+        assert_eq!(e1, e4);
     }
 }

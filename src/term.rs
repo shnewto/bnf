@@ -25,25 +25,25 @@ impl FromStr for Term {
     }
 }
 
-impl ops::BitOr<Term> for Term {
+impl ops::Add<Term> for Term {
     type Output = Expression;
 
-    fn bitor(self, rhs: Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Self::Output {
         Expression::from_parts(vec![self, rhs])
     }
 }
 
-impl ops::BitOr<Expression> for Term {
+impl ops::Add<Expression> for Term {
     type Output = Expression;
-    fn bitor(self, mut rhs: Expression) -> Self::Output {
+    fn add(self, mut rhs: Expression) -> Self::Output {
         rhs.add_term(self);
         rhs
     }
 }
 
-impl ops::BitOr<&Expression> for Term {
+impl ops::Add<&Expression> for Term {
     type Output = Expression;
-    fn bitor(self, rhs: &Expression) -> Self::Output {
+    fn add(self, rhs: &Expression) -> Self::Output {
         let mut new = Expression::new();
         for t in rhs.terms_iter() {
             new.add_term(t.clone());
@@ -198,11 +198,11 @@ mod tests {
         let nt4 = Term::Nonterminal(String::from("nonterminal"));
 
         let e1 = Expression::from_parts(vec![nt1, t1]);
-        let e2 = nt2 | t2;
+        let e2 = nt2 + t2;
         let e3_1 = Expression::from_parts(vec![nt3]);
-        let e3 = t3 | e3_1;
+        let e3 = t3 + e3_1;
         let mut e4_1 = Expression::from_parts(vec![nt4]);
-        let e4 = t4 | e4_1;
+        let e4 = t4 + e4_1;
 
         // Term get's pushed to the end of expression.
         // functionally identical, but different to eq

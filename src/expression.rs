@@ -99,9 +99,9 @@ impl FromStr for Expression {
     }
 }
 
-impl ops::BitOr<Expression> for &Expression {
+impl ops::Add<Expression> for &Expression {
     type Output = Expression;
-    fn bitor(self, rhs: Expression) -> Self::Output {
+    fn add(self, rhs: Expression) -> Self::Output {
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -113,9 +113,9 @@ impl ops::BitOr<Expression> for &Expression {
     }
 }
 
-impl ops::BitOr<Term> for &Expression {
+impl ops::Add<Term> for &Expression {
     type Output = Expression;
-    fn bitor(self, rhs: Term) -> Self::Output {
+    fn add(self, rhs: Term) -> Self::Output {
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -125,9 +125,9 @@ impl ops::BitOr<Term> for &Expression {
     }
 }
 
-impl ops::BitOr<Expression> for Expression {
+impl ops::Add<Expression> for Expression {
     type Output = Expression;
-    fn bitor(mut self, rhs: Expression) -> Self::Output {
+    fn add(mut self, rhs: Expression) -> Self::Output {
         for t in rhs.terms_iter() {
             self.add_term(t.clone());
         }
@@ -135,9 +135,9 @@ impl ops::BitOr<Expression> for Expression {
     }
 }
 
-impl ops::BitOr<Term> for Expression {
+impl ops::Add<Term> for Expression {
     type Output = Expression;
-    fn bitor(mut self, rhs: Term) -> Self::Output {
+    fn add(mut self, rhs: Term) -> Self::Output {
         self.add_term(rhs);
         self
     }
@@ -345,17 +345,17 @@ mod tests {
 
         let e2_1 = Expression::from_parts(vec![nt2]);
         let e2_2 = Expression::from_parts(vec![t2]);
-        let e2 = e2_1 | e2_2;
+        let e2 = e2_1 + e2_2;
 
         let e3_1 = Expression::from_parts(vec![nt3]);
-        let e3 = e3_1 | t3;
+        let e3 = e3_1 + t3;
 
         let mut e4_1 = Expression::from_parts(vec![nt4]);
         let e4_2 = Expression::from_parts(vec![t4]);
-        let e4 = e4_1 | e4_2;
+        let e4 = e4_1 + e4_2;
 
         let mut e5_1 = Expression::from_parts(vec![nt5]);
-        let e5 = e5_1 | t5;
+        let e5 = e5_1 + t5;
 
         assert_eq!(e1, e2);
         assert_eq!(e1, e3);

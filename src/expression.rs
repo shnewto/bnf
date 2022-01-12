@@ -102,6 +102,7 @@ impl FromStr for Expression {
 impl ops::Add<Expression> for &Expression {
     type Output = Expression;
     fn add(self, rhs: Expression) -> Self::Output {
+        println!("expression for & expression");
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -116,6 +117,7 @@ impl ops::Add<Expression> for &Expression {
 impl ops::Add<Term> for &Expression {
     type Output = Expression;
     fn add(self, rhs: Term) -> Self::Output {
+        println!("Term for & expression");
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -128,6 +130,7 @@ impl ops::Add<Term> for &Expression {
 impl ops::Add<Expression> for Expression {
     type Output = Expression;
     fn add(mut self, rhs: Expression) -> Self::Output {
+        println!("expression for mut expression");
         for t in rhs.terms_iter() {
             self.add_term(t.clone());
         }
@@ -138,6 +141,7 @@ impl ops::Add<Expression> for Expression {
 impl ops::Add<Term> for Expression {
     type Output = Expression;
     fn add(mut self, rhs: Term) -> Self::Output {
+        println!("term for mut expression");
         self.add_term(rhs);
         self
     }
@@ -342,19 +346,19 @@ mod tests {
         let nt5 = Term::Nonterminal(String::from("nonterminal"));
 
         let e1 = Expression::from_parts(vec![nt1, t1]);
-
+        // &expression + expression
         let e2_1 = Expression::from_parts(vec![nt2]);
         let e2_2 = Expression::from_parts(vec![t2]);
-        let e2 = e2_1 + e2_2;
-
+        let e2 = &e2_1 + e2_2;
+        // &expression + term
         let e3_1 = Expression::from_parts(vec![nt3]);
-        let e3 = e3_1 + t3;
-
-        let mut e4_1 = Expression::from_parts(vec![nt4]);
+        let e3 = &e3_1 + t3;
+        // expression + expression
+        let e4_1 = Expression::from_parts(vec![nt4]);
         let e4_2 = Expression::from_parts(vec![t4]);
         let e4 = e4_1 + e4_2;
-
-        let mut e5_1 = Expression::from_parts(vec![nt5]);
+        // expression + term
+        let e5_1 = Expression::from_parts(vec![nt5]);
         let e5 = e5_1 + t5;
 
         assert_eq!(e1, e2);

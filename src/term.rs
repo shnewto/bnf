@@ -197,11 +197,14 @@ mod tests {
         let t4 = Term::Terminal(String::from("terminal"));
         let nt4 = Term::Nonterminal(String::from("nonterminal"));
 
+        // term + term
         let e1 = Expression::from_parts(vec![nt1, t1]);
         let e2 = nt2 + t2;
+        // term + &expression
         let e3_1 = Expression::from_parts(vec![nt3]);
-        let e3 = t3 + e3_1;
-        let mut e4_1 = Expression::from_parts(vec![nt4]);
+        let e3 = t3 + &e3_1;
+        //term + expression
+        let e4_1 = Expression::from_parts(vec![nt4]);
         let e4 = t4 + e4_1;
 
         // Term get's pushed to the end of expression.

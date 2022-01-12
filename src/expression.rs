@@ -2,9 +2,9 @@ use error::Error;
 use parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::ops;
 use std::slice;
 use std::str::FromStr;
-use std::ops;
 use term::Term;
 
 /// An Expression is comprised of any number of Terms
@@ -346,14 +346,14 @@ mod tests {
         let e2_1 = Expression::from_parts(vec![nt2]);
         let e2_2 = Expression::from_parts(vec![t2]);
         let e2 = e2_1 | e2_2;
-        
+
         let e3_1 = Expression::from_parts(vec![nt3]);
         let e3 = e3_1 | t3;
 
         let mut e4_1 = Expression::from_parts(vec![nt4]);
         let e4_2 = Expression::from_parts(vec![t4]);
         let e4 = e4_1 | e4_2;
-        
+
         let mut e5_1 = Expression::from_parts(vec![nt5]);
         let e5 = e5_1 | t5;
 

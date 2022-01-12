@@ -1,12 +1,12 @@
 #![allow(clippy::should_implement_trait)]
 
 use error::Error;
+use expression::Expression;
 use parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::str::FromStr;
 use std::ops;
-use expression::Expression;
+use std::str::FromStr;
 
 /// A Term can represent a Terminal or Nonterminal node
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]

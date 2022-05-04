@@ -1,7 +1,3 @@
-extern crate bnf;
-extern crate quickcheck;
-extern crate rand;
-
 use bnf::Error;
 use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};

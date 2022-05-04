@@ -1,5 +1,3 @@
-extern crate bnf;
-
 mod std_trait {
     use std::str::FromStr;
 

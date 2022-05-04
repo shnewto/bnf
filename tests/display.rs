@@ -1,5 +1,3 @@
-extern crate bnf;
-
 use bnf::Grammar;
 
 #[test]

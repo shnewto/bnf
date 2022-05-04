@@ -116,7 +116,6 @@
 //! ## Parse Example
 //!
 //! ```rust
-//! extern crate bnf;
 //! use bnf::Grammar;
 //!
 //! fn main() {
@@ -146,7 +145,6 @@
 //! ## Generate Example
 //!
 //! ```rust
-//! extern crate bnf;
 //! use bnf::Grammar;
 //!
 //! fn main() {
@@ -163,11 +161,6 @@
 //! ```
 //!
 
-extern crate nom;
-extern crate rand;
-extern crate serde;
-extern crate serde_json;
-extern crate stacker;
 mod error;
 mod expression;
 mod grammar;

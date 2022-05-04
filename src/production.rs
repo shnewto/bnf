@@ -127,10 +127,7 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-    extern crate rand;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
 
     impl Arbitrary for Production {

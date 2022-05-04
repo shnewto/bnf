@@ -70,9 +70,7 @@ impl fmt::Display for Term {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
 
     impl Arbitrary for Term {

@@ -36,7 +36,6 @@ impl Expression {
     /// # Example
     ///
     /// ```
-    /// extern crate bnf;
     /// use bnf::{Expression, Term};
     ///
     /// fn main() {
@@ -169,9 +168,7 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
 
     impl Arbitrary for Expression {

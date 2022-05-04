@@ -130,8 +130,6 @@ impl Grammar {
     /// # Example
     ///
     /// ```rust
-    /// extern crate bnf;
-    /// extern crate rand;
     /// use rand::{SeedableRng, rngs::StdRng};
     /// use bnf::Grammar;
     ///
@@ -197,7 +195,6 @@ impl Grammar {
     /// # Example
     ///
     /// ```rust
-    /// extern crate bnf;
     /// use bnf::Grammar;
     ///
     /// fn main() {
@@ -287,10 +284,7 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-    extern crate rand;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
     use crate::expression::Expression;
     use crate::production::Production;

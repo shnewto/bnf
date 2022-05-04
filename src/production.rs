@@ -1,13 +1,13 @@
 #![allow(clippy::should_implement_trait)]
 
-use error::Error;
-use expression::Expression;
-use parsers;
+use crate::error::Error;
+use crate::expression::Expression;
+use crate::parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::slice;
 use std::str::FromStr;
-use term::Term;
+use crate::term::Term;
 
 /// A Production is comprised of any number of Expressions
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]

@@ -1,14 +1,14 @@
-use error::Error;
-use expression::Expression;
-use parsers;
-use production::Production;
+use crate::error::Error;
+use crate::expression::Expression;
+use crate::parsers;
+use crate::production::Production;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use stacker;
 use std::fmt;
 use std::slice;
 use std::str;
-use term::Term;
+use crate::term::Term;
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
@@ -292,9 +292,9 @@ mod tests {
 
     use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
-    use expression::Expression;
-    use production::Production;
-    use term::Term;
+    use crate::expression::Expression;
+    use crate::production::Production;
+    use crate::term::Term;
 
     impl Arbitrary for Grammar {
         fn arbitrary(g: &mut Gen) -> Self {

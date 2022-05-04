@@ -1,11 +1,11 @@
-use error::Error;
-use parsers;
+use crate::error::Error;
+use crate::parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
 use std::slice;
 use std::str::FromStr;
-use term::Term;
+use crate::term::Term;
 
 /// An Expression is comprised of any number of Terms
 #[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]

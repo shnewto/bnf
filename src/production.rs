@@ -3,11 +3,11 @@
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
+use crate::term::Term;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::slice;
 use std::str::FromStr;
-use crate::term::Term;
 
 /// A Production is comprised of any number of Expressions
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
@@ -127,8 +127,8 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Production {
         fn arbitrary(g: &mut Gen) -> Self {

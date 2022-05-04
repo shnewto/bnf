@@ -2,13 +2,13 @@ use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
 use crate::production::Production;
+use crate::term::Term;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use stacker;
 use std::fmt;
 use std::slice;
 use std::str;
-use crate::term::Term;
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
@@ -284,11 +284,11 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
     use crate::expression::Expression;
     use crate::production::Production;
     use crate::term::Term;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Grammar {
         fn arbitrary(g: &mut Gen) -> Self {

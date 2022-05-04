@@ -70,8 +70,8 @@ impl fmt::Display for Term {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Term {
         fn arbitrary(g: &mut Gen) -> Self {

@@ -10,10 +10,8 @@ fn examples(c: &mut Criterion) {
     c.bench_function("generate DNA", |b| {
         let input = "<dna> ::= <base> | <base> <dna>
             <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-        b.iter(|| {
-            let grammar: Grammar = input.parse().unwrap();
-            grammar.generate().unwrap();
-        });
+        let grammar: Grammar = input.parse().unwrap();
+        b.iter(|| grammar.generate().unwrap());
     });
 }
 

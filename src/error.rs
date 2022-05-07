@@ -51,7 +51,7 @@ impl<'a> From<(&'a str, VerboseErrorKind)> for Error {
 
 #[cfg(test)]
 mod tests {
-    use error::Error;
+    use crate::error::Error;
     use nom::{bytes::complete::tag, error::VerboseError, Err, IResult};
 
     fn give_error_kind<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {

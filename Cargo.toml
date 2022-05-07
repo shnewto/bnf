@@ -1,6 +1,7 @@
 [package]
 name = "bnf"
 version = "0.3.4"
+edition = "2021"
 authors = ["@shnewto", "@CrockAgile", "@androm3da", "@sremedios", "@prbs23", "@z2oh",
 "@lionel1704", "@benarmstead", "@jonay2000", "@SKalt"]
 

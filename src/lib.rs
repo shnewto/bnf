@@ -116,7 +116,6 @@
 //! ## Parse Example
 //!
 //! ```rust
-//! extern crate bnf;
 //! use bnf::Grammar;
 //!
 //! fn main() {
@@ -146,7 +145,6 @@
 //! ## Generate Example
 //!
 //! ```rust
-//! extern crate bnf;
 //! use bnf::Grammar;
 //!
 //! fn main() {
@@ -163,19 +161,14 @@
 //! ```
 //!
 
-extern crate nom;
-extern crate rand;
-extern crate serde;
-extern crate serde_json;
-extern crate stacker;
 mod error;
 mod expression;
 mod grammar;
 mod parsers;
 mod production;
 mod term;
-pub use error::Error;
-pub use expression::Expression;
-pub use grammar::Grammar;
-pub use production::Production;
-pub use term::Term;
+pub use crate::error::Error;
+pub use crate::expression::Expression;
+pub use crate::grammar::Grammar;
+pub use crate::production::Production;
+pub use crate::term::Term;

@@ -1,11 +1,11 @@
-use error::Error;
-use parsers;
+use crate::error::Error;
+use crate::parsers;
+use crate::term::Term;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
 use std::slice;
 use std::str::FromStr;
-use term::Term;
 
 /// An Expression is comprised of any number of Terms
 #[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]
@@ -36,7 +36,6 @@ impl Expression {
     /// # Example
     ///
     /// ```
-    /// extern crate bnf;
     /// use bnf::{Expression, Term};
     ///
     /// fn main() {
@@ -169,10 +168,8 @@ impl<'a> Iterator for IterMut<'a> {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Expression {
         fn arbitrary(g: &mut Gen) -> Self {

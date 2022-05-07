@@ -120,7 +120,6 @@ by a production such as `<PATTERN> ::= <PATTERN>`.
 ## Parse Example
 
 ```rust
-extern crate bnf;
 use bnf::Grammar;
 
 fn main() {
@@ -149,7 +148,6 @@ fn main() {
 ## Generate Example
 
 ```rust
-extern crate bnf;
 use bnf::Grammar;
 
 fn main() {

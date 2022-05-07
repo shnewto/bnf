@@ -1,8 +1,8 @@
 #![allow(clippy::should_implement_trait)]
 
-use error::Error;
-use expression::Expression;
-use parsers;
+use crate::error::Error;
+use crate::expression::Expression;
+use crate::parsers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
@@ -70,10 +70,8 @@ impl fmt::Display for Term {
 
 #[cfg(test)]
 mod tests {
-    extern crate quickcheck;
-
-    use self::quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
     use super::*;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Term {
         fn arbitrary(g: &mut Gen) -> Self {

@@ -35,3 +35,10 @@ version = "1.0.61"
 
 [dev-dependencies.quickcheck]
 version = "1.0.2"
+
+[dev-dependencies]
+criterion = "0.3.5"
+
+[[bench]]
+name = "bnf"
+harness = false

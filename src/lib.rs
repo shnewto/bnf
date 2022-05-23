@@ -161,6 +161,7 @@
 //! ```
 //!
 
+mod earley;
 mod error;
 mod expression;
 mod grammar;

@@ -1,3 +1,4 @@
+use crate::earley;
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
@@ -9,6 +10,8 @@ use stacker;
 use std::fmt;
 use std::slice;
 use std::str;
+
+pub struct Parse {}
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
@@ -55,6 +58,10 @@ impl Grammar {
         IterMut {
             iterator: self.productions.iter_mut(),
         }
+    }
+
+    pub fn parse<'a>(&self, input: impl Iterator<Item = &'a str>) -> impl Iterator<Item = Parse> {
+        std::iter::empty()
     }
 
     fn eval_terminal(

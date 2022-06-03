@@ -4,7 +4,6 @@ use crate::term::Term;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
-use std::slice;
 use std::str::FromStr;
 
 /// An Expression is comprised of any number of Terms
@@ -62,14 +61,14 @@ impl Expression {
     /// Get iterator of `Term`s within `Expression`
     pub fn terms_iter(&self) -> Iter {
         Iter {
-            iterator: self.terms.iter(),
+            slice: &self.terms[..],
         }
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
     pub fn terms_iter_mut(&mut self) -> IterMut {
         IterMut {
-            iterator: self.terms.iter_mut(),
+            slice: &mut self.terms[..],
         }
     }
 }
@@ -142,27 +141,37 @@ impl ops::Add<Term> for Expression {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Iter<'a> {
-    iterator: slice::Iter<'a, Term>,
+    slice: &'a [Term],
 }
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Term;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        self.slice.split_first().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct IterMut<'a> {
-    iterator: slice::IterMut<'a, Term>,
+    slice: &'a mut [Term],
 }
 
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut Term;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        let slice = std::mem::take(&mut self.slice);
+
+        slice.split_first_mut().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 

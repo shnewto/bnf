@@ -42,6 +42,23 @@ impl<'a> EarleyState<'a> {
             .filter(|prod| prod.lhs == *next_unmatched)
             .flat_map(|prod| EarleyState::from_production(prod, input))
     }
+    pub fn scan(&self, curr: &'a str, next: &'a str) -> Option<EarleyState> {
+        let mut unmatched = self.unmatched.clone();
+
+        let next_unmatched = unmatched.next();
+
+        next_unmatched
+            .and_then(|next_term| match next_term {
+                Term::Nonterminal(_) => None,
+                Term::Terminal(term) => (term == curr).then(|| term),
+            })
+            .is_some()
+            .then(|| EarleyState {
+                lhs: self.lhs,
+                unmatched,
+                input: next,
+            })
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -59,6 +76,8 @@ mod tests {
     use crate::{Expression, Grammar};
 
     fn parse_dna_grammar() -> Grammar {
+        // some testing utilities default to the first expression in a production
+        // so this has "<base> <dna>" *before* "<base>"
         "<dna> ::= <base> <dna> | <base>
     <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
@@ -90,8 +109,8 @@ mod tests {
         let prods: Vec<_> = grammar.productions_iter().collect();
         let prod_dna = prods[0].clone();
         let prod_dna_exprs: Vec<_> = prod_dna.rhs_iter().collect();
-        let expr_base = prod_dna_exprs[0].clone();
-        let expr_base_and_dna = prod_dna_exprs[1].clone();
+        let expr_base_and_dna = prod_dna_exprs[0].clone();
+        let expr_base = prod_dna_exprs[1].clone();
 
         let prod_base = prods[1].clone();
         let prod_base_exprs: Vec<_> = prod_base.rhs_iter().collect();
@@ -128,6 +147,7 @@ mod tests {
         }
     }
 
+    // WARNING: only returns first EarleyState, for testing ergonomics
     fn earley_state_from_grammar<'a>(grammar: &'a Grammar, input: &'a str) -> EarleyState<'a> {
         let production = grammar.productions_iter().next().unwrap();
         EarleyState::from_production(production, input)
@@ -157,35 +177,70 @@ mod tests {
     fn predict_none() {
         let grammar = parse_dna_grammar();
         let input = "T";
-        let curr = earley_state_from_grammar(&grammar, input);
-        let predicted: Vec<_> = curr.predict(&grammar, input).collect();
+        let unknown_production: Production = "<unknown> ::= <number>".parse().unwrap();
+        let curr = EarleyState::from_production(&unknown_production, input)
+            .next()
+            .unwrap();
 
-        assert_eq!(predicted, vec![]);
+        // predict from non terminal which has no production in the grammar
+        let mut next = curr.predict(&grammar, input);
+
+        // no matching production, so no predictions
+        assert_eq!(next.next(), None);
     }
 
     #[test]
     fn predict_some() {
+        // predict on "<dna> ::= $ <base> <dna>"
         let dna = build_explicit_dna_grammar();
         let input = "T";
         let curr = earley_state_from_grammar(&dna.grammar, input);
-        println!("{:#?}", curr);
 
-        let predictions: Vec<_> = curr.predict(&dna.grammar, input).collect();
+        let next: Vec<_> = curr.predict(&dna.grammar, input).collect();
 
-        // should have predicted from "<dna>" to "<base>" | "<base> <dna>"
+        // expect predictions of:
+        // * <base> ::= $ "A"
+        // * <base> ::= $ "C"
+        // * <base> ::= $ "G"
+        // * <base> ::= $ "T"
         let expected = vec![
             EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input),
             EarleyState::new(&dna.nonterm_base, dna.expr_c.terms_iter(), input),
             EarleyState::new(&dna.nonterm_base, dna.expr_g.terms_iter(), input),
             EarleyState::new(&dna.nonterm_base, dna.expr_t.terms_iter(), input),
-            EarleyState::new(&dna.nonterm_dna, dna.expr_base_and_dna.terms_iter(), input),
         ];
-        assert_eq!(predictions, expected);
+        assert_eq!(next, expected);
     }
 
     #[test]
-    fn scan() {
-        todo!()
+    fn scan_none() {
+        // scan on '<base> ::= $ "A"'
+        let dna = build_explicit_dna_grammar();
+        let input = "T";
+        let next_input = "A";
+        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+
+        // attempt to scan "A", but with input "T"
+        let next = curr.scan(input, next_input);
+
+        // input does not match scan
+        assert_eq!(next, None);
+    }
+    #[test]
+    fn scan_some() {
+        // scan on '<base> ::= $ "A"'
+        let dna = build_explicit_dna_grammar();
+        let input = "A";
+        let next_input = "T";
+        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+
+        // attempt to scan "A", with input "A"
+        let next = curr.scan(input, next_input).unwrap();
+
+        // expect new state '<base> ::= "A" $' (note $ is after terminal "A" b/c it has been scanned)
+        assert_eq!(next.lhs, &dna.nonterm_base);
+        assert_eq!(next.input, next_input);
+        assert_eq!(next.unmatched.clone().next(), None);
     }
 
     #[test]
@@ -193,3 +248,14 @@ mod tests {
         todo!()
     }
 }
+
+// NEXT
+// * scan
+// * complete
+// * test both left and right recursive grammars
+// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * grammar::parse
+// * docs
+
+// STRETCH
+// * can tests be written in more natural string descriptions like "<dna> ::= $ <base> <dna>", maybe extend existing parsers?

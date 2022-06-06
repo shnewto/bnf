@@ -10,7 +10,7 @@ use std::fmt;
 use std::slice;
 use std::str;
 
-pub struct Parse {}
+pub struct ParseTree {}
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
@@ -59,8 +59,13 @@ impl Grammar {
         }
     }
 
-    pub fn parse<'a>(&self, _input: impl Iterator<Item = &'a str>) -> impl Iterator<Item = Parse> {
-        std::iter::empty()
+    pub fn parse<'input>(
+        &self,
+        input: impl Iterator<Item = &'input str>,
+    ) -> impl Iterator<Item = ParseTree> {
+        let parser = crate::earley::EarleyParser::new(self);
+
+        parser.parse(input)
     }
 
     fn eval_terminal(
@@ -509,5 +514,18 @@ mod tests {
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
         assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn parse_dna() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "G A T A C A".split_whitespace();
+
+        let mut parses = grammar.parse(input);
+        assert!(matches!(parses.next(), Some(_)));
     }
 }

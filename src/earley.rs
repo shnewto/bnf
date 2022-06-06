@@ -1,4 +1,4 @@
-use crate::{Grammar, Production, Term};
+use crate::{grammar, Grammar, Production, Term};
 
 #[derive(Debug, PartialEq)]
 struct EarleyState<'a> {
@@ -49,7 +49,7 @@ impl<'a> EarleyState<'a> {
 
         next_unmatched
             .and_then(|next_term| match next_term {
-                Term::Nonterminal(_) => None,
+                Term::Nonterminal(_) => unreachable!(),
                 Term::Terminal(term) => (term == curr).then(|| ()),
             })
             .is_some()
@@ -75,11 +75,20 @@ impl<'a> EarleyState<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-struct EarleyParser {}
+pub struct EarleyParser<'a> {
+    grammar: &'a Grammar,
+}
 
-impl EarleyParser {
-    pub fn new() -> Self {
-        EarleyParser {}
+impl<'a> EarleyParser<'a> {
+    pub fn new(grammar: &'a Grammar) -> Self {
+        EarleyParser { grammar }
+    }
+
+    pub fn parse<'input>(
+        &self,
+        input: impl Iterator<Item = &'input str>,
+    ) -> impl Iterator<Item = grammar::ParseTree> {
+        std::iter::empty()
     }
 }
 
@@ -166,24 +175,6 @@ mod tests {
         EarleyState::from_production(production, input)
             .next()
             .unwrap()
-    }
-
-    #[test]
-    fn earley_parse_dna() {
-        let grammar = parse_dna_grammar();
-        let input = "G A T A C A".split_whitespace();
-
-        let mut parses = grammar.parse(input);
-        assert!(matches!(parses.next(), Some(_)));
-    }
-
-    #[test]
-    fn earley_parse_alien_dna() {
-        let grammar = parse_dna_grammar();
-        let input = "L O L O L O L".split_whitespace();
-
-        let mut parses = grammar.parse(input);
-        assert!(matches!(parses.next(), None));
     }
 
     #[test]
@@ -297,12 +288,55 @@ mod tests {
         let expected = EarleyState::new(&dna.nonterm_dna, unmatched, next_input);
         assert_eq!(next, expected);
     }
+
+    #[test]
+    fn parse_dna_right_recursive() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let parser = EarleyParser::new(&grammar);
+
+        let input = "G A T A C A".split_whitespace();
+
+        let mut parses = parser.parse(input);
+        assert!(matches!(parses.next(), Some(_)));
+    }
+
+    #[test]
+    fn parse_dna_left_recursive() {
+        let grammar: Grammar = "<dna> ::= <base> | <dna> <base>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let parser = EarleyParser::new(&grammar);
+
+        let input = "G A T A C A".split_whitespace();
+
+        let mut parses = parser.parse(input);
+        assert!(matches!(parses.next(), Some(_)));
+    }
+
+    #[test]
+    fn parse_dna_alien() {
+        let grammar: Grammar = "<dna> ::= <base> <dna> | <base>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let parser = EarleyParser::new(&grammar);
+
+        let input = "L O L O L O L".split_whitespace();
+
+        let mut parses = parser.parse(input);
+        assert!(matches!(parses.next(), None));
+    }
 }
 
 // NEXT
-// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * EarleyParser PARSES
 // * grammar::parse
-// * test both left and right recursive grammars
+// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * property tests?
 // * restructure module layout? naming it "earley" seems wrong...
 // * docs
 

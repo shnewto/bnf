@@ -42,7 +42,7 @@ impl<'a> EarleyState<'a> {
             .filter(|prod| prod.lhs == *next_unmatched)
             .flat_map(|prod| EarleyState::from_production(prod, input))
     }
-    pub fn scan(&self, curr: &'a str, next: &'a str) -> Option<EarleyState> {
+    pub fn scan(&self, curr: &'a str, next: &'a str) -> Option<Self> {
         let mut unmatched = self.unmatched.clone();
 
         let next_unmatched = unmatched.next();
@@ -50,13 +50,26 @@ impl<'a> EarleyState<'a> {
         next_unmatched
             .and_then(|next_term| match next_term {
                 Term::Nonterminal(_) => None,
-                Term::Terminal(term) => (term == curr).then(|| term),
+                Term::Terminal(term) => (term == curr).then(|| ()),
             })
             .is_some()
             .then(|| EarleyState {
                 lhs: self.lhs,
                 unmatched,
                 input: next,
+            })
+    }
+    pub fn complete(&self, parent: &'a EarleyState) -> Option<Self> {
+        let mut unmatched = parent.unmatched.clone();
+        let next_unmatched = unmatched.next();
+
+        next_unmatched
+            .and_then(|parent_unmatched| (parent_unmatched == self.lhs).then(|| ()))
+            .is_some()
+            .then(|| EarleyState {
+                lhs: parent.lhs,
+                unmatched,
+                input: self.input,
             })
     }
 }
@@ -226,6 +239,7 @@ mod tests {
         // input does not match scan
         assert_eq!(next, None);
     }
+
     #[test]
     fn scan_some() {
         // scan on '<base> ::= $ "A"'
@@ -244,17 +258,52 @@ mod tests {
     }
 
     #[test]
-    fn complete() {
-        todo!()
+    fn complete_none() {
+        // complete on '<base> ::= "A" $' BUT mismatched parent state '<dna> ::= $ <dna> <base>'
+        let dna = build_explicit_dna_grammar();
+        let input = "A";
+        let next_input = "T";
+        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+        let scanned_base = prev.scan("A", next_input).unwrap();
+        let parent_mistached_production: Production = "<dna> ::= <dna> <base>".parse().unwrap();
+        let parent_state = EarleyState::from_production(&parent_mistached_production, input)
+            .next()
+            .unwrap();
+
+        // complete because at end of production
+        let next = scanned_base.complete(&parent_state);
+
+        // results in no new state
+        assert_eq!(next, None);
+    }
+
+    #[test]
+    fn complete_some() {
+        // complete on '<base> ::= "A" $' AND '<dna> ::= $ <base> <dna>'
+        let dna = build_explicit_dna_grammar();
+        let input = "A";
+        let next_input = "T";
+        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+        let scanned_base = prev.scan("A", next_input).unwrap();
+        let parent_state =
+            EarleyState::new(&dna.nonterm_dna, dna.expr_base_and_dna.terms_iter(), input);
+
+        // complete because at end of production
+        let next = scanned_base.complete(&parent_state).unwrap();
+
+        // results in new state: '<dna> ::= <base> $ <dna>'
+        let mut unmatched = parent_state.unmatched.clone();
+        unmatched.next();
+        let expected = EarleyState::new(&dna.nonterm_dna, unmatched, next_input);
+        assert_eq!(next, expected);
     }
 }
 
 // NEXT
-// * scan
-// * complete
-// * test both left and right recursive grammars
 // * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
 // * grammar::parse
+// * test both left and right recursive grammars
+// * restructure module layout? naming it "earley" seems wrong...
 // * docs
 
 // STRETCH

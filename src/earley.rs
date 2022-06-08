@@ -3,74 +3,47 @@ use crate::{grammar, Grammar, Production, Term};
 #[derive(Debug, PartialEq)]
 struct EarleyState<'a> {
     lhs: &'a Term,
+    matching: Option<&'a Term>,
     unmatched: crate::expression::Iter<'a>,
-    input: &'a str,
 }
 
 impl<'a> EarleyState<'a> {
-    pub fn new(lhs: &'a Term, unmatched: crate::expression::Iter<'a>, input: &'a str) -> Self {
+    pub fn new(lhs: &'a Term, mut unmatched: crate::expression::Iter<'a>) -> Self {
+        let matching = unmatched.next();
         Self {
             lhs,
+            matching,
             unmatched,
-            input,
         }
     }
-    pub fn from_production(
-        production: &'a Production,
-        input: &'a str,
-    ) -> impl Iterator<Item = EarleyState<'a>> {
+    pub fn from_production(production: &'a Production) -> impl Iterator<Item = EarleyState<'a>> {
         let lhs = &production.lhs;
         production.rhs_iter().map(move |expression| {
             let unmatched = expression.terms_iter();
-            Self {
-                lhs,
-                unmatched,
-                input,
-            }
+            Self::new(lhs, unmatched)
         })
     }
-    pub fn predict(
-        &self,
-        grammar: &'a Grammar,
-        input: &'a str,
-    ) -> impl Iterator<Item = EarleyState<'a>> {
-        // TODO: next unmatched must be nonterm!
-        let next_unmatched = self.unmatched.clone().next().unwrap();
-
+    pub fn predict(&'a self, grammar: &'a Grammar) -> impl Iterator<Item = EarleyState<'a>> {
         grammar
             .productions_iter()
-            .filter(|prod| prod.lhs == *next_unmatched)
-            .flat_map(|prod| EarleyState::from_production(prod, input))
+            .filter(|prod| prod.lhs == *self.matching.unwrap())
+            .flat_map(|prod| EarleyState::from_production(prod))
     }
-    pub fn scan(&self, curr: &'a str, next: &'a str) -> Option<Self> {
-        let mut unmatched = self.unmatched.clone();
-
-        let next_unmatched = unmatched.next();
-
-        next_unmatched
+    pub fn scan(&self, input: &str) -> Option<Self> {
+        self.matching
             .and_then(|next_term| match next_term {
                 Term::Nonterminal(_) => unreachable!(),
-                Term::Terminal(term) => (term == curr).then(|| ()),
+                Term::Terminal(term) => (term == input).then(|| ()),
             })
             .is_some()
-            .then(|| EarleyState {
-                lhs: self.lhs,
-                unmatched,
-                input: next,
-            })
+            .then(|| EarleyState::new(self.lhs, self.unmatched.clone()))
     }
-    pub fn complete(&self, parent: &'a EarleyState) -> Option<Self> {
-        let mut unmatched = parent.unmatched.clone();
-        let next_unmatched = unmatched.next();
-
-        next_unmatched
-            .and_then(|parent_unmatched| (parent_unmatched == self.lhs).then(|| ()))
+    pub fn complete(&self, parent: &EarleyState<'a>) -> Option<Self> {
+        parent
+            .matching
+            .and_then(|matching| (matching == self.lhs).then(|| ()))
             .is_some()
-            .then(|| EarleyState {
-                lhs: parent.lhs,
-                unmatched,
-                input: self.input,
-            })
+            .then(|| EarleyState::new(parent.lhs, parent.unmatched.clone()))
     }
 }
 
@@ -86,8 +59,44 @@ impl<'a> EarleyParser<'a> {
 
     pub fn parse<'input>(
         &self,
-        input: impl Iterator<Item = &'input str>,
+        mut input_iter: impl Iterator<Item = &'input str>,
     ) -> impl Iterator<Item = grammar::ParseTree> {
+        // init queue with all productions in start/first rule
+        let start_production = match self.grammar.productions_iter().next() {
+            None => return std::iter::empty(),
+            Some(prod) => prod,
+        };
+
+        let arena = typed_arena::Arena::<EarleyState>::new();
+        let starters = arena.alloc_extend(EarleyState::from_production(start_production));
+
+        let mut items: Vec<&mut EarleyState> = starters.iter_mut().collect();
+        let mut input = input_iter.next();
+
+        while let Some(item) = items.pop() {
+            match item.matching {
+                // predict
+                Some(Term::Nonterminal(_)) => {
+                    let predictions = item.predict(self.grammar);
+                    // add to arena, with parent set?
+                    // add arena references to queue
+                }
+                // scan
+                Some(Term::Terminal(_)) => {
+                    // add to arena, with parent set?
+                    // add arena references to queue
+                    // advance to next token
+                    input = input_iter.next();
+                }
+                // complete
+                None => {
+                    // add new completions to arena, with parent set?
+                    // add arena references to queue
+                    // when completing, if "starting" state, then add to successes
+                }
+            };
+        }
+
         std::iter::empty()
     }
 }
@@ -170,24 +179,21 @@ mod tests {
     }
 
     // WARNING: only returns first EarleyState, for testing ergonomics
-    fn earley_state_from_grammar<'a>(grammar: &'a Grammar, input: &'a str) -> EarleyState<'a> {
+    fn earley_state_from_grammar<'a>(grammar: &'a Grammar) -> EarleyState<'a> {
         let production = grammar.productions_iter().next().unwrap();
-        EarleyState::from_production(production, input)
-            .next()
-            .unwrap()
+        EarleyState::from_production(production).next().unwrap()
     }
 
     #[test]
     fn predict_none() {
         let grammar = parse_dna_grammar();
-        let input = "T";
         let unknown_production: Production = "<unknown> ::= <number>".parse().unwrap();
-        let curr = EarleyState::from_production(&unknown_production, input)
+        let curr = EarleyState::from_production(&unknown_production)
             .next()
             .unwrap();
 
         // predict from non terminal which has no production in the grammar
-        let mut next = curr.predict(&grammar, input);
+        let mut next = curr.predict(&grammar);
 
         // no matching production, so no predictions
         assert_eq!(next.next(), None);
@@ -197,10 +203,9 @@ mod tests {
     fn predict_some() {
         // predict on "<dna> ::= $ <base> <dna>"
         let dna = build_explicit_dna_grammar();
-        let input = "T";
-        let curr = earley_state_from_grammar(&dna.grammar, input);
+        let curr = earley_state_from_grammar(&dna.grammar);
 
-        let next: Vec<_> = curr.predict(&dna.grammar, input).collect();
+        let next: Vec<_> = curr.predict(&dna.grammar).collect();
 
         // expect predictions of:
         // * <base> ::= $ "A"
@@ -208,10 +213,10 @@ mod tests {
         // * <base> ::= $ "G"
         // * <base> ::= $ "T"
         let expected = vec![
-            EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input),
-            EarleyState::new(&dna.nonterm_base, dna.expr_c.terms_iter(), input),
-            EarleyState::new(&dna.nonterm_base, dna.expr_g.terms_iter(), input),
-            EarleyState::new(&dna.nonterm_base, dna.expr_t.terms_iter(), input),
+            EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter()),
+            EarleyState::new(&dna.nonterm_base, dna.expr_c.terms_iter()),
+            EarleyState::new(&dna.nonterm_base, dna.expr_g.terms_iter()),
+            EarleyState::new(&dna.nonterm_base, dna.expr_t.terms_iter()),
         ];
         assert_eq!(next, expected);
     }
@@ -221,11 +226,10 @@ mod tests {
         // scan on '<base> ::= $ "A"'
         let dna = build_explicit_dna_grammar();
         let input = "T";
-        let next_input = "A";
-        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter());
 
         // attempt to scan "A", but with input "T"
-        let next = curr.scan(input, next_input);
+        let next = curr.scan(input);
 
         // input does not match scan
         assert_eq!(next, None);
@@ -236,15 +240,13 @@ mod tests {
         // scan on '<base> ::= $ "A"'
         let dna = build_explicit_dna_grammar();
         let input = "A";
-        let next_input = "T";
-        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
+        let curr = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter());
 
         // attempt to scan "A", with input "A"
-        let next = curr.scan(input, next_input).unwrap();
+        let next = curr.scan(input).unwrap();
 
         // expect new state '<base> ::= "A" $' (note $ is after terminal "A" b/c it has been scanned)
         assert_eq!(next.lhs, &dna.nonterm_base);
-        assert_eq!(next.input, next_input);
         assert_eq!(next.unmatched.clone().next(), None);
     }
 
@@ -253,11 +255,10 @@ mod tests {
         // complete on '<base> ::= "A" $' BUT mismatched parent state '<dna> ::= $ <dna> <base>'
         let dna = build_explicit_dna_grammar();
         let input = "A";
-        let next_input = "T";
-        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
-        let scanned_base = prev.scan("A", next_input).unwrap();
+        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter());
+        let scanned_base = prev.scan(input).unwrap();
         let parent_mistached_production: Production = "<dna> ::= <dna> <base>".parse().unwrap();
-        let parent_state = EarleyState::from_production(&parent_mistached_production, input)
+        let parent_state = EarleyState::from_production(&parent_mistached_production)
             .next()
             .unwrap();
 
@@ -273,19 +274,17 @@ mod tests {
         // complete on '<base> ::= "A" $' AND '<dna> ::= $ <base> <dna>'
         let dna = build_explicit_dna_grammar();
         let input = "A";
-        let next_input = "T";
-        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter(), input);
-        let scanned_base = prev.scan("A", next_input).unwrap();
-        let parent_state =
-            EarleyState::new(&dna.nonterm_dna, dna.expr_base_and_dna.terms_iter(), input);
+        let prev = EarleyState::new(&dna.nonterm_base, dna.expr_a.terms_iter());
+        let scanned_base = prev.scan(input).unwrap();
+        let parent_state = EarleyState::new(&dna.nonterm_dna, dna.expr_base_and_dna.terms_iter());
 
         // complete because at end of production
         let next = scanned_base.complete(&parent_state).unwrap();
 
         // results in new state: '<dna> ::= <base> $ <dna>'
-        let mut unmatched = parent_state.unmatched.clone();
+        let mut unmatched = dna.expr_base_and_dna.terms_iter();
         unmatched.next();
-        let expected = EarleyState::new(&dna.nonterm_dna, unmatched, next_input);
+        let expected = EarleyState::new(&dna.nonterm_dna, unmatched);
         assert_eq!(next, expected);
     }
 
@@ -333,9 +332,17 @@ mod tests {
 }
 
 // NEXT
+// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * test ambiguous grammar parse: "<start> ::= <a> | <b>, <a> ::= FIN, <b> ::= FIN", should have BOTH parse trees
+// * test example from earley website
+// * does "complete" need to advance *all* parents with matching non-term ? seems like it....
+// * EarleyState::advance_cursor probably nice ergonomics
+// * what should "failure" modes of parsing look like? Result<Iter> ? fail to predict/scan/complete? can errors include context?
 // * EarleyParser PARSES
 // * grammar::parse
-// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * pretty printing of parse trees?
+// * perf testing
+// * clippy
 // * property tests?
 // * restructure module layout? naming it "earley" seems wrong...
 // * docs

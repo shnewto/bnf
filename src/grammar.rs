@@ -63,9 +63,7 @@ impl Grammar {
         &self,
         input: impl Iterator<Item = &'input str>,
     ) -> impl Iterator<Item = ParseTree> {
-        let parser = crate::earley::EarleyParser::new(self);
-
-        parser.parse(input)
+        crate::earley::parse(&self, input)
     }
 
     fn eval_terminal(

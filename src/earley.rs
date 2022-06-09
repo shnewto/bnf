@@ -1,14 +1,15 @@
 use crate::{grammar, Grammar, Production, Term};
+use std::pin::Pin;
 
 #[derive(Debug, PartialEq)]
-struct EarleyState<'a> {
-    lhs: &'a Term,
-    matching: Option<&'a Term>,
-    unmatched: crate::expression::Iter<'a>,
+struct EarleyState<'gram> {
+    lhs: &'gram Term,
+    matching: Option<&'gram Term>,
+    unmatched: crate::expression::Iter<'gram>,
 }
 
-impl<'a> EarleyState<'a> {
-    pub fn new(lhs: &'a Term, mut unmatched: crate::expression::Iter<'a>) -> Self {
+impl<'gram> EarleyState<'gram> {
+    pub fn new(lhs: &'gram Term, mut unmatched: crate::expression::Iter<'gram>) -> Self {
         let matching = unmatched.next();
         Self {
             lhs,
@@ -16,13 +17,16 @@ impl<'a> EarleyState<'a> {
             unmatched,
         }
     }
-    pub fn from_production(production: &'a Production) -> impl Iterator<Item = EarleyState<'a>> {
+    pub fn from_production(production: &'gram Production) -> impl Iterator<Item = EarleyState<'_>> {
         production.rhs_iter().map(move |expression| {
             let unmatched = expression.terms_iter();
             Self::new(&production.lhs, unmatched)
         })
     }
-    pub fn predict(&'a self, grammar: &'a Grammar) -> impl Iterator<Item = EarleyState<'a>> {
+    pub fn predict(
+        &'gram self,
+        grammar: &'gram Grammar,
+    ) -> impl Iterator<Item = EarleyState<'gram>> {
         grammar
             .productions_iter()
             .filter(|prod| prod.lhs == *self.matching.unwrap())
@@ -37,7 +41,7 @@ impl<'a> EarleyState<'a> {
             .is_some()
             .then(|| EarleyState::new(self.lhs, self.unmatched.clone()))
     }
-    pub fn complete(&self, parent: &EarleyState<'a>) -> Option<Self> {
+    pub fn complete(&self, parent: &'gram EarleyState<'_>) -> Option<Self> {
         parent
             .matching
             .and_then(|matching| (matching == self.lhs).then(|| ()))
@@ -46,68 +50,77 @@ impl<'a> EarleyState<'a> {
     }
 }
 
-// TODO: is own structure justified if only holds immutable grammar?
-#[derive(Debug, PartialEq, Eq)]
-pub struct EarleyParser<'a> {
-    grammar: &'a Grammar,
+struct EarleyStateSet<'gram> {
+    arena: typed_arena::Arena<EarleyState<'gram>>,
+    unprocessed: Vec<std::ptr::NonNull<EarleyState<'gram>>>,
+    _pinned: std::marker::PhantomPinned,
 }
 
-impl<'a> EarleyParser<'a> {
-    pub fn new(grammar: &'a Grammar) -> Self {
-        EarleyParser { grammar }
+impl<'gram> EarleyStateSet<'gram> {
+    pub fn new() -> Self {
+        Self {
+            arena: typed_arena::Arena::new(),
+            unprocessed: Vec::new(),
+            _pinned: std::marker::PhantomPinned,
+        }
     }
+    pub fn alloc_extend(self: Pin<&mut Self>, iter: impl Iterator<Item = EarleyState<'gram>>) {
+        let this = unsafe { self.get_unchecked_mut() };
+        let allocated = this.arena.alloc_extend(iter);
 
-    pub fn parse<'input>(
-        &self,
-        mut input_iter: impl Iterator<Item = &'input str>,
-    ) -> impl Iterator<Item = grammar::ParseTree> {
-        // init queue with all productions in start/first rule
-        let start_production = match self.grammar.productions_iter().next() {
-            None => return std::iter::empty(),
-            Some(prod) => prod,
+        let allocated_ptrs = allocated
+            .iter_mut()
+            .map(|i| unsafe { std::ptr::NonNull::new_unchecked(i) });
+
+        this.unprocessed.extend(allocated_ptrs);
+    }
+    pub fn pop_unprocessed(self: Pin<&mut Self>) -> Option<&mut EarleyState<'gram>> {
+        let this = unsafe { self.get_unchecked_mut() };
+        this.unprocessed.pop().map(|mut i| unsafe { i.as_mut() })
+    }
+}
+
+pub fn parse<'gram, 'input>(
+    grammar: &'gram Grammar,
+    mut input_iter: impl Iterator<Item = &'input str>,
+) -> impl Iterator<Item = grammar::ParseTree> {
+    // init queue with all productions in start/first rule
+    let start_production = match grammar.productions_iter().next() {
+        None => return std::iter::empty(),
+        Some(prod) => prod,
+    };
+
+    let start_states = EarleyState::from_production(start_production);
+
+    let mut state_set = EarleyStateSet::new();
+    let mut state_set = unsafe { std::pin::Pin::new_unchecked(&mut state_set) };
+
+    while let Some(state) = state_set.as_mut().pop_unprocessed() {
+        match state.matching {
+            // predict
+            Some(Term::Nonterminal(_)) => {
+                let predictions = state.predict(grammar);
+                // TODO: de-dupe!
+                // state_set.as_mut().alloc_extend(predictions);
+            }
+            // scan
+            Some(Term::Terminal(_)) => {
+                // if let Some(scanned) = state.scan(input) {
+                // state_set.push_unprocessed(scanned);
+                // input = input_iter.next();
+                // }
+            }
+            // complete
+            None => {
+                // TODO: can be multiple completions
+                // let completions = state.complete(parent);
+                // state_set.extend_unprocessed(completions);
+                // TODO: when completing, if "starting" state, then add to successes
+            }
         };
-
-        // TODO: combine "arena" and "unprocessed" to avoid API mistakes
-        let arena = typed_arena::Arena::<EarleyState>::new();
-        let mut unprocessed = vec![];
-
-        for state in EarleyState::from_production(start_production) {
-            let id = arena.alloc(state);
-            unprocessed.push(id);
-        }
-
-        // TODO: what happens when input runs dry?
-        let mut input = input_iter.next();
-
-        while let Some(state) = unprocessed.pop() {
-            match state.matching {
-                // predict
-                Some(Term::Nonterminal(_)) => {
-                    let predictions = state.predict(self.grammar);
-                    for state in predictions {
-                        let id = arena.alloc(state);
-                        // unprocessed.push(id);
-                    }
-                }
-                // scan
-                Some(Term::Terminal(_)) => {
-                    // if let Some(scanned) = state.scan(input) {
-                    // state_set.push_unprocessed(scanned);
-                    // input = input_iter.next();
-                    // }
-                }
-                // complete
-                None => {
-                    // TODO: can be multiple completions
-                    // let completions = state.complete(parent);
-                    // state_set.extend_unprocessed(completions);
-                    // TODO: when completing, if "starting" state, then add to successes
-                }
-            };
-        }
-
-        std::iter::empty()
     }
+
+    std::iter::empty()
 }
 
 #[cfg(test)]
@@ -303,11 +316,10 @@ mod tests {
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();
-        let parser = EarleyParser::new(&grammar);
 
         let input = "G A T A C A".split_whitespace();
 
-        let mut parses = parser.parse(input);
+        let mut parses = parse(&grammar, input);
         assert!(matches!(parses.next(), Some(_)));
     }
 
@@ -317,11 +329,10 @@ mod tests {
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();
-        let parser = EarleyParser::new(&grammar);
 
         let input = "G A T A C A".split_whitespace();
 
-        let mut parses = parser.parse(input);
+        let mut parses = parse(&grammar, input);
         assert!(matches!(parses.next(), Some(_)));
     }
 
@@ -331,11 +342,10 @@ mod tests {
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();
-        let parser = EarleyParser::new(&grammar);
 
         let input = "L O L O L O L".split_whitespace();
 
-        let mut parses = parser.parse(input);
+        let mut parses = parse(&grammar, input);
         assert!(matches!(parses.next(), None));
     }
 }

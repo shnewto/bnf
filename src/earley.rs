@@ -17,10 +17,9 @@ impl<'a> EarleyState<'a> {
         }
     }
     pub fn from_production(production: &'a Production) -> impl Iterator<Item = EarleyState<'a>> {
-        let lhs = &production.lhs;
         production.rhs_iter().map(move |expression| {
             let unmatched = expression.terms_iter();
-            Self::new(lhs, unmatched)
+            Self::new(&production.lhs, unmatched)
         })
     }
     pub fn predict(&'a self, grammar: &'a Grammar) -> impl Iterator<Item = EarleyState<'a>> {
@@ -47,6 +46,7 @@ impl<'a> EarleyState<'a> {
     }
 }
 
+// TODO: is own structure justified if only holds immutable grammar?
 #[derive(Debug, PartialEq, Eq)]
 pub struct EarleyParser<'a> {
     grammar: &'a Grammar,
@@ -67,32 +67,41 @@ impl<'a> EarleyParser<'a> {
             Some(prod) => prod,
         };
 
+        // TODO: combine "arena" and "unprocessed" to avoid API mistakes
         let arena = typed_arena::Arena::<EarleyState>::new();
-        let starters = arena.alloc_extend(EarleyState::from_production(start_production));
+        let mut unprocessed = vec![];
 
-        let mut items: Vec<&mut EarleyState> = starters.iter_mut().collect();
+        for state in EarleyState::from_production(start_production) {
+            let id = arena.alloc(state);
+            unprocessed.push(id);
+        }
+
+        // TODO: what happens when input runs dry?
         let mut input = input_iter.next();
 
-        while let Some(item) = items.pop() {
-            match item.matching {
+        while let Some(state) = unprocessed.pop() {
+            match state.matching {
                 // predict
                 Some(Term::Nonterminal(_)) => {
-                    let predictions = item.predict(self.grammar);
-                    // add to arena, with parent set?
-                    // add arena references to queue
+                    let predictions = state.predict(self.grammar);
+                    for state in predictions {
+                        let id = arena.alloc(state);
+                        // unprocessed.push(id);
+                    }
                 }
                 // scan
                 Some(Term::Terminal(_)) => {
-                    // add to arena, with parent set?
-                    // add arena references to queue
-                    // advance to next token
-                    input = input_iter.next();
+                    // if let Some(scanned) = state.scan(input) {
+                    // state_set.push_unprocessed(scanned);
+                    // input = input_iter.next();
+                    // }
                 }
                 // complete
                 None => {
-                    // add new completions to arena, with parent set?
-                    // add arena references to queue
-                    // when completing, if "starting" state, then add to successes
+                    // TODO: can be multiple completions
+                    // let completions = state.complete(parent);
+                    // state_set.extend_unprocessed(completions);
+                    // TODO: when completing, if "starting" state, then add to successes
                 }
             };
         }
@@ -332,13 +341,12 @@ mod tests {
 }
 
 // NEXT
-// * probably need to require "Peek" on Expression Iters, because predict/scan/complete depend on next
+// * does "complete" need to advance *all* parents with matching non-term ? seems like it....
 // * test ambiguous grammar parse: "<start> ::= <a> | <b>, <a> ::= FIN, <b> ::= FIN", should have BOTH parse trees
 // * test example from earley website
-// * does "complete" need to advance *all* parents with matching non-term ? seems like it....
+// * EarleyParser PARSES
 // * EarleyState::advance_cursor probably nice ergonomics
 // * what should "failure" modes of parsing look like? Result<Iter> ? fail to predict/scan/complete? can errors include context?
-// * EarleyParser PARSES
 // * grammar::parse
 // * pretty printing of parse trees?
 // * perf testing

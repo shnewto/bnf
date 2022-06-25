@@ -60,11 +60,11 @@ impl Grammar {
         }
     }
 
-    pub fn parse<'input>(
-        &self,
-        input: impl Iterator<Item = &'input str>,
+    pub fn parse<'gram>(
+        &'gram self,
+        input: impl Iterator<Item = &'gram str>,
     ) -> impl Iterator<Item = ParseTree> {
-        crate::earley::parse(&self, input)
+        crate::earley_new::parse(self, input)
     }
 
     fn eval_terminal(
@@ -522,7 +522,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T A C A".split_whitespace();
+        let input = "G A T T A C A".split_whitespace();
 
         let mut parses = grammar.parse(input);
         assert!(matches!(parses.next(), Some(_)));

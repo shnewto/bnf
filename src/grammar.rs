@@ -10,6 +10,7 @@ use std::fmt;
 use std::slice;
 use std::str;
 
+#[derive(Debug)]
 pub struct ParseTree {}
 
 /// A Grammar is comprised of any number of Productions

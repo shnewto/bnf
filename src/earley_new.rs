@@ -120,7 +120,11 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
         let before = &self.input[..self.start];
         let scanned = &self.input[self.start..][..self.len];
         let after = &self.input[self.start..][self.len..];
-        write!(f, "InputRange ({:?} | {:?} | {:?})", before, scanned, after)
+        write!(
+            f,
+            "InputRange({:?}, {:?}) ({:?} | {:?} | {:?})",
+            self.start, self.len, before, scanned, after
+        )
     }
 }
 
@@ -129,6 +133,8 @@ struct EarleyState<'gram> {
     lhs: &'gram Term,
     matching: Option<&'gram Term>,
     unmatched: TermIter<'gram>,
+    // TODO: I HATE THIS
+    matched_count: usize,
     production_id: ProductionId,
     input_range: InputRange<'gram>,
 }
@@ -138,6 +144,7 @@ impl<'gram> EarleyState<'gram> {
         lhs: &'gram Term,
         production_id: ProductionId,
         mut unmatched: TermIter<'gram>,
+        matched_count: usize,
         input_range: InputRange<'gram>,
     ) -> Self {
         let matching = unmatched.next();
@@ -145,6 +152,7 @@ impl<'gram> EarleyState<'gram> {
             lhs,
             matching,
             unmatched,
+            matched_count,
             production_id,
             input_range,
         }
@@ -164,6 +172,7 @@ fn predict<'gram>(
                 prod.lhs,
                 prod.id.clone(),
                 prod.rhs.terms_iter(),
+                0,
                 state.input_range.after(),
             )
         })
@@ -183,6 +192,7 @@ fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyS
                 state.lhs,
                 state.production_id.clone(),
                 state.unmatched.clone(),
+                state.matched_count + 1,
                 state.input_range.advance_by(1),
             )
         })
@@ -196,6 +206,7 @@ fn complete<'gram>(
         parent.lhs,
         parent.production_id.clone(),
         parent.unmatched.clone(),
+        parent.matched_count + 1,
         parent.input_range.advance_by(state.input_range.len),
     );
     println!("FOO: {:?}", foo);
@@ -203,9 +214,44 @@ fn complete<'gram>(
 }
 
 type Arena<'gram> = typed_arena::Arena<EarleyState<'gram>>;
-type StateProcessingKey = ((usize, usize), ProductionId);
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct StateProcessingKey {
+    start: usize,
+    len: usize,
+    matched_count: usize,
+    production_id: ProductionId,
+}
+
+impl<'gram> StateProcessingKey {
+    pub fn from_state(state: &EarleyState<'gram>) -> Self {
+        Self {
+            start: state.input_range.start,
+            len: state.input_range.len,
+            matched_count: state.matched_count,
+            production_id: state.production_id.clone(),
+        }
+    }
+}
 type StateProcessingSet = std::collections::HashSet<StateProcessingKey>;
-type StateMatchingKey<'gram> = (usize, Option<&'gram Term>);
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct StateMatchingKey<'gram> {
+    state_id: usize,
+    term: Option<&'gram Term>,
+}
+
+impl<'gram> StateMatchingKey<'gram> {
+    pub fn from_state(state: &EarleyState<'gram>) -> Self {
+        let state_id = state.input_range.start + state.input_range.len;
+        let term = state.matching;
+        Self { state_id, term }
+    }
+    pub fn from_complete(state: &EarleyState<'gram>) -> Self {
+        let state_id = state.input_range.start;
+        let term = Some(state.lhs);
+        Self { state_id, term }
+    }
+}
+
 type StateMatchingMap<'gram> =
     std::collections::HashMap<StateMatchingKey<'gram>, Vec<*const EarleyState<'gram>>>;
 
@@ -231,7 +277,7 @@ impl<'gram> StateArena<'gram> {
         let mut allocated = vec![];
 
         for state in iter {
-            let state_key = (state.input_range.bound(), state.production_id.clone());
+            let state_key = StateProcessingKey::from_state(&state);
             let is_new_state = this.processed_set.insert(state_key);
 
             if !is_new_state {
@@ -244,11 +290,14 @@ impl<'gram> StateArena<'gram> {
             allocated.push(state as &_);
             this.unprocessed.push(state);
 
-            let matching_state_key: StateMatchingKey = (state.input_range.start, state.matching);
-            this.matching_map
-                .entry(matching_state_key)
-                .or_insert_with(Vec::new)
-                .push(state);
+            if let Some(Term::Nonterminal(_)) = state.matching {
+                let matching_state_key = StateMatchingKey::from_state(&state);
+                println!("new matching_state key: {:?}", matching_state_key);
+                this.matching_map
+                    .entry(matching_state_key)
+                    .or_insert_with(Vec::new)
+                    .push(state);
+            }
         }
 
         allocated.into_iter()
@@ -262,7 +311,8 @@ impl<'gram> StateArena<'gram> {
         state: &'gram EarleyState<'gram>,
     ) -> impl Iterator<Item = &'gram EarleyState<'gram>> + 'a {
         let this = unsafe { self.get_unchecked_mut() };
-        let key = (state.input_range.start, Some(state.lhs));
+        let key = StateMatchingKey::from_complete(state);
+        println!("get_matching key: {:?}", key);
         this.matching_map
             .get(&key)
             .into_iter()
@@ -294,30 +344,33 @@ pub fn parse<'gram>(
             prod.lhs,
             prod.id.clone(),
             prod.rhs.terms_iter(),
+            0,
             starting_input_range.clone(),
         )
     });
     let _ = state_arena.as_mut().alloc_extend(starting_states);
 
     while let Some(state) = state_arena.as_mut().pop_unprocessed() {
-        println!("state: {:?}", state);
         match state.matching {
             // predict
             Some(Term::Nonterminal(_)) => {
                 println!("predict!");
+                println!("state: {:?}", state);
                 let predictions = predict(state, &grammar);
                 let _ = state_arena.as_mut().alloc_extend(predictions);
             }
             // scan
             Some(Term::Terminal(_)) => {
-                println!("scan!");
                 let scanned = scan(state);
-                let _ = state_arena.as_mut().alloc_extend(scanned);
+                let mut scanned = state_arena.as_mut().alloc_extend(scanned);
+                if let Some(_) = scanned.next() {
+                    println!("scanned!");
+                }
             }
             // complete
             None => {
-                // TODO: BROKEN!
                 println!("complete!");
+                println!("state: {:?}", state);
                 let matching = state_arena.as_mut().get_matching(state);
                 let completed = matching
                     .map(|parent| complete(state, parent))
@@ -346,7 +399,7 @@ mod tests {
 
     #[test]
     fn parse_dna_left_recursive() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar: Grammar = "<dna> ::= <base> | <dna> <base>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();

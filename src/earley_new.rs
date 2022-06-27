@@ -18,6 +18,9 @@ use std::pin::Pin;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct ProductionId(usize);
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct StateId(usize);
+
 struct Production<'gram> {
     id: ProductionId,
     lhs: &'gram Term,
@@ -125,6 +128,9 @@ impl<'gram> InputRange<'gram> {
     pub fn is_complete(&self) -> bool {
         self.len == self.input.len()
     }
+    pub fn state_id(&self) -> StateId {
+        StateId(self.start + self.len)
+    }
 }
 
 impl<'gram> std::fmt::Debug for InputRange<'gram> {
@@ -219,9 +225,7 @@ fn complete<'gram>(
 type Arena<'gram> = typed_arena::Arena<EarleyState<'gram>>;
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateProcessingKey {
-    // TODO: switch to StateId
-    start: usize,
-    len: usize,
+    state_id: StateId,
     production_id: ProductionId,
     unmatched_term_len: usize,
 }
@@ -229,8 +233,7 @@ struct StateProcessingKey {
 impl<'gram> StateProcessingKey {
     pub fn from_state(state: &EarleyState<'gram>) -> Self {
         Self {
-            start: state.input_range.start,
-            len: state.input_range.len,
+            state_id: state.input_range.state_id(),
             production_id: state.production_id.clone(),
             unmatched_term_len: state.unmatched_terms.slice.len(),
         }
@@ -239,19 +242,18 @@ impl<'gram> StateProcessingKey {
 type StateProcessingSet = std::collections::HashSet<StateProcessingKey>;
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateMatchingKey<'gram> {
-    state_id: usize,
+    state_id: StateId,
     term: Option<&'gram Term>,
 }
 
-// TODO: StateId
 impl<'gram> StateMatchingKey<'gram> {
     pub fn from_state(state: &EarleyState<'gram>) -> Self {
-        let state_id = state.input_range.start + state.input_range.len;
+        let state_id = state.input_range.state_id();
         let term = state.unmatched_terms.matching();
         Self { state_id, term }
     }
     pub fn from_complete(state: &EarleyState<'gram>) -> Self {
-        let state_id = state.input_range.start;
+        let state_id = StateId(state.input_range.start);
         let term = Some(state.lhs);
         Self { state_id, term }
     }

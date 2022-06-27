@@ -9,7 +9,7 @@ use std::str::FromStr;
 /// An Expression is comprised of any number of Terms
 #[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Expression {
-    terms: Vec<Term>,
+    pub(crate) terms: Vec<Term>,
 }
 
 impl Expression {

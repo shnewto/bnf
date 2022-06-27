@@ -72,7 +72,22 @@ impl<'gram> Grammar<'gram> {
     }
 }
 
-type TermIter<'gram> = crate::expression::Iter<'gram>;
+#[derive(Debug)]
+struct Terms<'gram> {
+    slice: &'gram [Term],
+}
+
+impl<'gram> Terms<'gram> {
+    pub fn new(slice: &'gram [Term]) -> Self {
+        Self { slice }
+    }
+    pub fn matching(&self) -> Option<&'gram Term> {
+        self.slice.get(0)
+    }
+    pub fn advance_by(&self, step: usize) -> &'gram [Term] {
+        &self.slice[step..]
+    }
+}
 
 #[derive(Clone)]
 struct InputRange<'gram> {
@@ -110,9 +125,6 @@ impl<'gram> InputRange<'gram> {
     pub fn is_complete(&self) -> bool {
         self.len == self.input.len()
     }
-    pub fn bound(&self) -> (usize, usize) {
-        (self.start, self.len)
-    }
 }
 
 impl<'gram> std::fmt::Debug for InputRange<'gram> {
@@ -131,10 +143,7 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
 #[derive(Debug)]
 struct EarleyState<'gram> {
     lhs: &'gram Term,
-    matching: Option<&'gram Term>,
-    unmatched: TermIter<'gram>,
-    // TODO: I HATE THIS
-    matched_count: usize,
+    unmatched_terms: Terms<'gram>,
     production_id: ProductionId,
     input_range: InputRange<'gram>,
 }
@@ -143,16 +152,13 @@ impl<'gram> EarleyState<'gram> {
     pub fn new(
         lhs: &'gram Term,
         production_id: ProductionId,
-        mut unmatched: TermIter<'gram>,
-        matched_count: usize,
+        unmatched_terms: &'gram [Term],
         input_range: InputRange<'gram>,
     ) -> Self {
-        let matching = unmatched.next();
+        let unmatched_terms = Terms::new(unmatched_terms);
         Self {
             lhs,
-            matching,
-            unmatched,
-            matched_count,
+            unmatched_terms,
             production_id,
             input_range,
         }
@@ -164,15 +170,15 @@ fn predict<'gram>(
     grammar: &'gram Grammar,
 ) -> impl Iterator<Item = EarleyState<'gram>> {
     state
-        .matching
+        .unmatched_terms
+        .matching()
         .into_iter()
         .flat_map(|matching| grammar.get_productions_by_lhs(matching))
         .map(|prod| {
             EarleyState::new(
                 prod.lhs,
                 prod.id.clone(),
-                prod.rhs.terms_iter(),
-                0,
+                &prod.rhs.terms,
                 state.input_range.after(),
             )
         })
@@ -180,7 +186,8 @@ fn predict<'gram>(
 
 fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyState<'gram>> {
     state
-        .matching
+        .unmatched_terms
+        .matching()
         .zip(state.input_range.next())
         .into_iter()
         .filter(|(matching, next_input)| match *matching {
@@ -191,8 +198,7 @@ fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyS
             EarleyState::new(
                 state.lhs,
                 state.production_id.clone(),
-                state.unmatched.clone(),
-                state.matched_count + 1,
+                state.unmatched_terms.advance_by(1),
                 state.input_range.advance_by(1),
             )
         })
@@ -202,24 +208,22 @@ fn complete<'gram>(
     state: &'gram EarleyState<'gram>,
     parent: &'gram EarleyState<'gram>,
 ) -> EarleyState<'gram> {
-    let foo = EarleyState::new(
+    EarleyState::new(
         parent.lhs,
         parent.production_id.clone(),
-        parent.unmatched.clone(),
-        parent.matched_count + 1,
+        parent.unmatched_terms.advance_by(1),
         parent.input_range.advance_by(state.input_range.len),
-    );
-    println!("FOO: {:?}", foo);
-    foo
+    )
 }
 
 type Arena<'gram> = typed_arena::Arena<EarleyState<'gram>>;
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateProcessingKey {
+    // TODO: switch to StateId
     start: usize,
     len: usize,
-    matched_count: usize,
     production_id: ProductionId,
+    unmatched_term_len: usize,
 }
 
 impl<'gram> StateProcessingKey {
@@ -227,8 +231,8 @@ impl<'gram> StateProcessingKey {
         Self {
             start: state.input_range.start,
             len: state.input_range.len,
-            matched_count: state.matched_count,
             production_id: state.production_id.clone(),
+            unmatched_term_len: state.unmatched_terms.slice.len(),
         }
     }
 }
@@ -239,10 +243,11 @@ struct StateMatchingKey<'gram> {
     term: Option<&'gram Term>,
 }
 
+// TODO: StateId
 impl<'gram> StateMatchingKey<'gram> {
     pub fn from_state(state: &EarleyState<'gram>) -> Self {
         let state_id = state.input_range.start + state.input_range.len;
-        let term = state.matching;
+        let term = state.unmatched_terms.matching();
         Self { state_id, term }
     }
     pub fn from_complete(state: &EarleyState<'gram>) -> Self {
@@ -281,18 +286,15 @@ impl<'gram> StateArena<'gram> {
             let is_new_state = this.processed_set.insert(state_key);
 
             if !is_new_state {
-                println!("deduped: {:?}", state);
                 continue;
             }
 
             let state = this.arena.alloc(state);
-            println!("new: {:?}", state);
             allocated.push(state as &_);
             this.unprocessed.push(state);
 
-            if let Some(Term::Nonterminal(_)) = state.matching {
+            if let Some(Term::Nonterminal(_)) = state.unmatched_terms.matching() {
                 let matching_state_key = StateMatchingKey::from_state(&state);
-                println!("new matching_state key: {:?}", matching_state_key);
                 this.matching_map
                     .entry(matching_state_key)
                     .or_insert_with(Vec::new)
@@ -312,16 +314,11 @@ impl<'gram> StateArena<'gram> {
     ) -> impl Iterator<Item = &'gram EarleyState<'gram>> + 'a {
         let this = unsafe { self.get_unchecked_mut() };
         let key = StateMatchingKey::from_complete(state);
-        println!("get_matching key: {:?}", key);
         this.matching_map
             .get(&key)
             .into_iter()
             .flat_map(|ptrs| ptrs.iter())
             .map(|ptr| unsafe { &**ptr as &'gram _ })
-            .map(|state| {
-                println!("matching? {:?}", state);
-                state
-            })
     }
 }
 
@@ -343,34 +340,26 @@ pub fn parse<'gram>(
         EarleyState::new(
             prod.lhs,
             prod.id.clone(),
-            prod.rhs.terms_iter(),
-            0,
+            &prod.rhs.terms,
             starting_input_range.clone(),
         )
     });
     let _ = state_arena.as_mut().alloc_extend(starting_states);
 
     while let Some(state) = state_arena.as_mut().pop_unprocessed() {
-        match state.matching {
+        match state.unmatched_terms.matching() {
             // predict
             Some(Term::Nonterminal(_)) => {
-                println!("predict!");
-                println!("state: {:?}", state);
                 let predictions = predict(state, &grammar);
                 let _ = state_arena.as_mut().alloc_extend(predictions);
             }
             // scan
             Some(Term::Terminal(_)) => {
                 let scanned = scan(state);
-                let mut scanned = state_arena.as_mut().alloc_extend(scanned);
-                if let Some(_) = scanned.next() {
-                    println!("scanned!");
-                }
+                let _ = state_arena.as_mut().alloc_extend(scanned);
             }
             // complete
             None => {
-                println!("complete!");
-                println!("state: {:?}", state);
                 let matching = state_arena.as_mut().get_matching(state);
                 let completed = matching
                     .map(|parent| complete(state, parent))
@@ -388,7 +377,6 @@ pub fn parse<'gram>(
         }
     }
 
-    println!("{:?}", parses);
     parses.into_iter()
 }
 

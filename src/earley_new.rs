@@ -126,7 +126,7 @@ impl<'gram> InputRange<'gram> {
         }
     }
     pub fn is_complete(&self) -> bool {
-        self.len == self.input.len()
+        self.start == 0 && self.len == self.input.len()
     }
     pub fn state_id(&self) -> StateId {
         StateId(self.start + self.len)
@@ -146,9 +146,16 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
     }
 }
 
+#[derive(Debug, Clone)]
+enum TermMatch<'gram> {
+    Terminal(&'gram str),
+    NonTerminal(&'gram EarleyState<'gram>),
+}
+
 #[derive(Debug)]
 struct EarleyState<'gram> {
     lhs: &'gram Term,
+    matched_terms: Vec<TermMatch<'gram>>,
     unmatched_terms: Terms<'gram>,
     production_id: ProductionId,
     input_range: InputRange<'gram>,
@@ -161,12 +168,29 @@ impl<'gram> EarleyState<'gram> {
         unmatched_terms: &'gram [Term],
         input_range: InputRange<'gram>,
     ) -> Self {
+        let matched_terms = Vec::with_capacity(unmatched_terms.len());
         let unmatched_terms = Terms::new(unmatched_terms);
         Self {
             lhs,
+            matched_terms,
             unmatched_terms,
             production_id,
             input_range,
+        }
+    }
+    pub fn new_term_match(
+        state: &'gram EarleyState<'gram>,
+        matched_term: TermMatch<'gram>,
+        input_range_step: usize,
+    ) -> Self {
+        let mut matched_terms = state.matched_terms.clone();
+        matched_terms.push(matched_term);
+        Self {
+            lhs: state.lhs,
+            matched_terms,
+            unmatched_terms: Terms::new(state.unmatched_terms.advance_by(1)),
+            production_id: state.production_id.clone(),
+            input_range: state.input_range.advance_by(input_range_step),
         }
     }
 }
@@ -195,31 +219,23 @@ fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyS
         .unmatched_terms
         .matching()
         .zip(state.input_range.next())
+        .and_then(|(matching, next_input)| match matching {
+            Term::Terminal(term) if term == next_input => Some(next_input),
+            _ => None,
+        })
+        .map(|term| {
+            let term_match = TermMatch::Terminal(&term);
+            EarleyState::new_term_match(state, term_match, 1)
+        })
         .into_iter()
-        .filter(|(matching, next_input)| match *matching {
-            Term::Nonterminal(_) => false,
-            Term::Terminal(term) => term == *next_input,
-        })
-        .map(|_| {
-            EarleyState::new(
-                state.lhs,
-                state.production_id.clone(),
-                state.unmatched_terms.advance_by(1),
-                state.input_range.advance_by(1),
-            )
-        })
 }
 
 fn complete<'gram>(
     state: &'gram EarleyState<'gram>,
     parent: &'gram EarleyState<'gram>,
 ) -> EarleyState<'gram> {
-    EarleyState::new(
-        parent.lhs,
-        parent.production_id.clone(),
-        parent.unmatched_terms.advance_by(1),
-        parent.input_range.advance_by(state.input_range.len),
-    )
+    let term_match = TermMatch::NonTerminal(state);
+    EarleyState::new_term_match(parent, term_match, state.input_range.len)
 }
 
 type Arena<'gram> = typed_arena::Arena<EarleyState<'gram>>;
@@ -239,7 +255,7 @@ impl<'gram> StateProcessingKey {
         }
     }
 }
-type StateProcessingSet = std::collections::HashSet<StateProcessingKey>;
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateMatchingKey<'gram> {
     state_id: StateId,
@@ -258,6 +274,8 @@ impl<'gram> StateMatchingKey<'gram> {
         Self { state_id, term }
     }
 }
+
+type StateProcessingSet = std::collections::HashSet<StateProcessingKey>;
 
 type StateMatchingMap<'gram> =
     std::collections::HashMap<StateMatchingKey<'gram>, Vec<*const EarleyState<'gram>>>;
@@ -372,7 +390,10 @@ pub fn parse<'gram>(
                 let full_input_parses = completed
                     .filter(|state| state.input_range.is_complete())
                     // TODO: actual parse tree info!
-                    .map(|_| crate::grammar::ParseTree {});
+                    .map(|_| {
+                        println!("** {:?} {:#?}", state.input_range, state);
+                        crate::grammar::ParseTree {}
+                    });
 
                 parses.extend(full_input_parses);
             }

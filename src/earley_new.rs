@@ -146,7 +146,7 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum TermMatch<'gram> {
     Terminal(&'gram str),
     NonTerminal(&'gram EarleyState<'gram>),
@@ -168,7 +168,7 @@ impl<'gram> EarleyState<'gram> {
         unmatched_terms: &'gram [Term],
         input_range: InputRange<'gram>,
     ) -> Self {
-        let matched_terms = Vec::with_capacity(unmatched_terms.len());
+        let matched_terms = Vec::with_capacity(0);
         let unmatched_terms = Terms::new(unmatched_terms);
         Self {
             lhs,
@@ -183,8 +183,10 @@ impl<'gram> EarleyState<'gram> {
         matched_term: TermMatch<'gram>,
         input_range_step: usize,
     ) -> Self {
-        let mut matched_terms = state.matched_terms.clone();
+        let mut matched_terms = Vec::with_capacity(state.matched_terms.len() + 1);
+        matched_terms.extend_from_slice(&state.matched_terms);
         matched_terms.push(matched_term);
+
         Self {
             lhs: state.lhs,
             matched_terms,
@@ -241,7 +243,8 @@ fn complete<'gram>(
 type Arena<'gram> = typed_arena::Arena<EarleyState<'gram>>;
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateProcessingKey {
-    state_id: StateId,
+    input_start: usize,
+    input_len: usize,
     production_id: ProductionId,
     unmatched_term_len: usize,
 }
@@ -249,7 +252,8 @@ struct StateProcessingKey {
 impl<'gram> StateProcessingKey {
     pub fn from_state(state: &EarleyState<'gram>) -> Self {
         Self {
-            state_id: state.input_range.state_id(),
+            input_start: state.input_range.start,
+            input_len: state.input_range.len,
             production_id: state.production_id.clone(),
             unmatched_term_len: state.unmatched_terms.slice.len(),
         }
@@ -283,7 +287,7 @@ type StateMatchingMap<'gram> =
 #[derive(Default)]
 struct StateArena<'gram> {
     arena: Arena<'gram>,
-    unprocessed: Vec<*const EarleyState<'gram>>,
+    unprocessed: std::collections::VecDeque<*const EarleyState<'gram>>,
     processed_set: StateProcessingSet,
     matching_map: StateMatchingMap<'gram>,
 }
@@ -292,14 +296,10 @@ impl<'gram> StateArena<'gram> {
     pub fn new() -> Self {
         Default::default()
     }
-    pub fn alloc_extend(
-        self: Pin<&mut Self>,
-        iter: impl Iterator<Item = EarleyState<'gram>>,
-    ) -> impl Iterator<Item = &EarleyState<'gram>> {
+    pub fn alloc_extend(self: Pin<&mut Self>, iter: impl Iterator<Item = EarleyState<'gram>>) {
         // SAFETY: must not "move" any data out of `self`
         // because would corrupt self referential fields
         let this = unsafe { self.get_unchecked_mut() };
-        let mut allocated = vec![];
 
         for state in iter {
             let state_key = StateProcessingKey::from_state(&state);
@@ -310,8 +310,7 @@ impl<'gram> StateArena<'gram> {
             }
 
             let state = this.arena.alloc(state);
-            allocated.push(state as &_);
-            this.unprocessed.push(state);
+            this.unprocessed.push_back(state);
 
             if let Some(Term::Nonterminal(_)) = state.unmatched_terms.matching() {
                 let matching_state_key = StateMatchingKey::from_state(&state);
@@ -321,20 +320,16 @@ impl<'gram> StateArena<'gram> {
                     .push(state);
             }
         }
-
-        allocated.into_iter()
     }
-    pub fn pop_unprocessed(self: Pin<&mut Self>) -> Option<&'gram EarleyState<'gram>> {
-        let this = unsafe { self.get_unchecked_mut() };
-        this.unprocessed.pop().map(|i| unsafe { &*i })
+    pub fn pop_unprocessed(self: &mut Pin<&mut Self>) -> Option<&'gram EarleyState<'gram>> {
+        self.unprocessed.pop_front().map(|i| unsafe { &*i })
     }
     pub fn get_matching<'a>(
-        self: Pin<&'a mut Self>,
+        self: &'a Pin<&mut Self>,
         state: &'gram EarleyState<'gram>,
     ) -> impl Iterator<Item = &'gram EarleyState<'gram>> + 'a {
-        let this = unsafe { self.get_unchecked_mut() };
         let key = StateMatchingKey::from_complete(state);
-        this.matching_map
+        self.matching_map
             .get(&key)
             .into_iter()
             .flat_map(|ptrs| ptrs.iter())
@@ -351,7 +346,6 @@ pub fn parse<'gram>(
     let mut parses = Vec::<crate::grammar::ParseTree>::new();
 
     // SAFETY: shadow the pinned variable so it may only be accessed at its pinned location
-    // also because it is pinned on "the stack", state_set cannot be returned
     let mut state_arena = StateArena::new();
     let mut state_arena = unsafe { std::pin::Pin::new_unchecked(&mut state_arena) };
 
@@ -364,41 +358,47 @@ pub fn parse<'gram>(
             starting_input_range.clone(),
         )
     });
-    let _ = state_arena.as_mut().alloc_extend(starting_states);
+    state_arena.as_mut().alloc_extend(starting_states);
 
-    while let Some(state) = state_arena.as_mut().pop_unprocessed() {
+    let mut state_count = 0usize;
+
+    while let Some(state) = state_arena.pop_unprocessed() {
+        // eprintln!("!! {:#?}", state);
+        state_count += 1;
         match state.unmatched_terms.matching() {
             // predict
             Some(Term::Nonterminal(_)) => {
+                // no need to predict for more input if input is complete
+                if state.input_range.is_complete() {
+                    continue;
+                }
                 let predictions = predict(state, &grammar);
-                let _ = state_arena.as_mut().alloc_extend(predictions);
+                state_arena.as_mut().alloc_extend(predictions);
             }
             // scan
             Some(Term::Terminal(_)) => {
                 let scanned = scan(state);
-                let _ = state_arena.as_mut().alloc_extend(scanned);
+                state_arena.as_mut().alloc_extend(scanned);
             }
             // complete
             None => {
-                let matching = state_arena.as_mut().get_matching(state);
+                if state.input_range.is_complete() {
+                    println!("** {:#?}", state);
+                    let parse = crate::grammar::ParseTree {};
+                    parses.push(parse);
+                    continue;
+                }
+
+                let matching = state_arena.get_matching(state);
                 let completed = matching
                     .map(|parent| complete(state, parent))
                     .collect::<Vec<_>>();
 
-                let completed = state_arena.as_mut().alloc_extend(completed.into_iter());
-
-                let full_input_parses = completed
-                    .filter(|state| state.input_range.is_complete())
-                    // TODO: actual parse tree info!
-                    .map(|_| {
-                        println!("** {:?} {:#?}", state.input_range, state);
-                        crate::grammar::ParseTree {}
-                    });
-
-                parses.extend(full_input_parses);
+                state_arena.as_mut().alloc_extend(completed.into_iter());
             }
         }
     }
+    eprintln!("state count: {}", state_count);
 
     parses.into_iter()
 }
@@ -415,7 +415,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "G A T".split_whitespace();
 
         let mut parses = parse(&grammar, input);
         assert!(matches!(parses.next(), Some(_)));

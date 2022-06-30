@@ -495,10 +495,6 @@
 // }
 
 // // NEXT
-// // * test ambiguous grammar parse: "<start> ::= <a> | <b>, <a> ::= FIN, <b> ::= FIN", should have BOTH parse trees
-// // * test example from earley website
-// // * EarleyParser PARSES
-// // * EarleyState::advance_cursor probably nice ergonomics
 // // * what should "failure" modes of parsing look like? Result<Iter> ? fail to predict/scan/complete? can errors include context?
 // // * grammar::parse
 // // * pretty printing of parse trees?

@@ -1,17 +1,3 @@
-// DESIGN
-// PREDICT
-// ProductionWithId BY LHS -> MANY EarleyState
-//
-// SCAN
-// &str -> 0/1 EarleyState
-//
-// COMPLETE
-// EarleyStates BY (start state id, matching) -> MANY EarleyState
-//
-// SUCCESS
-// EarleyStates BY (end state id, start state id, matching)
-// OR
-// when COMPLETE, if start = 0, and end = end, add to successes
 use crate::Term;
 use std::pin::Pin;
 
@@ -195,6 +181,9 @@ impl<'gram> EarleyState<'gram> {
             input_range: state.input_range.advance_by(input_range_step),
         }
     }
+    pub fn is_complete(&self, starting_prod_ids: &[ProductionId]) -> bool {
+        starting_prod_ids.contains(&self.production_id) && self.input_range.is_complete()
+    }
 }
 
 fn predict<'gram>(
@@ -350,6 +339,10 @@ pub fn parse<'gram>(
     let mut state_arena = unsafe { std::pin::Pin::new_unchecked(&mut state_arena) };
 
     let starting_input_range = InputRange::new(&input);
+    let starting_prod_ids: Vec<_> = grammar
+        .starting_iter()
+        .map(|prod| prod.id.clone())
+        .collect();
     let starting_states = grammar.starting_iter().map(|prod| {
         EarleyState::new(
             prod.lhs,
@@ -382,7 +375,7 @@ pub fn parse<'gram>(
             }
             // complete
             None => {
-                if state.input_range.is_complete() {
+                if state.is_complete(&starting_prod_ids) {
                     println!("** {:#?}", state);
                     let parse = crate::grammar::ParseTree {};
                     parses.push(parse);
@@ -415,9 +408,79 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T".split_whitespace();
+        let input = "G A T T A C A".split_whitespace();
 
         let mut parses = parse(&grammar, input);
         assert!(matches!(parses.next(), Some(_)));
     }
+
+    #[test]
+    fn parse_dna_right_recursive() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "G A T T A C A".split_whitespace();
+
+        let mut parses = parse(&grammar, input);
+        assert!(matches!(parses.next(), Some(_)));
+    }
+
+    #[test]
+    fn parse_ambiguous() {
+        let grammar: Grammar = "<start> ::= <a> | <b>
+        <a> ::= \"END\"
+        <b> ::= \"END\""
+            .parse()
+            .unwrap();
+
+        let input = "END".split_whitespace();
+
+        let parses: Vec<_> = parse(&grammar, input).collect();
+        assert_eq!(parses.len(), 2);
+    }
+
+    #[test]
+    // (source: https://loup-vaillant.fr/tutorials/earley-parsing/recogniser)
+    // Sum     -> Sum     [+-] Product
+    // Sum     -> Product
+    // Product -> Product [*/] Factor
+    // Product -> Factor
+    // Factor  -> '(' Sum ')'
+    // Factor  -> Number
+    // Number  -> [0-9] Number
+    // Number  -> [0-9]
+    fn parse_math() {
+        let grammar: Grammar = "<sum> ::= <sum> <add> <product>
+            <sum> ::= <product>
+            <add> ::= \"+\" | \"-\"
+            <product> ::= <product> <mult> <factor>
+            <product> ::= <factor>
+            <mult> ::= \"*\" | \"/\"
+            <factor> ::= \"(\" <sum> \")\"
+            <factor> ::= <number>
+            <number> ::= <digit> <number>
+            <number> ::= <digit>
+            <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
+        ".parse().unwrap();
+
+        let input = "1 + ( 2 * 3 - 4 )".split_whitespace();
+
+        let parses: Vec<_> = parse(&grammar, input).collect();
+        assert_eq!(parses.len(), 1);
+    }
 }
+
+/* NEXT
+ * what should failure modes of parsing look like? Result<Iter> ? what error context can be included ?
+ * parse tree context
+ * pretty printing parse trees
+ * remove printlns
+ * unit tests
+ * property test (gen random walk, should be parseable)
+ * grammar::parse
+ * perf testing
+ * DOCS
+ * clippy
+ */

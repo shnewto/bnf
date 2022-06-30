@@ -64,7 +64,7 @@ impl Grammar {
         &'gram self,
         input: impl Iterator<Item = &'gram str>,
     ) -> impl Iterator<Item = ParseTree> {
-        crate::earley_new::parse(self, input)
+        crate::earley::parse(self, input)
     }
 
     fn eval_terminal(

@@ -155,7 +155,7 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
 
 #[derive(Debug, Clone, Copy)]
 enum TermMatch<'gram> {
-    Terminal(&'gram str),
+    Terminal(&'gram Term),
     NonTerminal(&'gram EarleyState<'gram>),
 }
 
@@ -232,7 +232,7 @@ fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyS
         .matching()
         .zip(state.input_range.next())
         .and_then(|(matching, next_input)| match matching {
-            Term::Terminal(term) if term == next_input => Some(next_input),
+            Term::Terminal(term) if term == next_input => Some(matching),
             _ => None,
         })
         .map(|term| {
@@ -393,10 +393,24 @@ impl<'gram> ParseIter<'gram> {
             .grammar
             .get_production_parts_by_id(state.production_id.clone());
 
+        let children = state
+            .matched_terms
+            .iter()
+            .map(|child| match child {
+                TermMatch::Terminal(term) => ParseTree {
+                    lhs: term,
+                    rhs: None,
+                    children: vec![],
+                },
+                TermMatch::NonTerminal(state) => self.get_parse_tree(state),
+            })
+            .collect();
+
         let parse_tree = ParseTree {
             lhs,
-            rhs,
-            children: vec![],
+            rhs: Some(rhs),
+            // children: vec![],
+            children,
         };
         parse_tree
     }
@@ -426,7 +440,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 // complete
                 None => {
                     if state.is_complete(&self.grammar.starting_production_ids) {
-                        // println!("** {:#?}", state);
+                        println!("** {:#?}", state);
                         let parse_tree = self.get_parse_tree(state);
                         return Some(parse_tree);
                     }
@@ -498,6 +512,7 @@ mod tests {
         let input = "END".split_whitespace();
 
         let parses: Vec<_> = parse(&grammar, input).collect();
+        println!("{:#?}", parses);
         assert_eq!(parses.len(), 2);
     }
 

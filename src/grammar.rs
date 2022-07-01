@@ -13,7 +13,7 @@ use std::str;
 #[derive(Debug, Clone)]
 pub struct ParseTree<'gram> {
     pub lhs: &'gram Term,
-    pub rhs: &'gram Expression,
+    pub rhs: Option<&'gram Expression>,
     pub children: Vec<ParseTree<'gram>>,
 }
 

@@ -22,6 +22,28 @@ pub struct ParseTree<'gram> {
     pub rhs: Vec<ParseTreeMatch<'gram>>,
 }
 
+impl<'gram> ParseTree<'gram> {
+    fn fmt(&self, depth: usize, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{:depth$}{} ::= ", "", self.lhs).and_then(|_| {
+            self.rhs
+                .iter()
+                .map(|matched| match matched {
+                    ParseTreeMatch::Terminal(terminal) => {
+                        writeln!(f, "{:depth$}{}", "", terminal, depth = depth + 1)
+                    }
+                    ParseTreeMatch::Nonterminal(nonterminal) => nonterminal.fmt(depth + 1, f),
+                })
+                .collect()
+        })
+    }
+}
+
+impl<'gram> std::fmt::Display for ParseTree<'gram> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt(0, f)
+    }
+}
+
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
 pub struct Grammar {

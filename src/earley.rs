@@ -436,9 +436,8 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 // complete
                 None => {
                     if state.is_complete(&self.grammar.starting_production_ids) {
-                        println!("{:#?}", state);
                         let parse_tree = self.get_parse_tree(state);
-                        println!("{:#?}", parse_tree);
+                        println!("{}", parse_tree);
                         return Some(parse_tree);
                     }
 
@@ -544,8 +543,6 @@ mod tests {
 }
 
 /* NEXT
- * parse tree context
- * pretty printing parse trees
  * remove printlns
  * what should failure modes of parsing look like? Result<Iter> ? what error context can be included ?
  * unit tests

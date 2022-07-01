@@ -10,8 +10,12 @@ use std::fmt;
 use std::slice;
 use std::str;
 
-#[derive(Debug)]
-pub struct ParseTree {}
+#[derive(Debug, Clone)]
+pub struct ParseTree<'gram> {
+    pub lhs: &'gram Term,
+    pub rhs: &'gram Expression,
+    pub children: Vec<ParseTree<'gram>>,
+}
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]

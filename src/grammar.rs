@@ -655,27 +655,32 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A".split_whitespace();
+        let input = "G A T T A C A".split_whitespace();
         let parsed = grammar.parse(input).next().unwrap();
         let formatted = format!("{}", parsed);
-        eprintln!("{}", formatted);
         let expected = "
 <dna> ::= <base> <dna>
 ├── <base> ::= \"G\"
+│   └── \"G\"
 └── <dna> ::= <base> <dna>
     ├── <base> ::= \"A\"
+    │   └── \"A\"
     └── <dna> ::= <base> <dna>
         ├── <base> ::= \"T\"
+        │   └── \"T\"
         └── <dna> ::= <base> <dna>
             ├── <base> ::= \"T\"
+            │   └── \"T\"
             └── <dna> ::= <base> <dna>
                 ├── <base> ::= \"A\"
+                │   └── \"A\"
                 └── <dna> ::= <base> <dna>
                     ├── <base> ::= \"C\"
-                    └── <dna> ::= <base> <dna>
-                        ├── <base> ::= \"A\"
-                        └── <dna> ::= <base> <dna>"
-            .trim();
+                    │   └── \"C\"
+                    └── <dna> ::= <base>
+                        └── <base> ::= \"A\"
+                            └── \"A\"\n"
+            .trim_start();
 
         assert_eq!(formatted, expected);
     }

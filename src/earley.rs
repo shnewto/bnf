@@ -415,9 +415,8 @@ impl<'gram> ParseIter<'gram> {
 impl<'gram> Iterator for ParseIter<'gram> {
     type Item = ParseTree<'gram>;
 
-    fn next<'a>(&'a mut self) -> Option<Self::Item> {
+    fn next(&mut self) -> Option<Self::Item> {
         while let Some(state) = self.state_arena.as_mut().pop_unprocessed() {
-            // eprintln!("!! {:#?}", state);
             match state.unmatched_terms.matching() {
                 // predict
                 Some(Term::Nonterminal(_)) => {
@@ -437,7 +436,6 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 None => {
                     if state.is_complete(&self.grammar.starting_production_ids) {
                         let parse_tree = self.get_parse_tree(state);
-                        println!("{}", parse_tree);
                         return Some(parse_tree);
                     }
 
@@ -454,7 +452,6 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 }
             }
         }
-        println!("states: {}", self.state_arena.arena.len());
         None
     }
 }
@@ -539,11 +536,12 @@ mod tests {
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 1);
+        let formatted = format!("{}", parses[0]);
+        eprintln!("{}", formatted);
     }
 }
 
 /* NEXT
- * remove printlns
  * what should failure modes of parsing look like? Result<Iter> ? what error context can be included ?
  * unit tests
  * property test (gen random walk, should be parseable)

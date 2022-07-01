@@ -1,4 +1,7 @@
-use crate::{grammar::ParseTree, Term};
+use crate::{
+    grammar::{ParseTree, ParseTreeMatch},
+    Term,
+};
 use std::pin::Pin;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -62,7 +65,7 @@ impl<'gram> Grammar<'gram> {
     }
     pub fn get_production_parts_by_id(
         &self,
-        prod_id: ProductionId,
+        prod_id: &ProductionId,
     ) -> (&'gram Term, &'gram crate::Expression) {
         self.productions
             .get(prod_id.0)
@@ -155,7 +158,7 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
 
 #[derive(Debug, Clone, Copy)]
 enum TermMatch<'gram> {
-    Terminal(&'gram Term),
+    Terminal(&'gram str),
     NonTerminal(&'gram EarleyState<'gram>),
 }
 
@@ -232,11 +235,11 @@ fn scan<'gram>(state: &'gram EarleyState<'gram>) -> impl Iterator<Item = EarleyS
         .matching()
         .zip(state.input_range.next())
         .and_then(|(matching, next_input)| match matching {
-            Term::Terminal(term) if term == next_input => Some(matching),
+            Term::Terminal(term) if term == next_input => Some(term),
             _ => None,
         })
         .map(|term| {
-            let term_match = TermMatch::Terminal(&term);
+            let term_match = TermMatch::Terminal(term);
             EarleyState::new_term_match(state, term_match, 1)
         })
         .into_iter()
@@ -389,29 +392,22 @@ impl<'gram> ParseIter<'gram> {
         parse_iter
     }
     fn get_parse_tree(&self, state: &EarleyState<'gram>) -> ParseTree<'gram> {
-        let (lhs, rhs) = self
+        let (lhs, _) = self
             .grammar
-            .get_production_parts_by_id(state.production_id.clone());
+            .get_production_parts_by_id(&state.production_id);
 
-        let children = state
+        let rhs = state
             .matched_terms
             .iter()
             .map(|child| match child {
-                TermMatch::Terminal(term) => ParseTree {
-                    lhs: term,
-                    rhs: None,
-                    children: vec![],
-                },
-                TermMatch::NonTerminal(state) => self.get_parse_tree(state),
+                TermMatch::Terminal(term) => ParseTreeMatch::Terminal(term),
+                TermMatch::NonTerminal(state) => {
+                    ParseTreeMatch::Nonterminal(self.get_parse_tree(state))
+                }
             })
             .collect();
 
-        let parse_tree = ParseTree {
-            lhs,
-            rhs: Some(rhs),
-            // children: vec![],
-            children,
-        };
+        let parse_tree = ParseTree { lhs, rhs };
         parse_tree
     }
 }
@@ -440,8 +436,9 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 // complete
                 None => {
                     if state.is_complete(&self.grammar.starting_production_ids) {
-                        println!("** {:#?}", state);
+                        println!("{:#?}", state);
                         let parse_tree = self.get_parse_tree(state);
+                        println!("{:#?}", parse_tree);
                         return Some(parse_tree);
                     }
 
@@ -512,7 +509,6 @@ mod tests {
         let input = "END".split_whitespace();
 
         let parses: Vec<_> = parse(&grammar, input).collect();
-        println!("{:#?}", parses);
         assert_eq!(parses.len(), 2);
     }
 

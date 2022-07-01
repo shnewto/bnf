@@ -11,10 +11,15 @@ use std::slice;
 use std::str;
 
 #[derive(Debug, Clone)]
+pub enum ParseTreeMatch<'gram> {
+    Terminal(&'gram str),
+    Nonterminal(ParseTree<'gram>),
+}
+
+#[derive(Debug, Clone)]
 pub struct ParseTree<'gram> {
     pub lhs: &'gram Term,
-    pub rhs: Option<&'gram Expression>,
-    pub children: Vec<ParseTree<'gram>>,
+    pub rhs: Vec<ParseTreeMatch<'gram>>,
 }
 
 /// A Grammar is comprised of any number of Productions

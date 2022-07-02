@@ -22,11 +22,6 @@ pub struct ParseTree<'gram> {
     pub rhs: Vec<ParseTreeMatch<'gram>>,
 }
 
-const CHILD_PREFIX: &str = "├── ";
-const GRANDCHILD_PREFIX: &str = "│   ";
-const LAST_CHILD_PREFIX: &str = "└── ";
-const LAST_GRANDCHILD_PREFIX: &str = "    ";
-
 type ParseTreeFormatSet = std::collections::HashSet<usize>;
 
 impl<'gram> ParseTree<'gram> {
@@ -37,25 +32,11 @@ impl<'gram> ParseTree<'gram> {
         depth: usize,
         is_last_child: bool,
     ) -> fmt::Result {
-        {
-            depth_format_set.insert(depth);
-            for idx in 0..depth {
-                let prefix = if (idx + 1) == depth {
-                    if is_last_child {
-                        LAST_CHILD_PREFIX
-                    } else {
-                        CHILD_PREFIX
-                    }
-                } else if depth_format_set.contains(&idx) {
-                    GRANDCHILD_PREFIX
-                } else {
-                    LAST_GRANDCHILD_PREFIX
-                };
-                write!(f, "{}", prefix)?;
-            }
-        }
+        depth_format_set.insert(depth);
 
-        write!(f, "{} ::=", self.lhs,)?;
+        Self::fmt_node_prefix(f, depth_format_set, depth, is_last_child)?;
+
+        write!(f, "{} ::=", self.lhs)?;
 
         for matched in &self.rhs {
             match matched {
@@ -63,6 +44,7 @@ impl<'gram> ParseTree<'gram> {
                 ParseTreeMatch::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
             }
         }
+
         write!(f, "\n")?;
 
         let child_depth = depth + 1;
@@ -75,20 +57,7 @@ impl<'gram> ParseTree<'gram> {
             }
             match child {
                 ParseTreeMatch::Terminal(terminal) => {
-                    for idx in 0..child_depth {
-                        let prefix = if (idx + 1) == child_depth {
-                            if is_last_child {
-                                LAST_CHILD_PREFIX
-                            } else {
-                                CHILD_PREFIX
-                            }
-                        } else if depth_format_set.contains(&idx) {
-                            GRANDCHILD_PREFIX
-                        } else {
-                            LAST_GRANDCHILD_PREFIX
-                        };
-                        write!(f, "{}", prefix)?;
-                    }
+                    Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
                     writeln!(f, "\"{}\"", terminal)?;
                 }
                 ParseTreeMatch::Nonterminal(nonterminal) => {
@@ -99,34 +68,38 @@ impl<'gram> ParseTree<'gram> {
 
         Ok(())
     }
+
+    fn fmt_node_prefix(
+        f: &mut fmt::Formatter,
+        depth_format_set: &mut ParseTreeFormatSet,
+        depth: usize,
+        is_last_child: bool,
+    ) -> fmt::Result {
+        const CHILD_PREFIX: &str = "├── ";
+        const GRANDCHILD_PREFIX: &str = "│   ";
+        const LAST_CHILD_PREFIX: &str = "└── ";
+        const LAST_GRANDCHILD_PREFIX: &str = "    ";
+
+        for idx in 0..depth {
+            let prefix = if (idx + 1) == depth {
+                if is_last_child {
+                    LAST_CHILD_PREFIX
+                } else {
+                    CHILD_PREFIX
+                }
+            } else if depth_format_set.contains(&idx) {
+                GRANDCHILD_PREFIX
+            } else {
+                LAST_GRANDCHILD_PREFIX
+            };
+            write!(f, "{}", prefix)?;
+        }
+
+        Ok(())
+    }
 }
 
-/*
-<Sum> ::= <Sum> "+" <Product>
-├─ <Sum> ::= <Product>
-|    └─ <Product> ::= <Factor>
-|        └─ <Factor> ::= <Number>
-|            └─ <Number> ::= "1"
-|                └─ 1
-├─ +
-└─ <Product> ::= <Factor>
-  └─ <Factor> ::= "(" <Sum> ")"
-      ├─ (
-      ├─ <Sum> ::= <Sum> "-" <Product>
-      |    ├─ <Sum> ::= <Product>
-      |    |    └─ <Product> ::= <Factor>
-      |    |        └─ <Factor> ::= <Number>
-      |    |            └─ <Number> ::= "2"
-      |    |                └─ 2
-      |    ├─ -
-      |    └─ <Product> ::= <Factor>
-      |        └─ <Factor> ::= <Number>
-      |            └─ <Number> ::= "4"
-      |                └─ 4
-      └─ )
-*/
-
-impl<'gram> std::fmt::Display for ParseTree<'gram> {
+impl<'gram> fmt::Display for ParseTree<'gram> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut depth_format_set = ParseTreeFormatSet::new();
         self.fmt(f, &mut depth_format_set, 0, true)

@@ -536,8 +536,6 @@ mod tests {
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 1);
-        let formatted = format!("{}", parses[0]);
-        eprintln!("{}", formatted);
     }
 }
 

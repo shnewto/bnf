@@ -50,7 +50,10 @@ impl<'gram> Grammar<'gram> {
                 .push(prod.id.clone());
         }
 
-        let starting_production_ids = production_ids_by_lhs.get(starting_term).unwrap().clone();
+        let starting_production_ids = production_ids_by_lhs
+            .get(starting_term)
+            .expect("starting Term has no production")
+            .clone();
 
         Self {
             starting_production_ids,
@@ -70,7 +73,7 @@ impl<'gram> Grammar<'gram> {
         self.productions
             .get(prod_id.0)
             .map(|p| (p.lhs, p.rhs))
-            .expect("Invalid Production ID")
+            .expect("invalid Production ID")
     }
     pub fn get_productions_by_lhs(
         &self,

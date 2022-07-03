@@ -343,8 +343,8 @@ impl<'gram> StateArena<'gram> {
             }
         }
     }
-    pub fn get(&self, key: ArenaKey) -> &EarleyState<'gram> {
-        self.arena.get(key).expect("invalid ArenaKey")
+    pub fn get(&self, key: ArenaKey) -> Option<&EarleyState<'gram>> {
+        self.arena.get(key)
     }
     pub fn get_matching(
         &self,
@@ -355,7 +355,7 @@ impl<'gram> StateArena<'gram> {
             .get(&key)
             .into_iter()
             .flat_map(|keys| keys.iter())
-            .map(|key| self.get(*key))
+            .flat_map(|key| self.get(*key))
     }
     pub fn pop_unprocessed(&mut self) -> Option<Unprocessed<'gram>> {
         self.unprocessed
@@ -411,11 +411,11 @@ impl<'gram> ParseIter<'gram> {
         let rhs = state
             .matched_terms
             .iter()
-            .map(|child| match child {
-                TermMatch::Terminal(term) => ParseTreeMatch::Terminal(term),
+            .flat_map(|child| match child {
+                TermMatch::Terminal(term) => Some(ParseTreeMatch::Terminal(term)),
                 TermMatch::NonTerminal(key) => {
                     let state = self.state_arena.get(*key);
-                    ParseTreeMatch::Nonterminal(self.get_parse_tree(state))
+                    state.map(|state| ParseTreeMatch::Nonterminal(self.get_parse_tree(state)))
                 }
             })
             .collect();
@@ -447,14 +447,14 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 }
                 // scan
                 Some(Term::Terminal(_)) => {
-                    let state = self.state_arena.get(key);
+                    let state = self.state_arena.get(key)?;
                     // TODO: can the output vector be reused?
                     let scanned = scan(state).collect::<Vec<_>>();
                     self.state_arena.alloc_extend(scanned.into_iter());
                 }
                 // complete
                 None => {
-                    let state = self.state_arena.get(key);
+                    let state = self.state_arena.get(key)?;
                     if state.is_complete(&self.grammar.starting_production_ids) {
                         let parse_tree = self.get_parse_tree(state);
                         return Some(parse_tree);
@@ -526,7 +526,6 @@ mod tests {
         assert_eq!(parses.len(), 2);
     }
 
-    #[test]
     // (source: https://loup-vaillant.fr/tutorials/earley-parsing/recogniser)
     // Sum     -> Sum     [+-] Product
     // Sum     -> Product
@@ -536,6 +535,7 @@ mod tests {
     // Factor  -> Number
     // Number  -> [0-9] Number
     // Number  -> [0-9]
+    #[test]
     fn parse_math() {
         let grammar: Grammar = "<sum> ::= <sum> <add> <product>
             <sum> ::= <product>

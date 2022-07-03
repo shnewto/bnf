@@ -554,15 +554,10 @@ mod tests {
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 1);
-        println!("{}", parses[0]);
     }
 }
 
 /* NEXT
- * what should failure modes of parsing look like? Result<Iter> ? what error context can be included ?
- * unit tests
- * property test (gen random walk, should be parseable)
- * grammar::parse
  * perf testing
  * DOCS
  * clippy

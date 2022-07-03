@@ -17,6 +17,9 @@ license = "MIT"
 [features]
 unstable = []
 
+[dependencies]
+slotmap = "1.0.6"
+
 [dependencies.stacker]
 version = "0.1.2"
 

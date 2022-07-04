@@ -12,6 +12,7 @@ use std::str::FromStr;
 /// A Production is comprised of any number of Expressions
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Production {
+    /// The "left hand side" of the production, i.e. "lhs -> rhs ..."
     pub lhs: Term,
     rhs: Vec<Expression>,
 }
@@ -65,6 +66,7 @@ impl Production {
         self.rhs.len()
     }
 
+    /// If the production is empty of `Expression`s
     pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }

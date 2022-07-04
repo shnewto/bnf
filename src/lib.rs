@@ -8,7 +8,7 @@
 //! ## What does a parsable BNF grammar look like?
 //!
 //! The following grammar from the [Wikipedia page on Backus-Naur form]
-//! (https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
+//! <https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example>
 //! exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
 //! to indicate the end of a producion)
 //!

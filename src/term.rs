@@ -11,7 +11,9 @@ use std::str::FromStr;
 /// A Term can represent a Terminal or Nonterminal node
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Term {
+    /// A term which cannot be expanded further via productions
     Terminal(String),
+    /// A term which may be be expanded further via productions
     Nonterminal(String),
 }
 

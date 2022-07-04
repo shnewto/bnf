@@ -10,8 +10,9 @@ use std::fmt;
 use std::slice;
 use std::str;
 
+/// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
 #[derive(Debug, Clone)]
-pub enum ParseTreeMatch<'gram> {
+pub enum ParseTreeNode<'gram> {
     Terminal(&'gram str),
     Nonterminal(ParseTree<'gram>),
 }
@@ -19,7 +20,7 @@ pub enum ParseTreeMatch<'gram> {
 #[derive(Debug, Clone)]
 pub struct ParseTree<'gram> {
     pub lhs: &'gram Term,
-    pub rhs: Vec<ParseTreeMatch<'gram>>,
+    pub rhs: Vec<ParseTreeNode<'gram>>,
 }
 
 type ParseTreeFormatSet = std::collections::HashSet<usize>;
@@ -40,8 +41,8 @@ impl<'gram> ParseTree<'gram> {
 
         for matched in &self.rhs {
             match matched {
-                ParseTreeMatch::Terminal(terminal) => write!(f, " \"{}\"", terminal)?,
-                ParseTreeMatch::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
+                ParseTreeNode::Terminal(terminal) => write!(f, " \"{}\"", terminal)?,
+                ParseTreeNode::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
             }
         }
 
@@ -56,11 +57,11 @@ impl<'gram> ParseTree<'gram> {
                 depth_format_set.remove(&depth);
             }
             match child {
-                ParseTreeMatch::Terminal(terminal) => {
+                ParseTreeNode::Terminal(terminal) => {
                     Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
                     writeln!(f, "\"{}\"", terminal)?;
                 }
-                ParseTreeMatch::Nonterminal(nonterminal) => {
+                ParseTreeNode::Nonterminal(nonterminal) => {
                     nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
                 }
             }
@@ -153,7 +154,8 @@ impl Grammar {
         }
     }
 
-    pub fn parse<'gram>(
+    /// Parse input strings according to `Grammar`
+    pub fn parse_input<'gram>(
         &'gram self,
         input: impl Iterator<Item = &'gram str>,
     ) -> impl Iterator<Item = ParseTree> {
@@ -611,7 +613,7 @@ mod tests {
 
         let input = "G A T T A C A".split_whitespace();
 
-        let mut parses = grammar.parse(input);
+        let mut parses = grammar.parse_input(input);
         assert!(matches!(parses.next(), Some(_)));
     }
 
@@ -623,7 +625,7 @@ mod tests {
             .unwrap();
 
         let input = "G A T T A C A".split_whitespace();
-        let parsed = grammar.parse(input).next().unwrap();
+        let parsed = grammar.parse_input(input).next().unwrap();
         let formatted = format!("{}", parsed);
         let expected = "
 <dna> ::= <base> <dna>

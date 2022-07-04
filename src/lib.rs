@@ -118,6 +118,7 @@
 //! ```rust
 //! use bnf::Grammar;
 //!
+//! fn main() {
 //!     let input =
 //!         "<postal-address> ::= <name-part> <street-address> <zip-part>
 //!
@@ -138,6 +139,7 @@
 //!         Ok(g) => println!("{:#?}", g),
 //!         Err(e) => println!("Failed to make grammar from String: {}", e),
 //!     }
+//! }
 //! ```
 //!
 //! ## Generate Example
@@ -145,6 +147,7 @@
 //! ```rust
 //! use bnf::Grammar;
 //!
+//! fn main() {
 //!     let input =
 //!         "<dna> ::= <base> | <base> <dna>
 //!         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
@@ -154,6 +157,7 @@
 //!         Ok(s) => println!("random sentence: {}", s),
 //!         Err(e) => println!("something went wrong: {}!", e)
 //!     }
+//! }
 //! ```
 //!
 

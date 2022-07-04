@@ -26,7 +26,6 @@ fn examples(c: &mut Criterion) {
     let random_walks: Vec<_> = (0..random_walk_count)
         .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
         .collect();
-    eprintln!("{:?}", &random_walks[0..5]);
 
     c.bench_function("parse polish calculator", |b| {
         b.iter(|| {

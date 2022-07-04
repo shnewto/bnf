@@ -255,7 +255,7 @@ impl Grammar {
         self.generate_seeded_callback(rng, |_, _| true)
     }
 
-    /// Does the same as [`generate_seeded`], except it takes a callback which is
+    /// Does the same as [`Grammar::generate_seeded`], except it takes a callback which is
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.
@@ -315,7 +315,7 @@ impl Grammar {
         self.generate_callback(|_, _| true)
     }
 
-    /// Does the same as [`generate`], except it takes a callback which is
+    /// Does the same as [`Grammar::generate`], except it takes a callback which is
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.

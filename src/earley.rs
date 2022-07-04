@@ -78,7 +78,7 @@ impl<'gram> Grammar<'gram> {
             .map(|p| (p.lhs, p.rhs))
             .expect("invalid Production ID")
     }
-    /// Get `Production` by the LHS `Term (useful when predicting new `EarleyState`)
+    /// Get `Production` by the LHS `Term (useful when predicting new `State`)
     pub fn get_productions_by_lhs(
         &self,
         lhs: &'gram Term,
@@ -172,13 +172,13 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
 enum TermMatch<'gram> {
     /// The `Term` matched with a terminal string
     Terminal(&'gram str),
-    /// The `Term` matched with completed non-terminal `EarleyState`
-    NonTerminal(ArenaKey),
+    /// The `Term` matched with completed non-terminal `State`
+    NonTerminal(StateArenaKey),
 }
 
-/// One step in an Earley parser
+/// One state in an Earley parser
 #[derive(Debug)]
-struct EarleyState<'gram> {
+struct State<'gram> {
     /// LHS `Term` which is being parsed
     lhs: &'gram Term,
     /// matched `Term`s which have already been parsed
@@ -191,8 +191,8 @@ struct EarleyState<'gram> {
     input_range: InputRange<'gram>,
 }
 
-impl<'gram> EarleyState<'gram> {
-    /// Create new `EarleyState` without advancing matched/unmatched `Term`s
+impl<'gram> State<'gram> {
+    /// Create new `State` without advancing matched/unmatched `Term`s
     pub fn new(
         lhs: &'gram Term,
         production_id: ProductionId,
@@ -209,9 +209,9 @@ impl<'gram> EarleyState<'gram> {
             input_range,
         }
     }
-    /// Create a new `EarleyState` by advancing matched/unmatched `Term`s
+    /// Create a new `State` by advancing matched/unmatched `Term`s
     pub fn new_term_match(
-        state: &EarleyState<'gram>,
+        state: &State<'gram>,
         matched_term: TermMatch<'gram>,
         input_range_step: usize,
     ) -> Self {
@@ -227,21 +227,21 @@ impl<'gram> EarleyState<'gram> {
             input_range: state.input_range.advance_by(input_range_step),
         }
     }
-    /// If the `EarleyState` has scanned the full input text AND originates from a starting production
+    /// If the `State` has scanned the full input text AND originates from a starting production
     /// then it is a complete parse
     pub fn is_complete(&self, starting_prod_ids: &[ProductionId]) -> bool {
         starting_prod_ids.contains(&self.production_id) && self.input_range.is_complete()
     }
 }
 
-/// Create new `EarleyState` by finding `Production` with the current matching `Term` on the LHS
+/// Create new `State` by finding `Production` with the current matching `Term` on the LHS
 fn predict<'gram, 'a>(
     matching: &'gram Term,
     input_range: &'a InputRange<'gram>,
     grammar: &'a Grammar<'gram>,
-) -> impl Iterator<Item = EarleyState<'gram>> + 'a {
+) -> impl Iterator<Item = State<'gram>> + 'a {
     grammar.get_productions_by_lhs(matching).map(|prod| {
-        EarleyState::new(
+        State::new(
             prod.lhs,
             prod.id.clone(),
             &prod.rhs.terms,
@@ -250,8 +250,8 @@ fn predict<'gram, 'a>(
     })
 }
 
-/// Create new `EarleyState` if the current matching `Term` matches the next inpu text
-fn scan<'gram, 'a>(state: &'a EarleyState<'gram>) -> impl Iterator<Item = EarleyState<'gram>> {
+/// Create new `State` if the current matching `Term` matches the next inpu text
+fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>> {
     state
         .unmatched_terms
         .matching()
@@ -262,31 +262,32 @@ fn scan<'gram, 'a>(state: &'a EarleyState<'gram>) -> impl Iterator<Item = Earley
         })
         .map(|term| {
             let term_match = TermMatch::Terminal(term);
-            EarleyState::new_term_match(state, term_match, 1)
+            State::new_term_match(state, term_match, 1)
         })
         .into_iter()
 }
 
-/// Create new `EarleyState` by finding incomplete `EarleyState`s which are pending on another `EarleyState`.
+/// Create new `State` by finding incomplete `State`s which are pending on another `State`.
+///
 /// For example, given a pending Earley state "<dna> ::= • <base>" (<dna> is pending on <base>)
 /// and a completed Earley state "<base> ::= 'A' •".
 ///
 /// Then we say "<dna> ::= • <base>" is *completed* by "<base> ::= 'A' •",
 /// which yields a new state: "<dna> ::= <base> •"
 ///
-/// Note: An `EarleyState` can only be completed by another `EarleyState` with matching `StateId`.
+/// Note: An `State` can only be completed by another `State` with matching `StateId`.
 /// This has been omitted from this example, but must be respected in real parsing.
 fn complete<'gram, 'a>(
-    key: ArenaKey,
+    key: StateArenaKey,
     input_range: &'a InputRange<'gram>,
-    parent: &'a EarleyState<'gram>,
-) -> EarleyState<'gram> {
+    parent: &'a State<'gram>,
+) -> State<'gram> {
     let term_match = TermMatch::NonTerminal(key);
-    EarleyState::new_term_match(parent, term_match, input_range.len)
+    State::new_term_match(parent, term_match, input_range.len)
 }
 
 /// Earley parsing will attempt to repeat states. If not de-duplicated, this causes infinite parsing loops as well as useless processing.
-/// New `EarleyState`s are de-duplicated by `StateProcessingKey`,
+/// New `State`s are de-duplicated by `StateProcessingKey`,
 /// which is a combination of `InputRange`, `ProductionId`, and unmatched `Term`s.
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateProcessingKey {
@@ -297,7 +298,7 @@ struct StateProcessingKey {
 }
 
 impl<'gram> StateProcessingKey {
-    pub fn from_state(state: &EarleyState<'gram>) -> Self {
+    pub fn from_state(state: &State<'gram>) -> Self {
         Self {
             input_start: state.input_range.start,
             input_len: state.input_range.len,
@@ -307,20 +308,20 @@ impl<'gram> StateProcessingKey {
     }
 }
 
-/// When completing `EarleyState`s, this `StateMatchingKey` is used to find matching `EarleyState`s
+/// When completing `State`s, used to find matching `State`s
 #[derive(Debug, PartialEq, Eq, Hash)]
-struct StateMatchingKey<'gram> {
+struct StateCompletionKey<'gram> {
     state_id: StateId,
     term: Option<&'gram Term>,
 }
 
-impl<'gram> StateMatchingKey<'gram> {
-    pub fn from_state(state: &EarleyState<'gram>) -> Self {
+impl<'gram> StateCompletionKey<'gram> {
+    pub fn from_state(state: &State<'gram>) -> Self {
         let state_id = state.input_range.state_id();
         let term = state.unmatched_terms.matching();
         Self { state_id, term }
     }
-    pub fn from_complete(state: &EarleyState<'gram>) -> Self {
+    pub fn from_complete(state: &State<'gram>) -> Self {
         let state_id = StateId(state.input_range.start);
         let term = Some(state.lhs);
         Self { state_id, term }
@@ -328,35 +329,37 @@ impl<'gram> StateMatchingKey<'gram> {
 }
 
 slotmap::new_key_type! {
-    /// Key for `EarleyState` in `StateArena`
-    struct ArenaKey;
+    /// Key for `State` in `StateArena`
+    struct StateArenaKey;
 }
 
-/// Arena allocator for `EarleyState`s
-type Arena<'gram> = slotmap::SlotMap<ArenaKey, EarleyState<'gram>>;
+/// Arena allocator for `State`s
+type StateArenaMap<'gram> = slotmap::SlotMap<StateArenaKey, State<'gram>>;
 
-/// De-duplication set when creating new `EarleyState`s
-type StateProcessingSet = std::collections::HashSet<StateProcessingKey>;
+/// De-duplication set when creating new `State`s
+type StateUniqueSet = std::collections::HashSet<StateProcessingKey>;
 
-/// Map for finding matching `EarleyState`s on `complete`
-type StateMatchingMap<'gram> = std::collections::HashMap<StateMatchingKey<'gram>, Vec<ArenaKey>>;
+/// Map for finding matching `State`s on `complete`
+type StateCompletionMap<'gram> =
+    std::collections::HashMap<StateCompletionKey<'gram>, Vec<StateArenaKey>>;
 
-/// Arena allocator for `EarleyState`s which also manages:
-/// * de-duplication of new `EarleyState`s
-/// * a queue of unprocessed `EarleyState`s
-/// * a map of `EarleyState`s for completion matching
+/// Arena allocator for `State`s which also manages:
+/// * de-duplication of new `State`s
+/// * a queue of unprocessed `State`s
+/// * a map of `State`s for completion matching
 #[derive(Debug, Default)]
 struct StateArena<'gram> {
-    arena: Arena<'gram>,
-    unprocessed: std::collections::VecDeque<ArenaKey>,
-    processed_set: StateProcessingSet,
-    matching_map: StateMatchingMap<'gram>,
+    arena: StateArenaMap<'gram>,
+    unprocessed: std::collections::VecDeque<StateArenaKey>,
+    processed_set: StateUniqueSet,
+    matching_map: StateCompletionMap<'gram>,
 }
 
-/// Unprocessed `EarleyState` fields.
-/// Does not return `EarleyState` directly.
+/// Unprocessed `State` fields.
+/// Does not return `State` directly, for simpler lifetimes.
+/// Full `State` is available via `StateArena::get` and `StateArenaKey`
 struct Unprocessed<'gram> {
-    key: ArenaKey,
+    key: StateArenaKey,
     matching: Option<&'gram Term>,
     input_range: InputRange<'gram>,
 }
@@ -365,8 +368,8 @@ impl<'gram> StateArena<'gram> {
     pub fn new() -> Self {
         Self::default()
     }
-    /// Allocate new `EarleyState`s
-    pub fn alloc_extend(&mut self, iter: impl Iterator<Item = EarleyState<'gram>>) {
+    /// Allocate new `State`s
+    pub fn alloc_extend(&mut self, iter: impl Iterator<Item = State<'gram>>) {
         for state in iter {
             let state_key = StateProcessingKey::from_state(&state);
             let is_new_state = self.processed_set.insert(state_key);
@@ -375,7 +378,7 @@ impl<'gram> StateArena<'gram> {
                 continue;
             }
 
-            let matching_state_key = StateMatchingKey::from_state(&state);
+            let matching_state_key = StateCompletionKey::from_state(&state);
 
             let state_key = self.arena.insert(state);
             self.unprocessed.push_back(state_key);
@@ -388,16 +391,13 @@ impl<'gram> StateArena<'gram> {
             }
         }
     }
-    /// Get `EarleyState` stored in arena by `ArenaKey`
-    pub fn get(&self, key: ArenaKey) -> Option<&EarleyState<'gram>> {
+    /// Get `State` stored in arena by `ArenaKey`
+    pub fn get(&self, key: StateArenaKey) -> Option<&State<'gram>> {
         self.arena.get(key)
     }
-    /// Get `EarleyState`s which match for state completion
-    pub fn get_matching(
-        &self,
-        state: &EarleyState<'gram>,
-    ) -> impl Iterator<Item = &EarleyState<'gram>> {
-        let key = StateMatchingKey::from_complete(state);
+    /// Get `State`s which match for state completion
+    pub fn get_matching(&self, state: &State<'gram>) -> impl Iterator<Item = &State<'gram>> {
+        let key = StateCompletionKey::from_complete(state);
         self.matching_map
             .get(&key)
             .into_iter()
@@ -440,7 +440,7 @@ impl<'gram> ParseIter<'gram> {
 
         let starting_input_range = InputRange::new(input);
         let starting_states = parse_iter.grammar.starting_iter().map(|prod| {
-            EarleyState::new(
+            State::new(
                 prod.lhs,
                 prod.id.clone(),
                 &prod.rhs.terms,
@@ -452,7 +452,7 @@ impl<'gram> ParseIter<'gram> {
 
         parse_iter
     }
-    fn get_parse_tree(&self, state: &EarleyState<'gram>) -> ParseTree<'gram> {
+    fn get_parse_tree(&self, state: &State<'gram>) -> ParseTree<'gram> {
         let (lhs, _) = self
             .grammar
             .get_production_parts_by_id(&state.production_id);
@@ -484,7 +484,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
         }) = self.state_arena.pop_unprocessed()
         {
             // buffer for when new states are created
-            let mut created_states = Vec::<EarleyState>::new();
+            let mut created_states = Vec::<State>::new();
             match matching {
                 // predict
                 Some(matching @ Term::Nonterminal(_)) => {

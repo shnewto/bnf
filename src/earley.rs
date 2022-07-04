@@ -434,6 +434,8 @@ impl<'gram> Iterator for ParseIter<'gram> {
             input_range,
         }) = self.state_arena.pop_unprocessed()
         {
+            // buffer for when new states are created
+            let mut created_states = Vec::<EarleyState>::new();
             match matching {
                 // predict
                 Some(matching @ Term::Nonterminal(_)) => {
@@ -447,11 +449,9 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 // scan
                 Some(Term::Terminal(_)) => {
                     let state = self.state_arena.get(key)?;
-                    // TODO: can the output vector be reused?
-                    // clippy is wrong. this collection is not needless, because of lifetimes
-                    #[allow(clippy::needless_collect)]
-                    let scanned = scan(state).collect::<Vec<_>>();
-                    self.state_arena.alloc_extend(scanned.into_iter());
+                    let scanned = scan(state);
+                    created_states.extend(scanned);
+                    self.state_arena.alloc_extend(created_states.drain(..));
                 }
                 // complete
                 None => {
@@ -461,15 +461,13 @@ impl<'gram> Iterator for ParseIter<'gram> {
                         return Some(parse_tree);
                     }
 
-                    // clippy is wrong. this collection is not needless, because of lifetimes
-                    #[allow(clippy::needless_collect)]
                     let completed = self
                         .state_arena
                         .get_matching(state)
-                        .map(|parent| complete(key, &input_range, parent))
-                        .collect::<Vec<_>>();
+                        .map(|parent| complete(key, &input_range, parent));
+                    created_states.extend(completed);
 
-                    self.state_arena.alloc_extend(completed.into_iter());
+                    self.state_arena.alloc_extend(created_states.drain(..));
                 }
             }
         }
@@ -559,8 +557,3 @@ mod tests {
         assert_eq!(parses.len(), 1);
     }
 }
-
-/* NEXT
- * DOCS
- * clippy
- */

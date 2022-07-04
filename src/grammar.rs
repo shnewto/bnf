@@ -23,6 +23,7 @@ pub struct ParseTree<'gram> {
     pub rhs: Vec<ParseTreeNode<'gram>>,
 }
 
+// A set of column indices, used for tracking which columns are active when formatting a `ParseTree`
 type ParseTreeFormatSet = std::collections::HashSet<usize>;
 
 impl<'gram> ParseTree<'gram> {
@@ -33,10 +34,13 @@ impl<'gram> ParseTree<'gram> {
         depth: usize,
         is_last_child: bool,
     ) -> fmt::Result {
+        // set the current column index as "active"
         depth_format_set.insert(depth);
 
+        // print the current node prefix with glyphs for active columns, e.g. "│   └── "
         Self::fmt_node_prefix(f, depth_format_set, depth, is_last_child)?;
 
+        // print the current node in form "LHS ::= RHS1 RHS2 ..."
         write!(f, "{} ::=", self.lhs)?;
 
         for matched in &self.rhs {
@@ -48,6 +52,8 @@ impl<'gram> ParseTree<'gram> {
 
         writeln!(f)?;
 
+        // recursively print children, noting which is a "last child"
+        // because they receive different prefix string ("├── <base>" vs "└── <base>"")
         let child_depth = depth + 1;
         let last_child_idx = self.rhs.len() - 1;
 

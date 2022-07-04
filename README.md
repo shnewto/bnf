@@ -168,7 +168,7 @@ let input =
     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 let grammar: Grammar = input.parse().unwrap();
 
-let sentence = "G A T A C A";
+let sentence = "G A T T A C A";
 
 let mut parse_trees = grammar.parse_input(sentence.split_whitespace());
 match parse_trees.next() {

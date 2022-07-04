@@ -659,4 +659,17 @@ mod tests {
 
         assert_eq!(formatted, expected);
     }
+
+    #[test]
+    fn format_grammar() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let format = format!("{}", grammar);
+        assert_eq!(
+            format,
+            "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
+        );
+    }
 }

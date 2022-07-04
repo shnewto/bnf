@@ -366,4 +366,24 @@ mod tests {
         assert_eq!(e1, e4);
         assert_eq!(e1, e5);
     }
+
+    #[test]
+    fn iterate_terms() {
+        let expression: Expression = "<b> \"a\" <b>".parse().unwrap();
+        let terms = expression
+            .terms_iter()
+            .map(|term| term.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(terms, expression.terms);
+    }
+
+    #[test]
+    fn mutate_iterable_terms() {
+        let mut expression: Expression = "\"END\"".parse().unwrap();
+        let new_term = Term::Terminal("X".to_string());
+        for term in expression.terms_iter_mut() {
+            *term = new_term.clone();
+        }
+        assert_eq!(expression.terms, vec![new_term.clone()])
+    }
 }

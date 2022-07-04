@@ -316,4 +316,33 @@ mod tests {
         let production = Production::default();
         assert!(production.is_empty());
     }
+
+    #[test]
+    fn format_production() {
+        let production: Production = "<dna> ::= <base> | <dna> <base>".parse().unwrap();
+        let format = format!("{}", production);
+        assert_eq!(format, "<dna> ::= <base> | <dna> <base>");
+    }
+
+    #[test]
+    fn iter_production() {
+        let production: Production = "<dna> ::= <base>".parse().unwrap();
+        let expressions = production
+            .rhs_iter()
+            .map(|expr| expr.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(expressions, vec!["<base>".parse().unwrap()]);
+    }
+
+    #[test]
+    fn iter_mut_production() {
+        let mut production: Production = "<dna> ::= <base>".parse().unwrap();
+        let new_expr: Expression = "<x> <y> <z>".parse().unwrap();
+
+        for expr in production.rhs_iter_mut() {
+            *expr = new_expr.clone();
+        }
+
+        assert_eq!(production.rhs_iter().next().unwrap(), &new_expr);
+    }
 }

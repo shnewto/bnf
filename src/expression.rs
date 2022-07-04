@@ -25,7 +25,7 @@ impl Expression {
 
     /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
-        self.terms.push(term)
+        self.terms.push(term);
     }
 
     /// Remove `Term` from `Expression`

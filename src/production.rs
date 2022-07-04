@@ -32,7 +32,7 @@ impl Production {
 
     /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
-        self.rhs.push(expr)
+        self.rhs.push(expr);
     }
 
     /// Remove `Expression` from the `Production`'s right hand side
@@ -84,7 +84,7 @@ impl fmt::Display for Production {
             self.lhs,
             self.rhs
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(" | ")
         )

@@ -42,7 +42,7 @@ impl<'gram> Grammar<'gram> {
 
         let mut production_ids_by_lhs = std::collections::HashMap::new();
 
-        for prod in productions.iter() {
+        for prod in &productions {
             production_ids_by_lhs
                 .entry(prod.lhs)
                 .or_insert_with(Vec::new)
@@ -319,7 +319,7 @@ struct Unprocessed<'gram> {
 
 impl<'gram> StateArena<'gram> {
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
     pub fn alloc_extend(&mut self, iter: impl Iterator<Item = EarleyState<'gram>>) {
         for state in iter {
@@ -355,7 +355,7 @@ impl<'gram> StateArena<'gram> {
             .get(&key)
             .into_iter()
             .flat_map(|keys| keys.iter())
-            .flat_map(|key| self.get(*key))
+            .filter_map(|key| self.get(*key))
     }
     pub fn pop_unprocessed(&mut self) -> Option<Unprocessed<'gram>> {
         self.unprocessed
@@ -411,7 +411,7 @@ impl<'gram> ParseIter<'gram> {
         let rhs = state
             .matched_terms
             .iter()
-            .flat_map(|child| match child {
+            .filter_map(|child| match child {
                 TermMatch::Terminal(term) => Some(ParseTreeMatch::Terminal(term)),
                 TermMatch::NonTerminal(key) => {
                     let state = self.state_arena.get(*key);

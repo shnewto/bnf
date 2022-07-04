@@ -61,7 +61,7 @@ impl<'gram> ParseTree<'gram> {
                     writeln!(f, "\"{}\"", terminal)?;
                 }
                 ParseTreeMatch::Nonterminal(nonterminal) => {
-                    nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?
+                    nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
                 }
             }
         }
@@ -127,7 +127,7 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions.push(prod)
+        self.productions.push(prod);
     }
 
     /// Remove `Production` from the `Grammar`
@@ -213,7 +213,7 @@ impl Grammar {
             let mut result = String::new();
             for term in expression.terms_iter() {
                 match self.eval_terminal(term, rng, f) {
-                    Ok(s) => result = result + &s,
+                    Ok(s) => result.push_str(&s),
                     Err(e) => return Err(e),
                 }
             }
@@ -337,7 +337,7 @@ impl fmt::Display for Grammar {
             "{}",
             self.productions
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join("\n")
         )

@@ -554,6 +554,46 @@ mod tests {
         let input = "1 + ( 2 * 3 - 4 )".split_whitespace();
 
         let parses: Vec<_> = parse(&grammar, input).collect();
+
+        let expected_parse_tree = "
+<sum> ::= <sum> <add> <product>
+├── <sum> ::= <product>
+│   └── <product> ::= <factor>
+│       └── <factor> ::= <number>
+│           └── <number> ::= <digit>
+│               └── <digit> ::= \"1\"
+│                   └── \"1\"
+├── <add> ::= \"+\"
+│   └── \"+\"
+└── <product> ::= <factor>
+    └── <factor> ::= \"(\" <sum> \")\"
+        ├── \"(\"
+        ├── <sum> ::= <sum> <add> <product>
+        │   ├── <sum> ::= <product>
+        │   │   └── <product> ::= <product> <mult> <factor>
+        │   │       ├── <product> ::= <factor>
+        │   │       │   └── <factor> ::= <number>
+        │   │       │       └── <number> ::= <digit>
+        │   │       │           └── <digit> ::= \"2\"
+        │   │       │               └── \"2\"
+        │   │       ├── <mult> ::= \"*\"
+        │   │       │   └── \"*\"
+        │   │       └── <factor> ::= <number>
+        │   │           └── <number> ::= <digit>
+        │   │               └── <digit> ::= \"3\"
+        │   │                   └── \"3\"
+        │   ├── <add> ::= \"-\"
+        │   │   └── \"-\"
+        │   └── <product> ::= <factor>
+        │       └── <factor> ::= <number>
+        │           └── <number> ::= <digit>
+        │               └── <digit> ::= \"4\"
+        │                   └── \"4\"
+        └── \")\"\n"
+            .trim_start();
+
         assert_eq!(parses.len(), 1);
+        let parse_tree = format!("{}", parses[0]);
+        assert_eq!(parse_tree, expected_parse_tree)
     }
 }

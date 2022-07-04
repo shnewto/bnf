@@ -310,4 +310,10 @@ mod tests {
             e => panic!("invalid production should be parsing error: {:?}", e),
         }
     }
+
+    #[test]
+    fn default_production_empty() {
+        let production = Production::default();
+        assert!(production.is_empty());
+    }
 }

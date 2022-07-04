@@ -120,7 +120,7 @@ impl<'gram> InputRange<'gram> {
         }
     }
     pub fn next(&self) -> Option<&str> {
-        self.input.get(self.start + self.len).map(|i| *i)
+        self.input.get(self.start + self.len).copied()
     }
     pub fn after(&self) -> Self {
         Self {
@@ -252,7 +252,7 @@ fn complete<'gram, 'a>(
     parent: &'a EarleyState<'gram>,
 ) -> EarleyState<'gram> {
     let term_match = TermMatch::NonTerminal(key);
-    EarleyState::new_term_match(parent.clone(), term_match, input_range.len)
+    EarleyState::new_term_match(parent, term_match, input_range.len)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -420,8 +420,7 @@ impl<'gram> ParseIter<'gram> {
             })
             .collect();
 
-        let parse_tree = ParseTree { lhs, rhs };
-        parse_tree
+        ParseTree { lhs, rhs }
     }
 }
 
@@ -449,6 +448,8 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 Some(Term::Terminal(_)) => {
                     let state = self.state_arena.get(key)?;
                     // TODO: can the output vector be reused?
+                    // clippy is wrong. this collection is not needless, because of lifetimes
+                    #[allow(clippy::needless_collect)]
                     let scanned = scan(state).collect::<Vec<_>>();
                     self.state_arena.alloc_extend(scanned.into_iter());
                 }
@@ -460,6 +461,8 @@ impl<'gram> Iterator for ParseIter<'gram> {
                         return Some(parse_tree);
                     }
 
+                    // clippy is wrong. this collection is not needless, because of lifetimes
+                    #[allow(clippy::needless_collect)]
                     let completed = self
                         .state_arena
                         .get_matching(state)
@@ -558,7 +561,6 @@ mod tests {
 }
 
 /* NEXT
- * perf testing
  * DOCS
  * clippy
  */

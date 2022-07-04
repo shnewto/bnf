@@ -45,7 +45,7 @@ impl<'gram> ParseTree<'gram> {
             }
         }
 
-        write!(f, "\n")?;
+        writeln!(f)?;
 
         let child_depth = depth + 1;
         let last_child_idx = self.rhs.len() - 1;
@@ -192,25 +192,23 @@ impl Grammar {
             }
 
             let nonterm = Term::Nonterminal(ident.to_string());
-            let production;
             let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
-            match find_lhs {
-                Some(p) => production = p,
+            let production = match find_lhs {
+                Some(p) => p,
                 None => return Ok(nonterm.to_string()),
-            }
+            };
 
-            let expression;
             let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
-            match expressions.choose(rng) {
-                Some(e) => expression = e,
+            let expression = match expressions.choose(rng) {
+                Some(e) => e,
                 None => {
                     return Err(Error::GenerateError(String::from(
                         "Couldn't select random Expression!",
                     )));
                 }
-            }
+            };
 
             let mut result = String::new();
             for term in expression.terms_iter() {
@@ -236,22 +234,20 @@ impl Grammar {
     /// use rand::{SeedableRng, rngs::StdRng};
     /// use bnf::Grammar;
     ///
-    /// fn main() {
-    ///     let input =
-    ///         "<dna> ::= <base> | <base> <dna>
-    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar: Grammar = input.parse().unwrap();
-    ///     let seed: [u8; 32] = [0; 32];
-    ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    ///     let sentence = grammar.generate_seeded(&mut rng);
-    ///     # let sentence_clone = sentence.clone();
-    ///     match sentence {
-    ///         Ok(s) => println!("random sentence: {}", s),
-    ///         Err(e) => println!("something went wrong: {}!", e)
-    ///     }
-    ///
-    ///     # assert!(sentence_clone.is_ok());
+    /// let input =
+    ///     "<dna> ::= <base> | <base> <dna>
+    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    /// let grammar: Grammar = input.parse().unwrap();
+    /// let seed: [u8; 32] = [0; 32];
+    /// let mut rng: StdRng = SeedableRng::from_seed(seed);
+    /// let sentence = grammar.generate_seeded(&mut rng);
+    /// # let sentence_clone = sentence.clone();
+    /// match sentence {
+    ///     Ok(s) => println!("random sentence: {}", s),
+    ///     Err(e) => println!("something went wrong: {}!", e)
     /// }
+    ///
+    /// # assert!(sentence_clone.is_ok());
     /// ```
     pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
         self.generate_seeded_callback(rng, |_, _| true)
@@ -300,20 +296,18 @@ impl Grammar {
     /// ```rust
     /// use bnf::Grammar;
     ///
-    /// fn main() {
-    ///     let input =
-    ///         "<dna> ::= <base> | <base> <dna>
-    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar: Grammar = input.parse().unwrap();
-    ///     let sentence = grammar.generate();
-    ///     # let sentence_clone = sentence.clone();
-    ///     match sentence {
-    ///         Ok(s) => println!("random sentence: {}", s),
-    ///         Err(e) => println!("something went wrong: {}!", e)
-    ///     }
-    ///
-    ///     # assert!(sentence_clone.is_ok());
+    /// let input =
+    ///     "<dna> ::= <base> | <base> <dna>
+    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    /// let grammar: Grammar = input.parse().unwrap();
+    /// let sentence = grammar.generate();
+    /// # let sentence_clone = sentence.clone();
+    /// match sentence {
+    ///     Ok(s) => println!("random sentence: {}", s),
+    ///     Err(e) => println!("something went wrong: {}!", e)
     /// }
+    ///
+    /// # assert!(sentence_clone.is_ok());
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
         self.generate_callback(|_, _| true)

@@ -37,18 +37,16 @@ impl Expression {
     /// ```
     /// use bnf::{Expression, Term};
     ///
-    /// fn main() {
-    ///     let mut expression = Expression::from_parts(vec![]);
-    ///     let to_remove = Term::Terminal(String::from("a_terminal"));
-    ///     let removed = expression.remove_term(&to_remove);
-    ///     # let removed_clone = removed.clone();
-    ///     match removed {
-    ///         Some(term) => println!("removed {}", term),
-    ///         None => println!("term was not in expression, so could not be removed"),
-    ///     }
-    ///
-    ///     # assert_eq!(removed_clone, None);
+    /// let mut expression = Expression::from_parts(vec![]);
+    /// let to_remove = Term::Terminal(String::from("a_terminal"));
+    /// let removed = expression.remove_term(&to_remove);
+    /// # let removed_clone = removed.clone();
+    /// match removed {
+    ///     Some(term) => println!("removed {}", term),
+    ///     None => println!("term was not in expression, so could not be removed"),
     /// }
+    ///
+    /// # assert_eq!(removed_clone, None);
     /// ```
     pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
         if let Some(pos) = self.terms.iter().position(|x| *x == *term) {

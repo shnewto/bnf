@@ -36,7 +36,7 @@ impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
     }
 }
 
-impl<'a> From<Err<VerboseError<&str>>> for Error {
+impl From<Err<VerboseError<&str>>> for Error {
     fn from(err: Err<VerboseError<&str>>) -> Self {
         Error::ParseError(format!("Parsing error: {:?}", err))
     }

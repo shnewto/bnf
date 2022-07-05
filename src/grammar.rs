@@ -11,16 +11,56 @@ use std::slice;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseTreeNode<'gram> {
     Terminal(&'gram str),
     Nonterminal(ParseTree<'gram>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
     pub lhs: &'gram Term,
-    pub rhs: Vec<ParseTreeNode<'gram>>,
+    rhs: Vec<ParseTreeNode<'gram>>,
+}
+
+impl<'gram> ParseTree<'gram> {
+    pub fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
+        Self { lhs, rhs }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseTreeIter<'gram, 'a> {
+    rhs_nodes: &'a [ParseTreeNode<'gram>],
+}
+
+impl<'gram, 'a> Iterator for ParseTreeIter<'gram, 'a> {
+    type Item = &'a ParseTreeNode<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rhs_nodes.split_first().map(|(first, rest)| {
+            self.rhs_nodes = rest;
+            first
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseTreeIterMut<'gram, 'a> {
+    rhs_nodes: &'a mut [ParseTreeNode<'gram>],
+}
+
+impl<'gram, 'a> Iterator for ParseTreeIterMut<'gram, 'a> {
+    type Item = &'a mut ParseTreeNode<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let rhs_nodes = std::mem::take(&mut self.rhs_nodes);
+
+        rhs_nodes.split_first_mut().map(|(first, rest)| {
+            self.rhs_nodes = rest;
+            first
+        })
+    }
 }
 
 // A set of column indices, used for tracking which columns are active when formatting a `ParseTree`
@@ -103,6 +143,18 @@ impl<'gram> ParseTree<'gram> {
         }
 
         Ok(())
+    }
+
+    pub fn rhs_iter<'a>(&'a self) -> ParseTreeIter<'gram, 'a> {
+        ParseTreeIter {
+            rhs_nodes: &self.rhs[..],
+        }
+    }
+
+    pub fn rhs_iter_mut<'a>(&'a mut self) -> ParseTreeIterMut<'gram, 'a> {
+        ParseTreeIterMut {
+            rhs_nodes: &mut self.rhs[..],
+        }
     }
 }
 
@@ -671,5 +723,39 @@ mod tests {
             format,
             "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
         );
+    }
+
+    #[test]
+    fn iterate_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "G A T T A C A".split_whitespace();
+
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let rhs_iterated = parse_tree.rhs_iter().next().unwrap();
+
+        assert_eq!(&parse_tree.rhs[0], rhs_iterated);
+    }
+
+    #[test]
+    fn iterate_mut_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "G A T T A C A".split_whitespace();
+
+        let mut parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let rhs_iterated = parse_tree.rhs_iter_mut().next().unwrap();
+
+        *rhs_iterated = ParseTreeNode::Terminal("Z");
+
+        assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
     }
 }

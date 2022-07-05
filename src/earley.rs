@@ -469,7 +469,7 @@ impl<'gram> ParseIter<'gram> {
             })
             .collect();
 
-        ParseTree { lhs, rhs }
+        ParseTree::new(lhs, rhs)
     }
 }
 

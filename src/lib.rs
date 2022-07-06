@@ -166,9 +166,9 @@
 //!     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
 //! let grammar: Grammar = input.parse().unwrap();
 //!
-//! let sentence = "G A T T A C A";
+//! let sentence = "GATTACA";
 //!
-//! let mut parse_trees = grammar.parse_input(sentence.split_whitespace());
+//! let mut parse_trees = grammar.parse_input(sentence);
 //! match parse_trees.next() {
 //!     Some(parse_tree) => println!("{}", parse_tree),
 //!     _ => println!("Grammar could not parse sentence"),

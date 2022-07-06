@@ -30,11 +30,7 @@ fn examples(c: &mut Criterion) {
     c.bench_function("parse polish calculator", |b| {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
-            // because input is not tokenized, take advantage of all terminals in this grammar
-            // being one char. split input on each character for easy tokenization
-            let _: Vec<_> = polish_calc_grammar
-                .parse_input(input.split_terminator("").skip(1))
-                .collect();
+            let _: Vec<_> = polish_calc_grammar.parse_input(&input).collect();
         })
     });
 }

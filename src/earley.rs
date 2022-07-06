@@ -116,14 +116,13 @@ struct StateId(usize);
 /// A sliding window over the input strings being parsed.
 #[derive(Clone)]
 struct InputRange<'gram> {
-    input: std::rc::Rc<Vec<&'gram str>>,
+    input: &'gram str,
     start: usize,
     len: usize,
 }
 
 impl<'gram> InputRange<'gram> {
-    pub fn new(input: Vec<&'gram str>) -> Self {
-        let input = std::rc::Rc::new(input);
+    pub fn new(input: &'gram str) -> Self {
         Self {
             input,
             start: 0,
@@ -131,11 +130,12 @@ impl<'gram> InputRange<'gram> {
         }
     }
     pub fn next(&self) -> Option<&str> {
-        self.input.get(self.start + self.len).copied()
+        let next_idx = self.start + self.len;
+        self.input.get(next_idx..)
     }
     pub fn after(&self) -> Self {
         Self {
-            input: self.input.clone(),
+            input: self.input,
             start: self.start + self.len,
             len: 0,
         }
@@ -143,7 +143,7 @@ impl<'gram> InputRange<'gram> {
     pub fn advance_by(&self, step: usize) -> Self {
         let max_len = self.input.len() - self.start;
         Self {
-            input: self.input.clone(),
+            input: self.input,
             start: self.start,
             len: std::cmp::min(self.len + step, max_len),
         }
@@ -257,12 +257,12 @@ fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>
         .matching()
         .zip(state.input_range.next())
         .and_then(|(matching, next_input)| match matching {
-            Term::Terminal(term) if term == next_input => Some(term),
+            Term::Terminal(term) if next_input.starts_with(term) => Some(term),
             _ => None,
         })
         .map(|term| {
             let term_match = TermMatch::Terminal(term);
-            State::new_term_match(state, term_match, 1)
+            State::new_term_match(state, term_match, term.len())
         })
         .into_iter()
 }
@@ -424,12 +424,8 @@ struct ParseIter<'gram> {
 }
 
 impl<'gram> ParseIter<'gram> {
-    pub fn new(
-        grammar: &'gram crate::Grammar,
-        input_iter: impl Iterator<Item = &'gram str>,
-    ) -> Self {
+    pub fn new(grammar: &'gram crate::Grammar, input: &'gram str) -> Self {
         let grammar = Grammar::new(grammar);
-        let input: Vec<_> = input_iter.collect();
 
         let state_arena = StateArena::new();
 
@@ -526,9 +522,9 @@ impl<'gram> Iterator for ParseIter<'gram> {
 
 pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
-    input_iter: impl Iterator<Item = &'gram str>,
-) -> impl Iterator<Item = ParseTree<'_>> {
-    ParseIter::new(grammar, input_iter)
+    input: &'gram str,
+) -> impl Iterator<Item = ParseTree<'gram>> {
+    ParseIter::new(grammar, input)
 }
 
 #[cfg(test)]
@@ -543,7 +539,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 1);
@@ -556,7 +552,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 1);
@@ -570,7 +566,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "END".split_whitespace();
+        let input = "END";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
         assert_eq!(parses.len(), 2);
@@ -600,7 +596,7 @@ mod tests {
             <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
         ".parse().unwrap();
 
-        let input = "1 + ( 2 * 3 - 4 )".split_whitespace();
+        let input = "1+(2*3-4)";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
 

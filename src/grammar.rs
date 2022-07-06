@@ -213,10 +213,7 @@ impl Grammar {
     }
 
     /// Parse input strings according to `Grammar`
-    pub fn parse_input<'gram>(
-        &'gram self,
-        input: impl Iterator<Item = &'gram str>,
-    ) -> impl Iterator<Item = ParseTree> {
+    pub fn parse_input<'gram>(&'gram self, input: &'gram str) -> impl Iterator<Item = ParseTree> {
         crate::earley::parse(self, input)
     }
 
@@ -669,7 +666,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
 
         let mut parses = grammar.parse_input(input);
         assert!(matches!(parses.next(), Some(_)));
@@ -682,7 +679,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
         let parsed = grammar.parse_input(input).next().unwrap();
         let formatted = format!("{}", parsed);
         let expected = "
@@ -732,7 +729,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
 
         let parse_tree = grammar.parse_input(input).next().unwrap();
 
@@ -748,7 +745,7 @@ mod tests {
             .parse()
             .unwrap();
 
-        let input = "G A T T A C A".split_whitespace();
+        let input = "GATTACA";
 
         let mut parse_tree = grammar.parse_input(input).next().unwrap();
 

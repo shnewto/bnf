@@ -173,7 +173,7 @@ enum TermMatch<'gram> {
     /// The `Term` matched with a terminal string
     Terminal(&'gram str),
     /// The `Term` matched with completed non-terminal `State`
-    NonTerminal(StateArenaKey),
+    NonTerminal(AppendOnlyVecKey),
 }
 
 /// One state in an Earley parser
@@ -278,7 +278,7 @@ fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>
 /// Note: An `State` can only be completed by another `State` with matching `StateId`.
 /// This has been omitted from this example, but must be respected in real parsing.
 fn complete<'gram, 'a>(
-    key: StateArenaKey,
+    key: AppendOnlyVecKey,
     input_range: &'a InputRange<'gram>,
     parent: &'a State<'gram>,
 ) -> State<'gram> {
@@ -328,20 +328,38 @@ impl<'gram> StateCompletionKey<'gram> {
     }
 }
 
-slotmap::new_key_type! {
-    /// Key for `State` in `StateArena`
-    struct StateArenaKey;
+#[derive(Debug, Clone, Copy)]
+struct AppendOnlyVecKey(usize);
+
+#[derive(Debug, Clone)]
+struct AppendOnlyVec<T> {
+    vec: Vec<T>,
 }
 
-/// Arena allocator for `State`s
-type StateArenaMap<'gram> = slotmap::SlotMap<StateArenaKey, State<'gram>>;
+impl<T> AppendOnlyVec<T> {
+    pub fn push(&mut self, item: T) -> AppendOnlyVecKey {
+        let idx = self.vec.len();
+        self.vec.push(item);
+        AppendOnlyVecKey(idx)
+    }
+
+    pub fn get(&self, key: AppendOnlyVecKey) -> Option<&T> {
+        self.vec.get(key.0)
+    }
+}
+
+impl<T> Default for AppendOnlyVec<T> {
+    fn default() -> Self {
+        Self { vec: Vec::new() }
+    }
+}
 
 /// De-duplication set when creating new `State`s
 type StateUniqueSet = std::collections::HashSet<StateProcessingKey>;
 
 /// Map for finding matching `State`s on `complete`
 type StateCompletionMap<'gram> =
-    std::collections::HashMap<StateCompletionKey<'gram>, Vec<StateArenaKey>>;
+    std::collections::HashMap<StateCompletionKey<'gram>, Vec<AppendOnlyVecKey>>;
 
 /// Arena allocator for `State`s which also manages:
 /// * de-duplication of new `State`s
@@ -349,17 +367,17 @@ type StateCompletionMap<'gram> =
 /// * a map of `State`s for completion matching
 #[derive(Debug, Default)]
 struct StateArena<'gram> {
-    arena: StateArenaMap<'gram>,
-    unprocessed: std::collections::VecDeque<StateArenaKey>,
+    arena: AppendOnlyVec<State<'gram>>,
+    unprocessed: std::collections::VecDeque<AppendOnlyVecKey>,
     processed_set: StateUniqueSet,
     matching_map: StateCompletionMap<'gram>,
 }
 
 /// Unprocessed `State` fields.
 /// Does not return `State` directly, for simpler lifetimes.
-/// Full `State` is available via `StateArena::get` and `StateArenaKey`
+/// Full `State` is available via `StateArena::get` and `key`
 struct Unprocessed<'gram> {
-    key: StateArenaKey,
+    key: AppendOnlyVecKey,
     matching: Option<&'gram Term>,
     input_range: InputRange<'gram>,
 }
@@ -380,7 +398,7 @@ impl<'gram> StateArena<'gram> {
 
             let matching_state_key = StateCompletionKey::from_state(&state);
 
-            let state_key = self.arena.insert(state);
+            let state_key = self.arena.push(state);
             self.unprocessed.push_back(state_key);
 
             if let Some(Term::Nonterminal(_)) = matching_state_key.term {
@@ -392,7 +410,7 @@ impl<'gram> StateArena<'gram> {
         }
     }
     /// Get `State` stored in arena by `ArenaKey`
-    pub fn get(&self, key: StateArenaKey) -> Option<&State<'gram>> {
+    pub fn get(&self, key: AppendOnlyVecKey) -> Option<&State<'gram>> {
         self.arena.get(key)
     }
     /// Get `State`s which match for state completion

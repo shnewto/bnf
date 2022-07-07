@@ -108,7 +108,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '-- --test-threads 1'
+          args: '-- --test-threads 1 --out lcov'
       - name: archive code coverage results
         uses: coverallsapp/github-action@master
         with:

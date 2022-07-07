@@ -104,14 +104,15 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: run cargo-tarpaulin and upload to coveralls.io
+      - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
-        env:
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
           version: '0.16.0'
-          args: '-- --test-threads 1 --ciserver github-ci --coveralls $COVERALLS_REPO_TOKEN'
-
+          args: '-- --test-threads 1'
+      - name: archive code coverage results
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
   test-ubuntu-latest-nightly:
     name: ubuntu-latest test suite nightly
     needs: [format]

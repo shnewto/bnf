@@ -17,9 +17,9 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::ParseError(ref s) => write!(f, "{}", s),
-            Error::GenerateError(ref s) => write!(f, "{}", s),
-            Error::RecursionLimit(ref s) => write!(f, "{}", s),
+            Error::ParseError(ref s)
+            | Error::GenerateError(ref s)
+            | Error::RecursionLimit(ref s) => write!(f, "{}", s),
         }
     }
 }
@@ -36,7 +36,7 @@ impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
     }
 }
 
-impl<'a> From<Err<VerboseError<&str>>> for Error {
+impl From<Err<VerboseError<&str>>> for Error {
     fn from(err: Err<VerboseError<&str>>) -> Self {
         Error::ParseError(format!("Parsing error: {:?}", err))
     }
@@ -141,5 +141,18 @@ mod tests {
             recursion_error.to_string(),
             String::from("recursion limit reached!")
         );
+    }
+
+    #[test]
+    fn from_nom_verbose_error() {
+        let error = nom::error::VerboseError { errors: vec![] };
+        let _ = Error::from(error);
+    }
+
+    #[test]
+    fn from_str_and_nom_verbose_error_kind() {
+        let description = "anything";
+        let verbose_kind = nom::error::VerboseErrorKind::Char('z');
+        let _ = Error::from((description, verbose_kind));
     }
 }

@@ -8,7 +8,7 @@
 //! ## What does a parsable BNF grammar look like?
 //!
 //! The following grammar from the [Wikipedia page on Backus-Naur form]
-//! (https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example)
+//! <https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Example>
 //! exemplifies a compatible grammar. (*Note: parser allows for an optional ';'
 //! to indicate the end of a producion)
 //!
@@ -118,27 +118,25 @@
 //! ```rust
 //! use bnf::Grammar;
 //!
-//! fn main() {
-//!     let input =
-//!         "<postal-address> ::= <name-part> <street-address> <zip-part>
+//! let input =
+//!     "<postal-address> ::= <name-part> <street-address> <zip-part>
 //!
-//!               <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
-//!                             | <personal-part> <name-part>
+//!           <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
+//!                         | <personal-part> <name-part>
 //!
-//!           <personal-part> ::= <initial> \".\" | <first-name>
+//!       <personal-part> ::= <initial> \".\" | <first-name>
 //!
-//!          <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
+//!      <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 //!
-//!                <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
+//!            <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
 //!
-//!         <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
-//!             <opt-apt-num> ::= <apt-num> | \"\"";
+//!     <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
+//!         <opt-apt-num> ::= <apt-num> | \"\"";
 //!
-//!     let grammar: Result<Grammar, _> = input.parse();
-//!     match grammar {
-//!         Ok(g) => println!("{:#?}", g),
-//!         Err(e) => println!("Failed to make grammar from String: {}", e),
-//!     }
+//! let grammar: Result<Grammar, _> = input.parse();
+//! match grammar {
+//!     Ok(g) => println!("{:#?}", g),
+//!     Err(e) => println!("Failed to make grammar from String: {}", e),
 //! }
 //! ```
 //!
@@ -147,20 +145,37 @@
 //! ```rust
 //! use bnf::Grammar;
 //!
-//! fn main() {
-//!     let input =
-//!         "<dna> ::= <base> | <base> <dna>
-//!         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-//!     let grammar: Grammar = input.parse().unwrap();
-//!     let sentence = grammar.generate();
-//!     match sentence {
-//!         Ok(s) => println!("random sentence: {}", s),
-//!         Err(e) => println!("something went wrong: {}!", e)
-//!     }
+//! let input =
+//!     "<dna> ::= <base> | <base> <dna>
+//!     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+//! let grammar: Grammar = input.parse().unwrap();
+//! let sentence = grammar.generate();
+//! match sentence {
+//!     Ok(s) => println!("random sentence: {}", s),
+//!     Err(e) => println!("something went wrong: {}!", e)
 //! }
 //! ```
 //!
 
+//! ## Parse Sentence via Grammar
+//! ```rust
+//! use bnf::Grammar;
+//!
+//! let input =
+//!     "<dna> ::= <base> | <base> <dna>
+//!     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+//! let grammar: Grammar = input.parse().unwrap();
+//!
+//! let sentence = "GATTACA";
+//!
+//! let mut parse_trees = grammar.parse_input(sentence);
+//! match parse_trees.next() {
+//!     Some(parse_tree) => println!("{}", parse_tree),
+//!     _ => println!("Grammar could not parse sentence"),
+//! }
+//! ```
+
+mod earley;
 mod error;
 mod expression;
 mod grammar;

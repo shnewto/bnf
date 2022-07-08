@@ -107,15 +107,8 @@ jobs:
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.20.0'
-          args: '-- --test-threads 1'
-      - name: upload to codecov.io
-        uses: codecov/codecov-action@v1
-      - name: archive code coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
+          version: '0.20.1'
+          args: ' --coveralls ${{secrets.COVERALLS_TOKEN}} -- --test-threads 1'
 
   test-ubuntu-latest-nightly:
     name: ubuntu-latest test suite nightly

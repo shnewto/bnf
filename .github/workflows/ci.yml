@@ -24,7 +24,6 @@ jobs:
 
       - name: rustfmt check
         run: cargo fmt --all -- --check
-
   test-ubuntu-latest-stable-with-coverage:
     name: ubuntu-latest test suite stable with coverage
     needs: [format]
@@ -43,5 +42,6 @@ jobs:
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.19.1'
-          args: -- --all-features --coverall ${{ github.token }}
+          version: '0.20.0'
+          args: '-- --test-threads 1'
+          args: '-- --coveralls ${{ github.token }}'

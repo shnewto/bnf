@@ -104,7 +104,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-       - name: run cargo-tarpaulin
+      - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.20.1'

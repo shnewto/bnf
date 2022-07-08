@@ -24,25 +24,104 @@ jobs:
 
       - name: rustfmt check
         run: cargo fmt --all -- --check
-  test-ubuntu-latest-stable-with-coverage:
-    runs-on: ubuntu-latest
+
+  test-macos-latest-stable:
+    name: macos-latest test suite stable
+    needs: [format]
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-macos-latest-nightly:
+    name: macos-latest test suite nightly
+    needs: [format]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: cargo test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features --no-fail-fast
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-      - uses: actions-rs/grcov@v0.1
-      - name: Coveralls upload
-        uses: coverallsapp/github-action@master
+
+  test-windows-latest-stable:
+    name: windows-latest test suite stable
+    needs: [format]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-windows-latest-nightly:
+    name: windows-latest test suite nightly
+    needs: [format]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-ubuntu-latest-stable-with-coverage:
+    name: ubuntu-latest test suite stable with coverage
+    needs: [format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+       - name: run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.20.1'
+          args: ' --coveralls ${{secrets.COVERALLS_TOKEN}} -- --test-threads 1'
+
+  test-ubuntu-latest-nightly:
+    name: ubuntu-latest test suite nightly
+    needs: [format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test

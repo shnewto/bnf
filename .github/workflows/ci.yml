@@ -43,5 +43,4 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.20.0'
-          args: '-- --test-threads 1'
-          args: '-- --coveralls ${{ github.token }}'
+          args: '-- --test-threads 1 --coveralls ${{ github.token }}'

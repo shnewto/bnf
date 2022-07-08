@@ -7,6 +7,24 @@ on:
       - main
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v1
+
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: install rustfmt
+        run: rustup component add rustfmt
+
+      - name: rustfmt check
+        run: cargo fmt --all -- --check
+
   test-ubuntu-latest-stable-with-coverage:
     name: ubuntu-latest test suite stable with coverage
     needs: [format]

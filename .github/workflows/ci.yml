@@ -105,10 +105,10 @@ jobs:
         with:
           command: test
       - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+        uses: actions-rs/tarpaulin@v0.1.3
         with:
           version: '0.20.1'
-          args: '-- --test-threads 1 -o Lcov'
+          args: '-o Lcov --test-threads 1'
       - name: upload code coverage results
         uses: coverallsapp/github-action@master
         with:

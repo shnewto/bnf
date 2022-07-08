@@ -6,12 +6,13 @@ use crate::parsers;
 use crate::term::Term;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::slice;
+
 use std::str::FromStr;
 
 /// A Production is comprised of any number of Expressions
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Production {
+    /// The "left hand side" of the production, i.e. "lhs -> rhs ..."
     pub lhs: Term,
     rhs: Vec<Expression>,
 }
@@ -32,7 +33,7 @@ impl Production {
 
     /// Add `Expression` to the `Production`'s right hand side
     pub fn add_to_rhs(&mut self, expr: Expression) {
-        self.rhs.push(expr)
+        self.rhs.push(expr);
     }
 
     /// Remove `Expression` from the `Production`'s right hand side
@@ -49,14 +50,14 @@ impl Production {
     /// Get iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter(&self) -> Iter {
         Iter {
-            iterator: self.rhs.iter(),
+            slice: &self.rhs[..],
         }
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter_mut(&mut self) -> IterMut {
         IterMut {
-            iterator: self.rhs.iter_mut(),
+            slice: &mut self.rhs[..],
         }
     }
 
@@ -65,6 +66,7 @@ impl Production {
         self.rhs.len()
     }
 
+    /// If the production is empty of `Expression`s
     pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }
@@ -81,10 +83,10 @@ impl fmt::Display for Production {
         write!(
             f,
             "{} ::= {}",
-            self.lhs.to_string(),
+            self.lhs,
             self.rhs
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(" | ")
         )
@@ -101,27 +103,37 @@ impl FromStr for Production {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Iter<'a> {
-    iterator: slice::Iter<'a, Expression>,
+    slice: &'a [Expression],
 }
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Expression;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        self.slice.split_first().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct IterMut<'a> {
-    iterator: slice::IterMut<'a, Expression>,
+    slice: &'a mut [Expression],
 }
 
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut Expression;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        let slice = std::mem::take(&mut self.slice);
+
+        slice.split_first_mut().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 
@@ -297,5 +309,40 @@ mod tests {
             Error::ParseError(_) => (),
             e => panic!("invalid production should be parsing error: {:?}", e),
         }
+    }
+
+    #[test]
+    fn default_production_empty() {
+        let production = Production::default();
+        assert!(production.is_empty());
+    }
+
+    #[test]
+    fn format_production() {
+        let production: Production = "<dna> ::= <base> | <dna> <base>".parse().unwrap();
+        let format = format!("{}", production);
+        assert_eq!(format, "<dna> ::= <base> | <dna> <base>");
+    }
+
+    #[test]
+    fn iter_production() {
+        let production: Production = "<dna> ::= <base>".parse().unwrap();
+        let expressions = production
+            .rhs_iter()
+            .map(|expr| expr.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(expressions, vec!["<base>".parse().unwrap()]);
+    }
+
+    #[test]
+    fn iter_mut_production() {
+        let mut production: Production = "<dna> ::= <base>".parse().unwrap();
+        let new_expr: Expression = "<x> <y> <z>".parse().unwrap();
+
+        for expr in production.rhs_iter_mut() {
+            *expr = new_expr.clone();
+        }
+
+        assert_eq!(production.rhs_iter().next().unwrap(), &new_expr);
     }
 }

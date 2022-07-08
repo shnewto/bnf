@@ -5,10 +5,165 @@ use crate::production::Production;
 use crate::term::Term;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use stacker;
+
 use std::fmt;
 use std::slice;
 use std::str;
+
+/// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParseTreeNode<'gram> {
+    Terminal(&'gram str),
+    Nonterminal(ParseTree<'gram>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseTree<'gram> {
+    pub lhs: &'gram Term,
+    rhs: Vec<ParseTreeNode<'gram>>,
+}
+
+impl<'gram> ParseTree<'gram> {
+    pub fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
+        Self { lhs, rhs }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseTreeIter<'gram, 'a> {
+    rhs_nodes: &'a [ParseTreeNode<'gram>],
+}
+
+impl<'gram, 'a> Iterator for ParseTreeIter<'gram, 'a> {
+    type Item = &'a ParseTreeNode<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.rhs_nodes.split_first().map(|(first, rest)| {
+            self.rhs_nodes = rest;
+            first
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseTreeIterMut<'gram, 'a> {
+    rhs_nodes: &'a mut [ParseTreeNode<'gram>],
+}
+
+impl<'gram, 'a> Iterator for ParseTreeIterMut<'gram, 'a> {
+    type Item = &'a mut ParseTreeNode<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let rhs_nodes = std::mem::take(&mut self.rhs_nodes);
+
+        rhs_nodes.split_first_mut().map(|(first, rest)| {
+            self.rhs_nodes = rest;
+            first
+        })
+    }
+}
+
+// A set of column indices, used for tracking which columns are active when formatting a `ParseTree`
+type ParseTreeFormatSet = std::collections::HashSet<usize>;
+
+impl<'gram> ParseTree<'gram> {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        depth_format_set: &mut ParseTreeFormatSet,
+        depth: usize,
+        is_last_child: bool,
+    ) -> fmt::Result {
+        // set the current column index as "active"
+        depth_format_set.insert(depth);
+
+        // print the current node prefix with glyphs for active columns, e.g. "│   └── "
+        Self::fmt_node_prefix(f, depth_format_set, depth, is_last_child)?;
+
+        // print the current node in form "LHS ::= RHS1 RHS2 ..."
+        write!(f, "{} ::=", self.lhs)?;
+
+        for matched in &self.rhs {
+            match matched {
+                ParseTreeNode::Terminal(terminal) => write!(f, " \"{}\"", terminal)?,
+                ParseTreeNode::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
+            }
+        }
+
+        writeln!(f)?;
+
+        // recursively print children, noting which is a "last child"
+        // because they receive different prefix string ("├── <base>" vs "└── <base>"")
+        let child_depth = depth + 1;
+        let last_child_idx = self.rhs.len() - 1;
+
+        for (idx, child) in self.rhs.iter().enumerate() {
+            let is_last_child = idx == last_child_idx;
+            if is_last_child {
+                depth_format_set.remove(&depth);
+            }
+            match child {
+                ParseTreeNode::Terminal(terminal) => {
+                    Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
+                    writeln!(f, "\"{}\"", terminal)?;
+                }
+                ParseTreeNode::Nonterminal(nonterminal) => {
+                    nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn fmt_node_prefix(
+        f: &mut fmt::Formatter,
+        depth_format_set: &mut ParseTreeFormatSet,
+        depth: usize,
+        is_last_child: bool,
+    ) -> fmt::Result {
+        const CHILD_PREFIX: &str = "├── ";
+        const GRANDCHILD_PREFIX: &str = "│   ";
+        const LAST_CHILD_PREFIX: &str = "└── ";
+        const LAST_GRANDCHILD_PREFIX: &str = "    ";
+
+        for idx in 0..depth {
+            let prefix = if (idx + 1) == depth {
+                if is_last_child {
+                    LAST_CHILD_PREFIX
+                } else {
+                    CHILD_PREFIX
+                }
+            } else if depth_format_set.contains(&idx) {
+                GRANDCHILD_PREFIX
+            } else {
+                LAST_GRANDCHILD_PREFIX
+            };
+            write!(f, "{}", prefix)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn rhs_iter<'a>(&'a self) -> ParseTreeIter<'gram, 'a> {
+        ParseTreeIter {
+            rhs_nodes: &self.rhs[..],
+        }
+    }
+
+    pub fn rhs_iter_mut<'a>(&'a mut self) -> ParseTreeIterMut<'gram, 'a> {
+        ParseTreeIterMut {
+            rhs_nodes: &mut self.rhs[..],
+        }
+    }
+}
+
+impl<'gram> fmt::Display for ParseTree<'gram> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut depth_format_set = ParseTreeFormatSet::new();
+        self.fmt(f, &mut depth_format_set, 0, true)
+    }
+}
 
 /// A Grammar is comprised of any number of Productions
 #[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
@@ -31,7 +186,7 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions.push(prod)
+        self.productions.push(prod);
     }
 
     /// Remove `Production` from the `Grammar`
@@ -55,6 +210,11 @@ impl Grammar {
         IterMut {
             iterator: self.productions.iter_mut(),
         }
+    }
+
+    /// Parse input strings according to `Grammar`
+    pub fn parse_input<'gram>(&'gram self, input: &'gram str) -> impl Iterator<Item = ParseTree> {
+        crate::earley::parse(self, input)
     }
 
     fn eval_terminal(
@@ -89,30 +249,28 @@ impl Grammar {
             }
 
             let nonterm = Term::Nonterminal(ident.to_string());
-            let production;
             let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
-            match find_lhs {
-                Some(p) => production = p,
+            let production = match find_lhs {
+                Some(p) => p,
                 None => return Ok(nonterm.to_string()),
-            }
+            };
 
-            let expression;
             let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
-            match expressions.choose(rng) {
-                Some(e) => expression = e,
+            let expression = match expressions.choose(rng) {
+                Some(e) => e,
                 None => {
                     return Err(Error::GenerateError(String::from(
                         "Couldn't select random Expression!",
                     )));
                 }
-            }
+            };
 
             let mut result = String::new();
             for term in expression.terms_iter() {
                 match self.eval_terminal(term, rng, f) {
-                    Ok(s) => result = result + &s,
+                    Ok(s) => result.push_str(&s),
                     Err(e) => return Err(e),
                 }
             }
@@ -133,28 +291,26 @@ impl Grammar {
     /// use rand::{SeedableRng, rngs::StdRng};
     /// use bnf::Grammar;
     ///
-    /// fn main() {
-    ///     let input =
-    ///         "<dna> ::= <base> | <base> <dna>
-    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar: Grammar = input.parse().unwrap();
-    ///     let seed: [u8; 32] = [0; 32];
-    ///     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    ///     let sentence = grammar.generate_seeded(&mut rng);
-    ///     # let sentence_clone = sentence.clone();
-    ///     match sentence {
-    ///         Ok(s) => println!("random sentence: {}", s),
-    ///         Err(e) => println!("something went wrong: {}!", e)
-    ///     }
-    ///
-    ///     # assert!(sentence_clone.is_ok());
+    /// let input =
+    ///     "<dna> ::= <base> | <base> <dna>
+    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    /// let grammar: Grammar = input.parse().unwrap();
+    /// let seed: [u8; 32] = [0; 32];
+    /// let mut rng: StdRng = SeedableRng::from_seed(seed);
+    /// let sentence = grammar.generate_seeded(&mut rng);
+    /// # let sentence_clone = sentence.clone();
+    /// match sentence {
+    ///     Ok(s) => println!("random sentence: {}", s),
+    ///     Err(e) => println!("something went wrong: {}!", e)
     /// }
+    ///
+    /// # assert!(sentence_clone.is_ok());
     /// ```
     pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
         self.generate_seeded_callback(rng, |_, _| true)
     }
 
-    /// Does the same as [`generate_seeded`], except it takes a callback which is
+    /// Does the same as [`Grammar::generate_seeded`], except it takes a callback which is
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.
@@ -197,26 +353,24 @@ impl Grammar {
     /// ```rust
     /// use bnf::Grammar;
     ///
-    /// fn main() {
-    ///     let input =
-    ///         "<dna> ::= <base> | <base> <dna>
-    ///         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    ///     let grammar: Grammar = input.parse().unwrap();
-    ///     let sentence = grammar.generate();
-    ///     # let sentence_clone = sentence.clone();
-    ///     match sentence {
-    ///         Ok(s) => println!("random sentence: {}", s),
-    ///         Err(e) => println!("something went wrong: {}!", e)
-    ///     }
-    ///
-    ///     # assert!(sentence_clone.is_ok());
+    /// let input =
+    ///     "<dna> ::= <base> | <base> <dna>
+    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    /// let grammar: Grammar = input.parse().unwrap();
+    /// let sentence = grammar.generate();
+    /// # let sentence_clone = sentence.clone();
+    /// match sentence {
+    ///     Ok(s) => println!("random sentence: {}", s),
+    ///     Err(e) => println!("something went wrong: {}!", e)
     /// }
+    ///
+    /// # assert!(sentence_clone.is_ok());
     /// ```
     pub fn generate(&self) -> Result<String, Error> {
         self.generate_callback(|_, _| true)
     }
 
-    /// Does the same as [`generate`], except it takes a callback which is
+    /// Does the same as [`Grammar::generate`], except it takes a callback which is
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.
@@ -240,7 +394,7 @@ impl fmt::Display for Grammar {
             "{}",
             self.productions
                 .iter()
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
                 .collect::<Vec<_>>()
                 .join("\n")
         )
@@ -503,5 +657,102 @@ mod tests {
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
         assert!(sentence.is_err(), "{:?} should be error", sentence);
+    }
+
+    #[test]
+    fn parse_dna() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+
+        let mut parses = grammar.parse_input(input);
+        assert!(matches!(parses.next(), Some(_)));
+    }
+
+    #[test]
+    fn format_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+        let parsed = grammar.parse_input(input).next().unwrap();
+        let formatted = format!("{}", parsed);
+        let expected = "
+<dna> ::= <base> <dna>
+├── <base> ::= \"G\"
+│   └── \"G\"
+└── <dna> ::= <base> <dna>
+    ├── <base> ::= \"A\"
+    │   └── \"A\"
+    └── <dna> ::= <base> <dna>
+        ├── <base> ::= \"T\"
+        │   └── \"T\"
+        └── <dna> ::= <base> <dna>
+            ├── <base> ::= \"T\"
+            │   └── \"T\"
+            └── <dna> ::= <base> <dna>
+                ├── <base> ::= \"A\"
+                │   └── \"A\"
+                └── <dna> ::= <base> <dna>
+                    ├── <base> ::= \"C\"
+                    │   └── \"C\"
+                    └── <dna> ::= <base>
+                        └── <base> ::= \"A\"
+                            └── \"A\"\n"
+            .trim_start();
+
+        assert_eq!(formatted, expected);
+    }
+
+    #[test]
+    fn format_grammar() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let format = format!("{}", grammar);
+        assert_eq!(
+            format,
+            "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
+        );
+    }
+
+    #[test]
+    fn iterate_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let rhs_iterated = parse_tree.rhs_iter().next().unwrap();
+
+        assert_eq!(&parse_tree.rhs[0], rhs_iterated);
+    }
+
+    #[test]
+    fn iterate_mut_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+
+        let mut parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let rhs_iterated = parse_tree.rhs_iter_mut().next().unwrap();
+
+        *rhs_iterated = ParseTreeNode::Terminal("Z");
+
+        assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
     }
 }

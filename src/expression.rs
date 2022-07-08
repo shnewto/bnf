@@ -4,13 +4,12 @@ use crate::term::Term;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
-use std::slice;
 use std::str::FromStr;
 
 /// An Expression is comprised of any number of Terms
 #[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Expression {
-    terms: Vec<Term>,
+    pub(crate) terms: Vec<Term>,
 }
 
 impl Expression {
@@ -26,7 +25,7 @@ impl Expression {
 
     /// Add `Term` to `Expression`
     pub fn add_term(&mut self, term: Term) {
-        self.terms.push(term)
+        self.terms.push(term);
     }
 
     /// Remove `Term` from `Expression`
@@ -38,18 +37,16 @@ impl Expression {
     /// ```
     /// use bnf::{Expression, Term};
     ///
-    /// fn main() {
-    ///     let mut expression = Expression::from_parts(vec![]);
-    ///     let to_remove = Term::Terminal(String::from("a_terminal"));
-    ///     let removed = expression.remove_term(&to_remove);
-    ///     # let removed_clone = removed.clone();
-    ///     match removed {
-    ///         Some(term) => println!("removed {}", term),
-    ///         None => println!("term was not in expression, so could not be removed"),
-    ///     }
-    ///
-    ///     # assert_eq!(removed_clone, None);
+    /// let mut expression = Expression::from_parts(vec![]);
+    /// let to_remove = Term::Terminal(String::from("a_terminal"));
+    /// let removed = expression.remove_term(&to_remove);
+    /// # let removed_clone = removed.clone();
+    /// match removed {
+    ///     Some(term) => println!("removed {}", term),
+    ///     None => println!("term was not in expression, so could not be removed"),
     /// }
+    ///
+    /// # assert_eq!(removed_clone, None);
     /// ```
     pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
         if let Some(pos) = self.terms.iter().position(|x| *x == *term) {
@@ -62,14 +59,14 @@ impl Expression {
     /// Get iterator of `Term`s within `Expression`
     pub fn terms_iter(&self) -> Iter {
         Iter {
-            iterator: self.terms.iter(),
+            slice: &self.terms[..],
         }
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
     pub fn terms_iter_mut(&mut self) -> IterMut {
         IterMut {
-            iterator: self.terms.iter_mut(),
+            slice: &mut self.terms[..],
         }
     }
 }
@@ -142,27 +139,37 @@ impl ops::Add<Term> for Expression {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Iter<'a> {
-    iterator: slice::Iter<'a, Term>,
+    slice: &'a [Term],
 }
 
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Term;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        self.slice.split_first().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct IterMut<'a> {
-    iterator: slice::IterMut<'a, Term>,
+    slice: &'a mut [Term],
 }
 
 impl<'a> Iterator for IterMut<'a> {
     type Item = &'a mut Term;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
+        let slice = std::mem::take(&mut self.slice);
+
+        slice.split_first_mut().map(|(first, rest)| {
+            self.slice = rest;
+            first
+        })
     }
 }
 
@@ -358,5 +365,25 @@ mod tests {
         assert_eq!(e1, e3);
         assert_eq!(e1, e4);
         assert_eq!(e1, e5);
+    }
+
+    #[test]
+    fn iterate_terms() {
+        let expression: Expression = "<b> \"a\" <b>".parse().unwrap();
+        let terms = expression
+            .terms_iter()
+            .map(|term| term.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(terms, expression.terms);
+    }
+
+    #[test]
+    fn mutate_iterable_terms() {
+        let mut expression: Expression = "\"END\"".parse().unwrap();
+        let new_term = Term::Terminal("X".to_string());
+        for term in expression.terms_iter_mut() {
+            *term = new_term.clone();
+        }
+        assert_eq!(expression.terms, vec![new_term.clone()])
     }
 }

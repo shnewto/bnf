@@ -25,70 +25,6 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-  test-macos-latest-stable:
-    name: macos-latest test suite stable
-    needs: [format]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
-  test-macos-latest-nightly:
-    name: macos-latest test suite nightly
-    needs: [format]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
-  test-windows-latest-stable:
-    name: windows-latest test suite stable
-    needs: [format]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
-  test-windows-latest-nightly:
-    name: windows-latest test suite nightly
-    needs: [format]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-
   test-ubuntu-latest-stable-with-coverage:
     name: ubuntu-latest test suite stable with coverage
     needs: [format]
@@ -108,23 +44,8 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1.3
         with:
           version: '0.20.1'
-          args: '-o Lcov --test-threads 1'
+          args: '-o Lcov'
       - name: upload code coverage results
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.COVERALLS_REPO_TOKEN }}
-  test-ubuntu-latest-nightly:
-    name: ubuntu-latest test suite nightly
-    needs: [format]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test

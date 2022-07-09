@@ -83,8 +83,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Reattach HEAD
-        run: git checkout main
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -94,10 +92,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+      - name: inspect branch name
+        run: echo running on branch ${GITHUB_REF##*/}          
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.16.0'
+          version: '0.20.1'
           args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
 
   # test-ubuntu-latest-nightly:

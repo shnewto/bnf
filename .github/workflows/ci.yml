@@ -108,7 +108,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: ' --coveralls ${{secrets.GITHUB_TOKEN}} -- --test-threads 1'
+          args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
 
   test-ubuntu-latest-nightly:
     name: ubuntu-latest test suite nightly

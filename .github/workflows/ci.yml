@@ -10,74 +10,87 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - name: inspect branch name 1
-        run: echo running on branch ${GITHUB_REF##*/}
+      - name: checkout repo
+        uses: actions/checkout@v1
 
-  # test-macos-latest-stable:
-  #   name: macos-latest test suite stable
-  #   needs: [format]
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v1
-  #     - name: toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         override: true
-  #     - name: cargo test
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: test
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
-  # test-macos-latest-nightly:
-  #   name: macos-latest test suite nightly
-  #   needs: [format]
-  #   runs-on: macos-latest
-  #   steps:
-  #     - uses: actions/checkout@v1
-  #     - name: toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: nightly
-  #         override: true
-  #     - name: cargo test
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: test
+      - name: install rustfmt
+        run: rustup component add rustfmt
 
-  # test-windows-latest-stable:
-  #   name: windows-latest test suite stable
-  #   needs: [format]
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v1
-  #     - name: toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         override: true
-  #     - name: cargo test
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: test
+      - name: rustfmt check
+        run: cargo fmt --all -- --check
 
-  # test-windows-latest-nightly:
-  #   name: windows-latest test suite nightly
-  #   needs: [format]
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v1
-  #     - name: toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: nightly
-  #         override: true
-  #     - name: cargo test
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: test
+  test-macos-latest-stable:
+    name: macos-latest test suite stable
+    needs: [format]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
 
-  test-ubuntu-latest-nightly-with-coverage:
+  test-macos-latest-nightly:
+    name: macos-latest test suite nightly
+    needs: [format]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-windows-latest-stable:
+    name: windows-latest test suite stable
+    needs: [format]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  test-windows-latest-nightly:
+    name: windows-latest test suite nightly
+    needs: [format]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+
+  test-ubuntu-latest-stable-with-coverage:
     name: ubuntu-latest test suite stable with coverage
     needs: [format]
     runs-on: ubuntu-latest
@@ -85,7 +98,7 @@ jobs:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: stable
           override: true
       - uses: actions-rs/cargo@v1
         with:
@@ -105,18 +118,18 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: ${{ steps.coverage.outputs.report }}
 
-  # test-ubuntu-latest-nightly:
-  #   name: ubuntu-latest test suite nightly
-  #   needs: [format]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v1
-  #     - name: toolchain
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: nightly
-  #         override: true
-  #     - name: cargo test
-  #       uses: actions-rs/cargo@v1
-  #       with:
-  #         command: test
+  test-ubuntu-latest-nightly:
+    name: ubuntu-latest test suite nightly
+    needs: [format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test

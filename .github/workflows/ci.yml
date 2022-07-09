@@ -25,8 +25,7 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-  test-macos-latest-stable:
-    name: macos-latest test suite stable
+  macos-latest-stable:
     needs: [format]
     runs-on: macos-latest
     steps:
@@ -41,8 +40,7 @@ jobs:
         with:
           command: test
 
-  test-macos-latest-nightly:
-    name: macos-latest test suite nightly
+  macos-latest-nightly:
     needs: [format]
     runs-on: macos-latest
     steps:
@@ -57,8 +55,7 @@ jobs:
         with:
           command: test
 
-  test-windows-latest-stable:
-    name: windows-latest test suite stable
+  windows-latest-stable:
     needs: [format]
     runs-on: windows-latest
     steps:
@@ -73,8 +70,7 @@ jobs:
         with:
           command: test
 
-  test-windows-latest-nightly:
-    name: windows-latest test suite nightly
+  windows-latest-nightly:
     needs: [format]
     runs-on: windows-latest
     steps:
@@ -89,29 +85,34 @@ jobs:
         with:
           command: test
 
-  test-ubuntu-latest-stable-with-coverage:
-    name: ubuntu-latest test suite stable with coverage
+  coveralls-coverage-report:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
+          args: --all-features --no-fail-fast
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      - id: coverage
+        uses: actions-rs/grcov@v0.1
         with:
-          version: '0.20.1'
-          args: ' --coveralls ${{secrets.COVERALLS_TOKEN}} -- --test-threads 1'
+          config: configs/grcov.yml      
+      - name: Coveralls upload
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ${{ steps.coverage.outputs.report }}
 
-  test-ubuntu-latest-nightly:
-    name: ubuntu-latest test suite nightly
+  ubuntu-latest-nightly:
     needs: [format]
     runs-on: ubuntu-latest
     steps:

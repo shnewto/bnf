@@ -89,7 +89,6 @@ jobs:
         with:
           command: test
 
-
   test-ubuntu-latest-nightly-with-coverage:
     name: ubuntu-latest test suite nightly with coverage
     needs: [format]

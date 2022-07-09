@@ -10,20 +10,8 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout repo
-        uses: actions/checkout@v1
-
-      - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-
-      - name: install rustfmt
-        run: rustup component add rustfmt
-
-      - name: rustfmt check
-        run: cargo fmt --all -- --check
+      - name: inspect branch name 1
+        run: echo running on branch ${GITHUB_REF##*/}
 
   # test-macos-latest-stable:
   #   name: macos-latest test suite stable
@@ -94,17 +82,19 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      # - uses: actions/checkout@v1
-      # - name: toolchain
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     toolchain: nightly
-      #     override: true
-      # - name: cargo test
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
-      - name: inspect branch name
+      - uses: actions/checkout@v1
+      - name: Reattach HEAD
+        run: git checkout main
+      - name: toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+      - name: inspect branch name 2
         run: echo running on branch ${GITHUB_REF##*/}
       # - name: run cargo-tarpaulin
       #   uses: actions-rs/tarpaulin@v0.1

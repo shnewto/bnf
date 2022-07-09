@@ -145,6 +145,10 @@ impl<'gram> ParseTree<'gram> {
         Ok(())
     }
 
+    pub fn mermaid(&self) -> MermaidParseTree<'_> {
+        MermaidParseTree { parse_tree: self }
+    }
+
     pub fn rhs_iter<'a>(&'a self) -> ParseTreeIter<'gram, 'a> {
         ParseTreeIter {
             rhs_nodes: &self.rhs[..],
@@ -162,6 +166,56 @@ impl<'gram> fmt::Display for ParseTree<'gram> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut depth_format_set = ParseTreeFormatSet::new();
         self.fmt(f, &mut depth_format_set, 0, true)
+    }
+}
+
+pub struct MermaidParseTree<'a> {
+    parse_tree: &'a ParseTree<'a>,
+}
+
+impl<'a> MermaidParseTree<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>, count: &mut usize) -> fmt::Result {
+        if *count == 0 {
+            writeln!(f, "flowchart TD")?;
+        }
+
+        // write line for each child
+        // A --> B
+        // A --> C
+        // id1([This is the text in the box])
+        let lhs = match self.parse_tree.lhs {
+            Term::Nonterminal(str) => str,
+            _ => unreachable!(),
+        };
+
+        let lhs_count = *count;
+
+        for rhs in self.parse_tree.rhs.iter() {
+            *count += 1;
+            match rhs {
+                ParseTreeNode::Terminal(rhs) => {
+                    writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
+                }
+                ParseTreeNode::Nonterminal(parse_tree) => {
+                    let rhs = match parse_tree.lhs {
+                        Term::Nonterminal(str) => str,
+                        _ => unreachable!(),
+                    };
+                    writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
+                    let mermaid = MermaidParseTree { parse_tree };
+                    mermaid.fmt(f, count)?;
+                }
+            };
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> fmt::Display for MermaidParseTree<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut count = 0usize;
+        self.fmt(f, &mut count)
     }
 }
 
@@ -754,5 +808,101 @@ mod tests {
         *rhs_iterated = ParseTreeNode::Terminal("Z");
 
         assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
+    }
+
+    #[test]
+    fn mermaid_dna_parse_tree() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+        let parsed = grammar.parse_input(input).next().unwrap();
+        let mermaid = parsed.mermaid().to_string();
+        let expected = "
+flowchart TD
+0[\"dna\"] --> 1[\"base\"]
+1[\"base\"] --> 2[\"G\"]
+0[\"dna\"] --> 3[\"dna\"]
+3[\"dna\"] --> 4[\"base\"]
+4[\"base\"] --> 5[\"A\"]
+3[\"dna\"] --> 6[\"dna\"]
+6[\"dna\"] --> 7[\"base\"]
+7[\"base\"] --> 8[\"T\"]
+6[\"dna\"] --> 9[\"dna\"]
+9[\"dna\"] --> 10[\"base\"]
+10[\"base\"] --> 11[\"T\"]
+9[\"dna\"] --> 12[\"dna\"]
+12[\"dna\"] --> 13[\"base\"]
+13[\"base\"] --> 14[\"A\"]
+12[\"dna\"] --> 15[\"dna\"]
+15[\"dna\"] --> 16[\"base\"]
+16[\"base\"] --> 17[\"C\"]
+15[\"dna\"] --> 18[\"dna\"]
+18[\"dna\"] --> 19[\"base\"]
+19[\"base\"] --> 20[\"A\"]\n"
+            .trim_start();
+
+        assert_eq!(mermaid, expected);
+    }
+
+    #[test]
+    fn mermaid_math_parse_tree() {
+        let grammar: Grammar = "<sum> ::= <sum> <add> <product>
+            <sum> ::= <product>
+            <product> ::= <product> <mult> <factor>
+            <product> ::= <factor>
+            <add> ::= \"+\" | \"-\"
+            <mult> ::= \"*\" | \"/\"
+            <factor> ::= \"(\" <sum> \")\"
+            <factor> ::= <number>
+            <number> ::= <digit> <number>
+            <number> ::= <digit>
+            <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
+        ".parse().unwrap();
+
+        let input = "1+(2*3-4)";
+
+        let parsed = grammar.parse_input(input).next().unwrap();
+        let mermaid = parsed.mermaid().to_string();
+        let expected = "
+flowchart TD
+0[\"sum\"] --> 1[\"sum\"]
+1[\"sum\"] --> 2[\"product\"]
+2[\"product\"] --> 3[\"factor\"]
+3[\"factor\"] --> 4[\"number\"]
+4[\"number\"] --> 5[\"digit\"]
+5[\"digit\"] --> 6[\"1\"]
+0[\"sum\"] --> 7[\"add\"]
+7[\"add\"] --> 8[\"+\"]
+0[\"sum\"] --> 9[\"product\"]
+9[\"product\"] --> 10[\"factor\"]
+10[\"factor\"] --> 11[\"(\"]
+10[\"factor\"] --> 12[\"sum\"]
+12[\"sum\"] --> 13[\"sum\"]
+13[\"sum\"] --> 14[\"product\"]
+14[\"product\"] --> 15[\"product\"]
+15[\"product\"] --> 16[\"factor\"]
+16[\"factor\"] --> 17[\"number\"]
+17[\"number\"] --> 18[\"digit\"]
+18[\"digit\"] --> 19[\"2\"]
+14[\"product\"] --> 20[\"mult\"]
+20[\"mult\"] --> 21[\"*\"]
+14[\"product\"] --> 22[\"factor\"]
+22[\"factor\"] --> 23[\"number\"]
+23[\"number\"] --> 24[\"digit\"]
+24[\"digit\"] --> 25[\"3\"]
+12[\"sum\"] --> 26[\"add\"]
+26[\"add\"] --> 27[\"-\"]
+12[\"sum\"] --> 28[\"product\"]
+28[\"product\"] --> 29[\"factor\"]
+29[\"factor\"] --> 30[\"number\"]
+30[\"number\"] --> 31[\"digit\"]
+31[\"digit\"] --> 32[\"4\"]
+10[\"factor\"] --> 33[\")\"]\n"
+            .trim_start();
+
+        assert_eq!(mermaid, expected);
     }
 }

@@ -25,69 +25,69 @@ jobs:
       - name: rustfmt check
         run: cargo fmt --all -- --check
 
-  test-macos-latest-stable:
-    name: macos-latest test suite stable
-    needs: [format]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  # test-macos-latest-stable:
+  #   name: macos-latest test suite stable
+  #   needs: [format]
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         override: true
+  #     - name: cargo test
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
 
-  test-macos-latest-nightly:
-    name: macos-latest test suite nightly
-    needs: [format]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  # test-macos-latest-nightly:
+  #   name: macos-latest test suite nightly
+  #   needs: [format]
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #         override: true
+  #     - name: cargo test
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
 
-  test-windows-latest-stable:
-    name: windows-latest test suite stable
-    needs: [format]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  # test-windows-latest-stable:
+  #   name: windows-latest test suite stable
+  #   needs: [format]
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: stable
+  #         override: true
+  #     - name: cargo test
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
 
-  test-windows-latest-nightly:
-    name: windows-latest test suite nightly
-    needs: [format]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  # test-windows-latest-nightly:
+  #   name: windows-latest test suite nightly
+  #   needs: [format]
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #         override: true
+  #     - name: cargo test
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test
 
   test-ubuntu-latest-nightly-with-coverage:
     name: ubuntu-latest test suite nightly with coverage
@@ -104,24 +104,26 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: run cargo-tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.16.0'
-          args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
+      - name: inspect branch name
+        run: echo running on branch ${GITHUB_REF##*/}
+      # - name: run cargo-tarpaulin
+      #   uses: actions-rs/tarpaulin@v0.1
+      #   with:
+      #     version: '0.16.0'
+      #     args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
 
-  test-ubuntu-latest-nightly:
-    name: ubuntu-latest test suite nightly
-    needs: [format]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+  # test-ubuntu-latest-nightly:
+  #   name: ubuntu-latest test suite nightly
+  #   needs: [format]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v1
+  #     - name: toolchain
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #         toolchain: nightly
+  #         override: true
+  #     - name: cargo test
+  #       uses: actions-rs/cargo@v1
+  #       with:
+  #         command: test

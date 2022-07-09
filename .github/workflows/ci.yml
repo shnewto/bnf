@@ -94,13 +94,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: inspect branch name 2
-        run: echo running on branch ${GITHUB_REF##*/}
-      # - name: run cargo-tarpaulin
-      #   uses: actions-rs/tarpaulin@v0.1
-      #   with:
-      #     version: '0.16.0'
-      #     args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
+      - name: run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.16.0'
+          args: ' --coveralls ${{secrets.GITHUB_TOKEN}}'
 
   # test-ubuntu-latest-nightly:
   #   name: ubuntu-latest test suite nightly

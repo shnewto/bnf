@@ -94,16 +94,16 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      # - uses: actions/checkout@v1
+      # - name: toolchain
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: nightly
+      #     override: true
+      # - name: cargo test
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
       - name: inspect branch name
         run: echo running on branch ${GITHUB_REF##*/}
       # - name: run cargo-tarpaulin

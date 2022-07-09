@@ -17,6 +17,7 @@ pub enum ParseTreeNode<'gram> {
     Nonterminal(ParseTree<'gram>),
 }
 
+/// A tree derived by successing parsing an input string via [`Grammar::parse_input`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
     pub lhs: &'gram Term,
@@ -145,6 +146,20 @@ impl<'gram> ParseTree<'gram> {
         Ok(())
     }
 
+    /// Opt into formatting as [Mermaid.js](https://mermaid-js.github.io/) flowchart.
+    ///
+    /// ```
+    /// # use bnf::Grammar;
+    /// let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+    /// <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+    /// .parse()
+    /// .unwrap();
+    ///
+    /// let input = "GATTACA";
+    /// let parsed = grammar.parse_input(input).next().unwrap();
+    /// let mermaid = parsed.mermaid().to_string();
+    /// println!("parse tree mermaid: {}", mermaid);
+    /// ```
     pub fn mermaid(&self) -> MermaidParseTree<'_> {
         MermaidParseTree { parse_tree: self }
     }
@@ -169,6 +184,8 @@ impl<'gram> fmt::Display for ParseTree<'gram> {
     }
 }
 
+/// Wrap `ParseTree` in "Mermaid" type, which opts into new implementation of `std::fmt::Display`.
+/// Writes `ParseTree` as [Mermaid.js](https://mermaid-js.github.io/) flowchart.
 pub struct MermaidParseTree<'a> {
     parse_tree: &'a ParseTree<'a>,
 }
@@ -190,7 +207,7 @@ impl<'a> MermaidParseTree<'a> {
 
         let lhs_count = *count;
 
-        for rhs in self.parse_tree.rhs.iter() {
+        for rhs in &self.parse_tree.rhs {
             *count += 1;
             match rhs {
                 ParseTreeNode::Terminal(rhs) => {

@@ -107,7 +107,7 @@ jobs:
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.17.0'
+          version: '0.16.0'
           args: ' --coveralls ${{secrets.GITHUB_TOKEN}} -- --test-threads 1'
 
   test-ubuntu-latest-nightly:

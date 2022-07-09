@@ -20,12 +20,13 @@ pub enum ParseTreeNode<'gram> {
 /// A tree derived by successing parsing an input string via [`Grammar::parse_input`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
+    /// the "left hand side" `Term` used for this `ParseTree`
     pub lhs: &'gram Term,
     rhs: Vec<ParseTreeNode<'gram>>,
 }
 
 impl<'gram> ParseTree<'gram> {
-    pub fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
+    pub(crate) fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
         Self { lhs, rhs }
     }
 }
@@ -164,12 +165,14 @@ impl<'gram> ParseTree<'gram> {
         MermaidParseTree { parse_tree: self }
     }
 
+    /// Iterate the "right hand side" parse tree nodes
     pub fn rhs_iter<'a>(&'a self) -> ParseTreeIter<'gram, 'a> {
         ParseTreeIter {
             rhs_nodes: &self.rhs[..],
         }
     }
 
+    /// Mutably iterate the "right hand side" parse tree nodes
     pub fn rhs_iter_mut<'a>(&'a mut self) -> ParseTreeIterMut<'gram, 'a> {
         ParseTreeIterMut {
             rhs_nodes: &mut self.rhs[..],
@@ -202,7 +205,7 @@ impl<'a> MermaidParseTree<'a> {
         // id1([This is the text in the box])
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
-            _ => unreachable!(),
+            Term::Terminal(_) => unreachable!(),
         };
 
         let lhs_count = *count;
@@ -216,7 +219,7 @@ impl<'a> MermaidParseTree<'a> {
                 ParseTreeNode::Nonterminal(parse_tree) => {
                     let rhs = match parse_tree.lhs {
                         Term::Nonterminal(str) => str,
-                        _ => unreachable!(),
+                        Term::Terminal(_) => unreachable!(),
                     };
                     writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
                     let mermaid = MermaidParseTree { parse_tree };

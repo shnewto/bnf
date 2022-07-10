@@ -48,16 +48,14 @@ impl Production {
     }
 
     /// Get iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter(&self) -> Iter {
-        Iter {
-            slice: &self.rhs[..],
-        }
+    pub fn rhs_iter(&self) -> impl Iterator<Item = &Expression> {
+        crate::slice_iter::SliceIter { slice: &self.rhs }
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter_mut(&mut self) -> IterMut {
-        IterMut {
-            slice: &mut self.rhs[..],
+    pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
+        crate::slice_iter::SliceIterMut {
+            slice: &mut self.rhs,
         }
     }
 
@@ -100,40 +98,6 @@ impl FromStr for Production {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Iter<'a> {
-    slice: &'a [Expression],
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Expression;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.slice.split_first().map(|(first, rest)| {
-            self.slice = rest;
-            first
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct IterMut<'a> {
-    slice: &'a mut [Expression],
-}
-
-impl<'a> Iterator for IterMut<'a> {
-    type Item = &'a mut Expression;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let slice = std::mem::take(&mut self.slice);
-
-        slice.split_first_mut().map(|(first, rest)| {
-            self.slice = rest;
-            first
-        })
     }
 }
 

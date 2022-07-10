@@ -7,7 +7,6 @@ use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
-use std::slice;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -28,40 +27,6 @@ pub struct ParseTree<'gram> {
 impl<'gram> ParseTree<'gram> {
     pub(crate) fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
         Self { lhs, rhs }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseTreeIter<'gram, 'a> {
-    rhs_nodes: &'a [ParseTreeNode<'gram>],
-}
-
-impl<'gram, 'a> Iterator for ParseTreeIter<'gram, 'a> {
-    type Item = &'a ParseTreeNode<'gram>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.rhs_nodes.split_first().map(|(first, rest)| {
-            self.rhs_nodes = rest;
-            first
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParseTreeIterMut<'gram, 'a> {
-    rhs_nodes: &'a mut [ParseTreeNode<'gram>],
-}
-
-impl<'gram, 'a> Iterator for ParseTreeIterMut<'gram, 'a> {
-    type Item = &'a mut ParseTreeNode<'gram>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let rhs_nodes = std::mem::take(&mut self.rhs_nodes);
-
-        rhs_nodes.split_first_mut().map(|(first, rest)| {
-            self.rhs_nodes = rest;
-            first
-        })
     }
 }
 
@@ -166,16 +131,14 @@ impl<'gram> ParseTree<'gram> {
     }
 
     /// Iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter<'a>(&'a self) -> ParseTreeIter<'gram, 'a> {
-        ParseTreeIter {
-            rhs_nodes: &self.rhs[..],
-        }
+    pub fn rhs_iter<'a>(&'a self) -> impl Iterator<Item = &'a ParseTreeNode> {
+        crate::slice_iter::SliceIter { slice: &self.rhs }
     }
 
     /// Mutably iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter_mut<'a>(&'a mut self) -> ParseTreeIterMut<'gram, 'a> {
-        ParseTreeIterMut {
-            rhs_nodes: &mut self.rhs[..],
+    pub fn rhs_iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut ParseTreeNode<'gram>> {
+        crate::slice_iter::SliceIterMut {
+            slice: &mut self.rhs,
         }
     }
 }
@@ -273,16 +236,16 @@ impl Grammar {
     }
 
     /// Get iterator of the `Grammar`'s `Production`s
-    pub fn productions_iter(&self) -> Iter {
-        Iter {
-            iterator: self.productions.iter(),
+    pub fn productions_iter(&self) -> impl Iterator<Item = &Production> {
+        crate::slice_iter::SliceIter {
+            slice: &self.productions,
         }
     }
 
     /// Get mutable iterator of the `Grammar`'s `Production`s
-    pub fn productions_iter_mut(&mut self) -> IterMut {
-        IterMut {
-            iterator: self.productions.iter_mut(),
+    pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production> {
+        crate::slice_iter::SliceIterMut {
+            slice: &mut self.productions,
         }
     }
 
@@ -483,30 +446,6 @@ impl str::FromStr for Grammar {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
-    }
-}
-
-pub struct Iter<'a> {
-    iterator: slice::Iter<'a, Production>,
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Production;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
-    }
-}
-
-pub struct IterMut<'a> {
-    iterator: slice::IterMut<'a, Production>,
-}
-
-impl<'a> Iterator for IterMut<'a> {
-    type Item = &'a mut Production;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next()
     }
 }
 

@@ -57,16 +57,14 @@ impl Expression {
     }
 
     /// Get iterator of `Term`s within `Expression`
-    pub fn terms_iter(&self) -> Iter {
-        Iter {
-            slice: &self.terms[..],
-        }
+    pub fn terms_iter(&self) -> impl Iterator<Item = &Term> {
+        crate::slice_iter::SliceIter { slice: &self.terms }
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
-    pub fn terms_iter_mut(&mut self) -> IterMut {
-        IterMut {
-            slice: &mut self.terms[..],
+    pub fn terms_iter_mut(&mut self) -> impl Iterator<Item = &mut Term> {
+        crate::slice_iter::SliceIterMut {
+            slice: &mut self.terms,
         }
     }
 }
@@ -136,40 +134,6 @@ impl ops::Add<Term> for Expression {
     fn add(mut self, rhs: Term) -> Self::Output {
         self.add_term(rhs);
         self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Iter<'a> {
-    slice: &'a [Term],
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a Term;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.slice.split_first().map(|(first, rest)| {
-            self.slice = rest;
-            first
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct IterMut<'a> {
-    slice: &'a mut [Term],
-}
-
-impl<'a> Iterator for IterMut<'a> {
-    type Item = &'a mut Term;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let slice = std::mem::take(&mut self.slice);
-
-        slice.split_first_mut().map(|(first, rest)| {
-            self.slice = rest;
-            first
-        })
     }
 }
 

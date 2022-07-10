@@ -6,6 +6,7 @@ mod expression;
 mod grammar;
 mod parsers;
 mod production;
+mod slice_iter;
 mod term;
 pub use crate::error::Error;
 pub use crate::expression::Expression;

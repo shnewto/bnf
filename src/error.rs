@@ -7,7 +7,7 @@ use nom::{
     Err,
 };
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Error {
     ParseError(String),
     GenerateError(String),
@@ -89,11 +89,10 @@ mod tests {
     #[test]
     fn gets_error_on_incomplete() {
         let nom_result = give_error_kind("");
-        let nom_error;
-        match nom_result {
-            Result::Err(e) => nom_error = e,
+        let nom_error = match nom_result {
+            Result::Err(e) => e,
             _ => panic!("gets_error_error should result in IResult::Err"),
-        }
+        };
 
         let bnf_error: Result<String, Error> = Err(Error::from(nom_error));
 

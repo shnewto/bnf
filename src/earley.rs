@@ -559,8 +559,8 @@ mod tests {
 
         let input = "GATTACA";
 
-        let parses: Vec<_> = parse(&grammar, input).collect();
-        assert_eq!(parses.len(), 1);
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
     }
 
     #[test]
@@ -572,8 +572,8 @@ mod tests {
 
         let input = "GATTACA";
 
-        let parses: Vec<_> = parse(&grammar, input).collect();
-        assert_eq!(parses.len(), 1);
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
     }
 
     #[test]
@@ -586,8 +586,8 @@ mod tests {
 
         let input = "END";
 
-        let parses: Vec<_> = parse(&grammar, input).collect();
-        assert_eq!(parses.len(), 2);
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 2);
     }
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)

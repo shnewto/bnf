@@ -54,9 +54,7 @@ fn iterate_grammar() {
         let expected_terminal = Term::Terminal(term_string);
 
         assert!(
-            only_right_terms
-                .find(|e| e == &&expected_terminal)
-                .is_some(),
+            only_right_terms.any(|e| e == &expected_terminal),
             "{} was not in left hand terms",
             expected_terminal
         );

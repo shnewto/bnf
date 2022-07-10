@@ -10,7 +10,7 @@ fn iterate_grammar() {
 
     let left_hand_terms: Vec<&Term> = dna_grammar
         .productions_iter()
-        .map(|ref prod| &prod.lhs)
+        .map(|prod| &prod.lhs)
         .collect();
 
     // should be as many left hand terms as productions
@@ -44,10 +44,9 @@ fn iterate_grammar() {
     }
 
     // any term which appears on the right but not left is a terminal
-    let only_right_terms: Vec<&Term> = right_hand_terms
+    let mut only_right_terms = right_hand_terms
         .into_iter()
-        .filter(|term| !left_hand_terms.contains(term))
-        .collect();
+        .filter(|term| !left_hand_terms.contains(term));
 
     // check terminals are only on right hand side
     for term in ["A", "C", "G", "T"].iter() {
@@ -55,7 +54,7 @@ fn iterate_grammar() {
         let expected_terminal = Term::Terminal(term_string);
 
         assert!(
-            only_right_terms.contains(&&expected_terminal),
+            only_right_terms.any(|e| e == &expected_terminal),
             "{} was not in left hand terms",
             expected_terminal
         );
@@ -76,10 +75,7 @@ fn mutably_iterate_grammar() {
             .productions_iter_mut()
             .flat_map(|prod| prod.rhs_iter_mut())
             .flat_map(|expr| expr.terms_iter_mut())
-            .filter(|&&mut ref term| match *term {
-                Term::Terminal(_) => true,
-                _ => false,
-            });
+            .filter(|&&mut ref term| matches!(*term, Term::Terminal(_)));
 
         // transform all terminals to "Z"
         for term in terminals {
@@ -92,10 +88,7 @@ fn mutably_iterate_grammar() {
         .productions_iter()
         .flat_map(|prod| prod.rhs_iter())
         .flat_map(|expr| expr.terms_iter())
-        .filter(|&term| match *term {
-            Term::Terminal(_) => true,
-            _ => false,
-        })
+        .filter(|&term| matches!(*term, Term::Terminal(_)))
         .all(|term| match *term {
             Term::Terminal(ref s) => *s == "Z",
             _ => false,

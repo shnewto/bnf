@@ -30,7 +30,7 @@ fn examples(c: &mut Criterion) {
     c.bench_function("parse polish calculator", |b| {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
-            let _: Vec<_> = polish_calc_grammar.parse_input(&input).collect();
+            let _: Vec<_> = polish_calc_grammar.parse_input(input).collect();
         })
     });
 }

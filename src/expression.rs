@@ -370,10 +370,7 @@ mod tests {
     #[test]
     fn iterate_terms() {
         let expression: Expression = "<b> \"a\" <b>".parse().unwrap();
-        let terms = expression
-            .terms_iter()
-            .map(|term| term.clone())
-            .collect::<Vec<_>>();
+        let terms = expression.terms_iter().cloned().collect::<Vec<_>>();
         assert_eq!(terms, expression.terms);
     }
 
@@ -384,6 +381,6 @@ mod tests {
         for term in expression.terms_iter_mut() {
             *term = new_term.clone();
         }
-        assert_eq!(expression.terms, vec![new_term.clone()])
+        assert_eq!(expression.terms, vec![new_term])
     }
 }

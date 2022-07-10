@@ -327,10 +327,7 @@ mod tests {
     #[test]
     fn iter_production() {
         let production: Production = "<dna> ::= <base>".parse().unwrap();
-        let expressions = production
-            .rhs_iter()
-            .map(|expr| expr.clone())
-            .collect::<Vec<_>>();
+        let expressions = production.rhs_iter().cloned().collect::<Vec<_>>();
         assert_eq!(expressions, vec!["<base>".parse().unwrap()]);
     }
 

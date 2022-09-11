@@ -1,9 +1,9 @@
 [package]
 name = "bnf"
-version = "0.5.0-dev"
+version = "0.4.1"
 edition = "2021"
 authors = ["@shnewto", "@CrockAgile", "@androm3da", "@sremedios", "@prbs23", "@z2oh",
-"@lionel1704", "@benarmstead", "@jonay2000", "@SKalt", "@DrunkJon"]
+"@lionel1704", "@benarmstead", "@jonay2000", "@SKalt", "@DrunkJon", "@Axiomatic-Mind"]
 
 description = "A library for parsing Backus–Naur form context-free grammars"
 readme = "README.md"

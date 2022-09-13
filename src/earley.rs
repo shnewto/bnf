@@ -502,10 +502,6 @@ impl<'gram> Iterator for ParseIter<'gram> {
             match matching {
                 // predict
                 Some(matching @ Term::Nonterminal(_)) => {
-                    // no need to predict for more input if input is complete
-                    if input_range.is_complete() {
-                        break;
-                    }
                     let predictions = predict(matching, &input_range, &self.grammar);
                     self.state_arena.alloc_extend(predictions);
                 }
@@ -588,6 +584,29 @@ mod tests {
 
         let parses = parse(&grammar, input);
         assert_eq!(parses.count(), 2);
+    }
+
+    #[test]
+    fn parse_complete_empty() {
+        let grammar: Grammar = "<start> ::= \"hi\" <empty>
+        <empty> ::= \"\""
+            .parse()
+            .unwrap();
+
+        let input = "hi";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
+    }
+
+    #[test]
+    fn parse_empty() {
+        let grammar: Grammar = "<start> ::= \"\"".parse().unwrap();
+
+        let input = "";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
     }
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)

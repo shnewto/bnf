@@ -28,12 +28,13 @@ pub(crate) struct SliceIterMut<'a, T> {
 impl<'a, T> Iterator for SliceIterMut<'a, T> {
     type Item = &'a mut T;
     fn next(&mut self) -> Option<Self::Item> {
-        let rhs_nodes = std::mem::take(&mut self.slice);
-
-        rhs_nodes.split_first_mut().map(|(first, rest)| {
-            self.slice = rest;
-            first
-        })
+        match std::mem::take(&mut self.slice) {
+            [] => None,
+            [first, rest @ ..] => {
+                self.slice = rest;
+                Some(first)
+            }
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

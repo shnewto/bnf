@@ -73,7 +73,7 @@ pub fn term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     Ok((input, t))
 }
 
-pub fn expression_next<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {
+pub fn expression_next(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let (input, _) = preceded(
         complete::multispace0,
         terminated(complete::char('|'), complete::multispace0),

@@ -131,7 +131,7 @@ impl<'gram> ParseTree<'gram> {
     }
 
     /// Iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter<'a>(&'a self) -> impl Iterator<Item = &'a ParseTreeNode> {
+    pub fn rhs_iter(&self) -> impl Iterator<Item = &ParseTreeNode> {
         crate::slice_iter::SliceIter { slice: &self.rhs }
     }
 

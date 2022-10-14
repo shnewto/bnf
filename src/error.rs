@@ -54,7 +54,7 @@ mod tests {
     use crate::error::Error;
     use nom::{bytes::complete::tag, error::VerboseError, Err, IResult};
 
-    fn give_error_kind<'a>(input: &'a str) -> IResult<&'a str, &str, VerboseError<&'a str>> {
+    fn give_error_kind(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
         let (input, _) = tag("1234")(input)?;
         let (input, res) = tag("5678")(input)?;
         Ok((input, res))

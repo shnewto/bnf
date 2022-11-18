@@ -609,6 +609,80 @@ mod tests {
         assert_eq!(parses.count(), 1);
     }
 
+    #[test]
+    fn parse_nested_empty_post() {
+        let grammar: Grammar = "
+        <start> ::= <a> <empty>
+        <a> ::= 'a' <empty>
+        <empty> ::= ''"
+            .parse()
+            .unwrap();
+
+        let input = "a";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
+    }
+
+    // #[test]
+    // fn parse_nested_empty_pre() {
+    //     let grammar: Grammar = "
+    //     <start> ::= <empty> <a>
+    //     <a> ::= <empty> 'a'
+    //     <empty> ::= ''"
+    //         .parse()
+    //         .unwrap();
+
+    //     let input = "a";
+
+    //     let parses = parse(&grammar, input);
+    //     assert_eq!(parses.count(), 1);
+    // }
+
+    // #[test]
+    // fn parse_nested_empty_pre_and_post() {
+    //     let grammar: Grammar = "
+    //     <start> ::= <empty> <a> <empty>
+    //     <a> ::= <empty> 'a' <empty>
+    //     <empty> ::= ''"
+    //         .parse()
+    //         .unwrap();
+
+    //     let input = "a";
+
+    //     let parses = parse(&grammar, input);
+    //     assert_eq!(parses.count(), 1);
+    // }
+
+    // #[test]
+    // fn parse_inline_empty() {
+    //     let grammar: Grammar = "
+    //     <start> ::= <a> '' <a>
+    //     <a> ::= 'a'"
+    //         .parse()
+    //         .unwrap();
+
+    //     let input = "aa";
+
+    //     let parses = parse(&grammar, input);
+    //     assert_eq!(parses.count(), 1);
+    // }
+
+    // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
+    // #[test]
+    // fn parse_empty_infinite() {
+    //     let grammar: Grammar = "
+    //     <a> ::= '' | <b>
+    //     <b> ::= <a>"
+    //         .parse()
+    //         .unwrap();
+
+    //     let input = "";
+
+    //     let parses = parse(&grammar, input);
+    //     assert_eq!(parses.count(), 1);
+    // }
+
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)
     // Sum     -> Sum     [+-] Product
     // Sum     -> Product

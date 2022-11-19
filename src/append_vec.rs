@@ -1,13 +1,12 @@
 #[derive(Debug, Clone)]
-pub(crate) struct AppendOnlyVec<T, K> {
+pub(crate) struct AppendOnlyVec<T, I> {
     vec: Vec<T>,
-    key_type: std::marker::PhantomData<K>,
+    id_type: std::marker::PhantomData<I>,
 }
 
-impl<T, K> AppendOnlyVec<T, K>
+impl<T, I> AppendOnlyVec<T, I>
 where
-    K: From<usize>,
-    K: Into<usize>,
+    I: From<usize> + Into<usize>,
 {
     pub fn new() -> Self {
         Self::default()
@@ -15,28 +14,28 @@ where
     pub fn len(&self) -> usize {
         self.vec.len()
     }
-    fn next_key(&self) -> K {
-        K::from(self.len())
+    fn next_id(&self) -> I {
+        I::from(self.len())
     }
-    pub fn push(&mut self, item: T) -> K {
-        let key = self.next_key();
+    pub fn push(&mut self, item: T) -> I {
+        let id = self.next_id();
         self.vec.push(item);
-        key
+        id
     }
-    pub fn push_with_key<F>(&mut self, build: F) -> &T
+    pub fn push_with_id<F>(&mut self, build: F) -> &T
     where
-        F: Fn(K) -> T,
+        F: Fn(I) -> T,
     {
-        let key = self.next_key();
-        let item = build(key);
-        let key = self.push(item);
-        self.get(key).expect("failed to get appended item")
+        let id = self.next_id();
+        let item = build(id);
+        let id = self.push(item);
+        self.get(id).expect("failed to get appended item")
     }
-    pub fn get(&self, key: K) -> Option<&T> {
-        self.vec.get::<usize>(key.into())
+    pub fn get(&self, id: I) -> Option<&T> {
+        self.vec.get::<usize>(id.into())
     }
-    pub fn get_mut(&mut self, key: K) -> Option<&mut T> {
-        self.vec.get_mut::<usize>(key.into())
+    pub fn get_mut(&mut self, id: I) -> Option<&mut T> {
+        self.vec.get_mut::<usize>(id.into())
     }
 }
 
@@ -50,7 +49,7 @@ impl<T, K> From<Vec<T>> for AppendOnlyVec<T, K> {
     fn from(vec: Vec<T>) -> Self {
         Self {
             vec,
-            key_type: std::marker::PhantomData,
+            id_type: std::marker::PhantomData,
         }
     }
 }

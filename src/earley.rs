@@ -58,7 +58,7 @@ impl<'gram> Grammar<'gram> {
         let mut nullable_queue = Vec::<ProductionId>::new();
 
         for (lhs, rhs) in flat_prod_iter {
-            let prod = productions.push_with_key(|id| {
+            let prod = productions.push_with_id(|id| {
                 let prod = Production {
                     id,
                     lhs,
@@ -367,11 +367,11 @@ fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>
 /// Note: An `State` can only be completed by another `State` with matching `StateStart`, the offset where the state is matching.
 /// This has been omitted from this example, but must be respected in real parsing.
 fn complete<'gram, 'a>(
-    key: StateId,
+    state_id: StateId,
     input_range: &'a InputRange<'gram>,
     parent: &'a State<'gram>,
 ) -> State<'gram> {
-    let term_match = TermMatch::NonTerminal(key);
+    let term_match = TermMatch::NonTerminal(state_id);
     State::new_term_match(parent, term_match, input_range.len)
 }
 
@@ -437,9 +437,9 @@ struct StateArena<'gram> {
 
 /// Unprocessed `State` fields.
 /// Does not return `State` directly, for simpler lifetimes.
-/// Full `State` is available via `StateArena::get` and `key`
+/// Full `State` is available via `StateArena::get` and `state_id`
 struct Unprocessed<'gram> {
-    key: StateId,
+    state_id: StateId,
     matching: Option<&'gram Term>,
     input_range: InputRange<'gram>,
 }
@@ -472,8 +472,8 @@ impl<'gram> StateArena<'gram> {
         }
     }
     /// Get `State` stored in arena by `ArenaKey`
-    pub fn get(&self, key: StateId) -> Option<&State<'gram>> {
-        self.arena.get(key)
+    pub fn get(&self, id: StateId) -> Option<&State<'gram>> {
+        self.arena.get(id)
     }
     /// Get `State`s which match for state completion
     pub fn get_matching(&self, state: &State<'gram>) -> impl Iterator<Item = &State<'gram>> {
@@ -481,16 +481,16 @@ impl<'gram> StateArena<'gram> {
         self.matching_map
             .get(&key)
             .into_iter()
-            .flat_map(|keys| keys.iter())
-            .filter_map(|key| self.get(*key))
+            .flat_map(|state_ids| state_ids.iter())
+            .filter_map(|id| self.get(*id))
     }
     /// Pop next unprocessed state fields from front of queue
     pub fn pop_unprocessed(&mut self) -> Option<Unprocessed<'gram>> {
         self.unprocessed
             .pop_front()
-            .and_then(|key| self.arena.get(key).map(|state| (state, key)))
-            .map(|(state, key)| Unprocessed {
-                key,
+            .and_then(|state_id| self.arena.get(state_id).map(|state| (state, state_id)))
+            .map(|(state, state_id)| Unprocessed {
+                state_id,
                 input_range: state.input_range.clone(),
                 matching: state.unmatched_terms.matching(),
             })
@@ -538,8 +538,8 @@ impl<'gram> ParseIter<'gram> {
             .iter()
             .filter_map(|child| match child {
                 TermMatch::Terminal(term) => Some(ParseTreeNode::Terminal(term)),
-                TermMatch::NonTerminal(key) => {
-                    let state = self.state_arena.get(*key);
+                TermMatch::NonTerminal(state_id) => {
+                    let state = self.state_arena.get(*state_id);
                     state.map(|state| ParseTreeNode::Nonterminal(self.get_parse_tree(state)))
                 }
             })
@@ -554,7 +554,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(Unprocessed {
-            key,
+            state_id,
             matching,
             input_range,
         }) = self.state_arena.pop_unprocessed()
@@ -573,14 +573,14 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 }
                 // scan
                 Some(Term::Terminal(_)) => {
-                    let state = self.state_arena.get(key)?;
+                    let state = self.state_arena.get(state_id)?;
                     let scanned = scan(state);
                     created_states.extend(scanned);
                     self.state_arena.alloc_extend(created_states.drain(..));
                 }
                 // complete
                 None => {
-                    let state = self.state_arena.get(key)?;
+                    let state = self.state_arena.get(state_id)?;
                     if state.is_complete(&self.grammar.starting_production_ids) {
                         let parse_tree = self.get_parse_tree(state);
                         return Some(parse_tree);
@@ -589,7 +589,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     let completed = self
                         .state_arena
                         .get_matching(state)
-                        .map(|parent| complete(key, &input_range, parent));
+                        .map(|parent| complete(state_id, &input_range, parent));
                     created_states.extend(completed);
 
                     self.state_arena.alloc_extend(created_states.drain(..));

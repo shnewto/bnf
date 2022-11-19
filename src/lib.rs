@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod append_vec;
 mod earley;
 mod error;
 mod expression;

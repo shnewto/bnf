@@ -16,7 +16,7 @@ pub enum ParseTreeNode<'gram> {
     Nonterminal(ParseTree<'gram>),
 }
 
-/// A tree derived by successing parsing an input string via [`Grammar::parse_input`]
+/// A tree derived by successfully parsing an input string via [`Grammar::parse_input`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
     /// the "left hand side" `Term` used for this `ParseTree`

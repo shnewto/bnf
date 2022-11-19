@@ -1,25 +1,39 @@
 use crate::{
+    append_vec::AppendOnlyVec,
     grammar::{ParseTree, ParseTreeNode},
     Term,
 };
 
-/// Identifier assigned to each `Production`, which are used to ignore duplicate parsing attempts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct ProductionId(usize);
+
+impl From<usize> for ProductionId {
+    fn from(id: usize) -> Self {
+        Self(id)
+    }
+}
+
+impl From<ProductionId> for usize {
+    fn from(id: ProductionId) -> Self {
+        id.0
+    }
+}
 
 /// `crate::Production` offers multiple possible "right hand side" `Expression`s, which is overly flexible for Earley parsing.
 /// `earley::Production` is a one-to-one relationship of `Term` -> `Expression`.
+#[derive(Debug)]
 struct Production<'gram> {
     id: ProductionId,
     lhs: &'gram Term,
     rhs: &'gram crate::Expression,
+    rhs_nullable: Option<Vec<TermMatch<'gram>>>,
 }
 
 /// `Production`s organized to be queried during parsing.
 /// Not to be confused with `crate::Grammar`.
 struct Grammar<'gram> {
     starting_production_ids: Vec<ProductionId>,
-    productions: Vec<Production<'gram>>,
+    productions: AppendOnlyVec<Production<'gram>, ProductionId>,
     production_ids_by_lhs: std::collections::HashMap<&'gram Term, Vec<ProductionId>>,
 }
 
@@ -32,24 +46,77 @@ impl<'gram> Grammar<'gram> {
             .expect("Grammar must have one production to parse")
             .lhs;
 
-        let productions: Vec<Production> = grammar
+        let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
+        type ProdIdMap<'gram> = std::collections::HashMap<&'gram Term, Vec<ProductionId>>;
+        let mut production_ids_by_lhs = ProdIdMap::new();
+        let mut production_ids_by_rhs = ProdIdMap::new();
+
+        let flat_prod_iter = grammar
             .productions_iter()
-            .flat_map(|prod| prod.rhs_iter().map(|rhs| (&prod.lhs, rhs)))
-            .enumerate()
-            .map(|(idx, (lhs, rhs))| Production {
-                id: ProductionId(idx),
-                lhs,
-                rhs,
-            })
-            .collect();
+            .flat_map(|prod| prod.rhs_iter().map(|rhs| (&prod.lhs, rhs)));
 
-        let mut production_ids_by_lhs = std::collections::HashMap::new();
+        let mut nullable_queue = Vec::<ProductionId>::new();
 
-        for prod in &productions {
-            production_ids_by_lhs
-                .entry(prod.lhs)
-                .or_insert_with(Vec::new)
-                .push(prod.id.clone());
+        for (lhs, rhs) in flat_prod_iter {
+            let prod = productions.push_with_key(|id| {
+                let prod = Production {
+                    id,
+                    lhs,
+                    rhs,
+                    rhs_nullable: None,
+                };
+                prod
+            });
+            let id = prod.id;
+
+            production_ids_by_lhs.entry(lhs).or_default().push(id);
+
+            for rhs in rhs.terms_iter() {
+                production_ids_by_rhs.entry(rhs).or_default().push(id);
+            }
+
+            let is_rhs_all_empty = rhs.terms_iter().all(|term| match term {
+                Term::Terminal(term) if term.is_empty() => true,
+                _ => false,
+            });
+
+            if is_rhs_all_empty {
+                let production = productions.get_mut(id).expect("invalid production ID");
+
+                let empty_string_match = TermMatch::Terminal("");
+                let null_matches: Vec<TermMatch> = production
+                    .rhs
+                    .terms_iter()
+                    .map(|_| empty_string_match)
+                    .collect();
+                production.rhs_nullable = Some(null_matches);
+
+                let nullable_ids = production_ids_by_rhs
+                    .get(production.lhs)
+                    .into_iter()
+                    .flatten();
+                nullable_queue.extend(nullable_ids);
+            }
+        }
+
+        while let Some(id) = nullable_queue.pop() {
+            println!("PROD ID {id:?} may be nullable");
+
+            let production = productions.get_mut(id).expect("invalid production ID");
+
+            // TODO
+            // let null_matches: Option<Vec<TermMatch>> = production
+            //     .rhs
+            //     .terms_iter()
+            //     .map(|term| match term {
+            //         Term::Terminal(term) if term.is_empty() => Some(TermMatch::Terminal("")),
+            //         Term::Nonterminal(_) => {
+            //             let a = production_ids_by_lhs.get(term);
+            //             todo!()
+            //         }
+            //         _ => None,
+            //     })
+            //     .collect();
         }
 
         let starting_production_ids = production_ids_by_lhs
@@ -66,7 +133,7 @@ impl<'gram> Grammar<'gram> {
     pub fn starting_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.starting_production_ids
             .iter()
-            .map(|id| &self.productions[id.0])
+            .filter_map(|id| self.productions.get(*id))
     }
     /// Get `Production` parts by `ProductionId` (useful when building `ParseTree`)
     pub fn get_production_parts_by_id(
@@ -74,7 +141,7 @@ impl<'gram> Grammar<'gram> {
         prod_id: &ProductionId,
     ) -> (&'gram Term, &'gram crate::Expression) {
         self.productions
-            .get(prod_id.0)
+            .get(*prod_id)
             .map(|p| (p.lhs, p.rhs))
             .expect("invalid Production ID")
     }
@@ -87,7 +154,7 @@ impl<'gram> Grammar<'gram> {
             .get(lhs)
             .into_iter()
             .flat_map(|v| v.iter())
-            .map(|id| &self.productions[id.0])
+            .filter_map(|id| self.productions.get(*id))
     }
 }
 
@@ -108,10 +175,9 @@ impl<'gram> Terms<'gram> {
     }
 }
 
-/// Earley parsing operates on "state sets".
-/// `StateId` is this "state set" identifier.
+/// The input offset where the `State` started matching
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct StateId(usize);
+struct StateStart(usize);
 
 /// A sliding window over the input strings being parsed.
 #[derive(Clone)]
@@ -151,9 +217,6 @@ impl<'gram> InputRange<'gram> {
     pub fn is_complete(&self) -> bool {
         self.start == 0 && self.len == self.input.len()
     }
-    pub fn state_id(&self) -> StateId {
-        StateId(self.start + self.len)
-    }
 }
 
 /// A clear view of `InputRange`, in the format "InputRange(before | current | after)"
@@ -167,13 +230,29 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
     }
 }
 
+/// A unique ID for `State` in the append only vector
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct StateId(usize);
+
+impl From<usize> for StateId {
+    fn from(id: usize) -> Self {
+        Self(id)
+    }
+}
+
+impl From<StateId> for usize {
+    fn from(id: StateId) -> Self {
+        id.0
+    }
+}
+
 /// A matched `Term` which has been partially accepted
 #[derive(Debug, Clone, Copy)]
 enum TermMatch<'gram> {
     /// The `Term` matched with a terminal string
     Terminal(&'gram str),
     /// The `Term` matched with completed non-terminal `State`
-    NonTerminal(AppendOnlyVecKey),
+    NonTerminal(StateId),
 }
 
 /// One state in an Earley parser
@@ -250,6 +329,16 @@ fn predict<'gram, 'a>(
     })
 }
 
+/// TODO
+fn predict_nullable<'gram, 'a>(
+    matching: &'gram Term,
+    input_range: &'a InputRange<'gram>,
+    grammar: &'a Grammar<'gram>,
+) -> impl Iterator<Item = State<'gram>> + 'a {
+    // TODO
+    std::iter::empty()
+}
+
 /// Create new `State` if the current matching `Term` matches the next inpu text
 fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>> {
     state
@@ -275,10 +364,10 @@ fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>
 /// Then we say "<dna> ::= • <base>" is *completed* by "<base> ::= 'A' •",
 /// which yields a new state: "<dna> ::= <base> •"
 ///
-/// Note: An `State` can only be completed by another `State` with matching `StateId`.
+/// Note: An `State` can only be completed by another `State` with matching `StateStart`, the offset where the state is matching.
 /// This has been omitted from this example, but must be respected in real parsing.
 fn complete<'gram, 'a>(
-    key: AppendOnlyVecKey,
+    key: StateId,
     input_range: &'a InputRange<'gram>,
     parent: &'a State<'gram>,
 ) -> State<'gram> {
@@ -311,46 +400,20 @@ impl<'gram> StateProcessingKey {
 /// When completing `State`s, used to find matching `State`s
 #[derive(Debug, PartialEq, Eq, Hash)]
 struct StateCompletionKey<'gram> {
-    state_id: StateId,
+    state_start: StateStart,
     term: Option<&'gram Term>,
 }
 
 impl<'gram> StateCompletionKey<'gram> {
     pub fn from_state(state: &State<'gram>) -> Self {
-        let state_id = state.input_range.state_id();
+        let state_start = StateStart(state.input_range.start + state.input_range.len);
         let term = state.unmatched_terms.matching();
-        Self { state_id, term }
+        Self { state_start, term }
     }
     pub fn from_complete(state: &State<'gram>) -> Self {
-        let state_id = StateId(state.input_range.start);
+        let state_start = StateStart(state.input_range.start);
         let term = Some(state.lhs);
-        Self { state_id, term }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct AppendOnlyVecKey(usize);
-
-#[derive(Debug, Clone)]
-struct AppendOnlyVec<T> {
-    vec: Vec<T>,
-}
-
-impl<T> AppendOnlyVec<T> {
-    pub fn push(&mut self, item: T) -> AppendOnlyVecKey {
-        let idx = self.vec.len();
-        self.vec.push(item);
-        AppendOnlyVecKey(idx)
-    }
-
-    pub fn get(&self, key: AppendOnlyVecKey) -> Option<&T> {
-        self.vec.get(key.0)
-    }
-}
-
-impl<T> Default for AppendOnlyVec<T> {
-    fn default() -> Self {
-        Self { vec: Vec::new() }
+        Self { state_start, term }
     }
 }
 
@@ -358,8 +421,7 @@ impl<T> Default for AppendOnlyVec<T> {
 type StateUniqueSet = std::collections::HashSet<StateProcessingKey>;
 
 /// Map for finding matching `State`s on `complete`
-type StateCompletionMap<'gram> =
-    std::collections::HashMap<StateCompletionKey<'gram>, Vec<AppendOnlyVecKey>>;
+type StateCompletionMap<'gram> = std::collections::HashMap<StateCompletionKey<'gram>, Vec<StateId>>;
 
 /// Arena allocator for `State`s which also manages:
 /// * de-duplication of new `State`s
@@ -367,8 +429,8 @@ type StateCompletionMap<'gram> =
 /// * a map of `State`s for completion matching
 #[derive(Debug, Default)]
 struct StateArena<'gram> {
-    arena: AppendOnlyVec<State<'gram>>,
-    unprocessed: std::collections::VecDeque<AppendOnlyVecKey>,
+    arena: AppendOnlyVec<State<'gram>, StateId>,
+    unprocessed: std::collections::VecDeque<StateId>,
     processed_set: StateUniqueSet,
     matching_map: StateCompletionMap<'gram>,
 }
@@ -377,7 +439,7 @@ struct StateArena<'gram> {
 /// Does not return `State` directly, for simpler lifetimes.
 /// Full `State` is available via `StateArena::get` and `key`
 struct Unprocessed<'gram> {
-    key: AppendOnlyVecKey,
+    key: StateId,
     matching: Option<&'gram Term>,
     input_range: InputRange<'gram>,
 }
@@ -410,7 +472,7 @@ impl<'gram> StateArena<'gram> {
         }
     }
     /// Get `State` stored in arena by `ArenaKey`
-    pub fn get(&self, key: AppendOnlyVecKey) -> Option<&State<'gram>> {
+    pub fn get(&self, key: StateId) -> Option<&State<'gram>> {
         self.arena.get(key)
     }
     /// Get `State`s which match for state completion
@@ -504,6 +566,10 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 Some(matching @ Term::Nonterminal(_)) => {
                     let predictions = predict(matching, &input_range, &self.grammar);
                     self.state_arena.alloc_extend(predictions);
+
+                    let nullable_predictions =
+                        predict_nullable(matching, &input_range, &self.grammar);
+                    self.state_arena.alloc_extend(nullable_predictions);
                 }
                 // scan
                 Some(Term::Terminal(_)) => {

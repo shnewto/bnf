@@ -103,6 +103,7 @@ impl<'gram> Grammar<'gram> {
             let rhs_term_iter = prod.rhs.terms_iter();
 
             for (rhs_term_matched, rhs_term) in term_match_iter.zip(rhs_term_iter) {
+                println!("trying to null match {rhs_term:?}");
                 match rhs_term {
                     Term::Terminal(rhs_terminal) => {
                         if rhs_terminal.is_empty() {
@@ -361,11 +362,20 @@ fn predict<'gram, 'a>(
 /// TODO
 fn predict_nullable<'gram, 'a>(
     matching: &'gram Term,
-    input_range: &'a InputRange<'gram>,
+    parent: &'a State<'gram>,
     grammar: &'a Grammar<'gram>,
 ) -> impl Iterator<Item = State<'gram>> + 'a {
-    // TODO
-    std::iter::empty()
+    grammar
+        .ids_by_lhs
+        .get(matching)
+        .into_iter()
+        .flatten()
+        .filter(|prod_id| grammar.null_matches_by_id.contains_key(prod_id))
+        .map(|prod_id| {
+            let term_match = TermMatch::NullableNonTerminal(*prod_id);
+            let input_range_step = 0;
+            State::new_term_match(parent, term_match, input_range_step)
+        })
 }
 
 /// Create new `State` if the current matching `Term` matches the next inpu text
@@ -572,7 +582,7 @@ impl<'gram> ParseIter<'gram> {
                     state.map(|state| ParseTreeNode::Nonterminal(self.get_parse_tree(state)))
                 }
                 TermMatch::NullableNonTerminal(prod_id) => {
-                    todo!()
+                    Some(ParseTreeNode::Terminal("NULLABLE TODO"))
                 }
             })
             .collect();
@@ -599,13 +609,15 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     let predictions = predict(matching, &input_range, &self.grammar);
                     self.state_arena.alloc_extend(predictions);
 
-                    let nullable_predictions =
-                        predict_nullable(matching, &input_range, &self.grammar);
-                    self.state_arena.alloc_extend(nullable_predictions);
+                    let state = self.state_arena.get(state_id)?;
+                    let nullable_predictions = predict_nullable(matching, state, &self.grammar);
+                    created_states.extend(nullable_predictions);
+                    self.state_arena.alloc_extend(created_states.drain(..));
                 }
                 // scan
                 Some(Term::Terminal(_)) => {
                     let state = self.state_arena.get(state_id)?;
+
                     let scanned = scan(state);
                     created_states.extend(scanned);
                     self.state_arena.alloc_extend(created_states.drain(..));
@@ -720,6 +732,9 @@ mod tests {
 
         let parses = parse(&grammar, input);
         assert_eq!(parses.count(), 1);
+
+        let tree = parse(&grammar, input).next().unwrap();
+        println!("{tree}");
     }
 
     // #[test]

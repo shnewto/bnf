@@ -37,6 +37,12 @@ where
     pub fn get_mut(&mut self, id: I) -> Option<&mut T> {
         self.vec.get_mut::<usize>(id.into())
     }
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.vec.iter()
+    }
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        self.vec.iter_mut()
+    }
 }
 
 impl<T, K> Default for AppendOnlyVec<T, K> {
@@ -51,5 +57,29 @@ impl<T, K> From<Vec<T>> for AppendOnlyVec<T, K> {
             vec,
             id_type: std::marker::PhantomData,
         }
+    }
+}
+
+impl<T, K> IntoIterator for AppendOnlyVec<T, K> {
+    type Item = <Vec<T> as IntoIterator>::Item;
+    type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.into_iter()
+    }
+}
+
+impl<'a, T, K> IntoIterator for &'a AppendOnlyVec<T, K> {
+    type Item = &'a T;
+    type IntoIter = std::slice::Iter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.iter()
+    }
+}
+
+impl<'a, T, K> IntoIterator for &'a mut AppendOnlyVec<T, K> {
+    type Item = &'a mut T;
+    type IntoIter = std::slice::IterMut<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.iter_mut()
     }
 }

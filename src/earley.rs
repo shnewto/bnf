@@ -7,6 +7,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct ProductionId(usize);
 
+// TODO: move this into a macro
 impl From<usize> for ProductionId {
     fn from(id: usize) -> Self {
         Self(id)
@@ -26,15 +27,18 @@ struct Production<'gram> {
     id: ProductionId,
     lhs: &'gram Term,
     rhs: &'gram crate::Expression,
-    rhs_nullable: Option<Vec<TermMatch<'gram>>>,
 }
 
+type ProdIdMap<'gram> = std::collections::HashMap<&'gram Term, Vec<ProductionId>>;
+type NullMatchesMap<'gram> = std::collections::HashMap<ProductionId, Vec<Vec<TermMatch<'gram>>>>;
 /// `Production`s organized to be queried during parsing.
 /// Not to be confused with `crate::Grammar`.
 struct Grammar<'gram> {
     starting_production_ids: Vec<ProductionId>,
     productions: AppendOnlyVec<Production<'gram>, ProductionId>,
-    production_ids_by_lhs: std::collections::HashMap<&'gram Term, Vec<ProductionId>>,
+    ids_by_lhs: ProdIdMap<'gram>,
+    ids_by_rhs: ProdIdMap<'gram>,
+    null_matches_by_id: NullMatchesMap<'gram>,
 }
 
 impl<'gram> Grammar<'gram> {
@@ -47,88 +51,111 @@ impl<'gram> Grammar<'gram> {
             .lhs;
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
-        type ProdIdMap<'gram> = std::collections::HashMap<&'gram Term, Vec<ProductionId>>;
-        let mut production_ids_by_lhs = ProdIdMap::new();
-        let mut production_ids_by_rhs = ProdIdMap::new();
+        let mut ids_by_lhs = ProdIdMap::new();
+        let mut ids_by_rhs = ProdIdMap::new();
 
         let flat_prod_iter = grammar
             .productions_iter()
             .flat_map(|prod| prod.rhs_iter().map(|rhs| (&prod.lhs, rhs)));
 
-        let mut nullable_queue = Vec::<ProductionId>::new();
-
         for (lhs, rhs) in flat_prod_iter {
             let prod = productions.push_with_id(|id| {
-                let prod = Production {
-                    id,
-                    lhs,
-                    rhs,
-                    rhs_nullable: None,
-                };
+                let prod = Production { id, lhs, rhs };
                 prod
             });
             let id = prod.id;
 
-            production_ids_by_lhs.entry(lhs).or_default().push(id);
+            ids_by_lhs.entry(lhs).or_default().push(id);
 
             for rhs in rhs.terms_iter() {
-                production_ids_by_rhs.entry(rhs).or_default().push(id);
-            }
-
-            let is_rhs_all_empty = rhs.terms_iter().all(|term| match term {
-                Term::Terminal(term) if term.is_empty() => true,
-                _ => false,
-            });
-
-            if is_rhs_all_empty {
-                let production = productions.get_mut(id).expect("invalid production ID");
-
-                let empty_string_match = TermMatch::Terminal("");
-                let null_matches: Vec<TermMatch> = production
-                    .rhs
-                    .terms_iter()
-                    .map(|_| empty_string_match)
-                    .collect();
-                production.rhs_nullable = Some(null_matches);
-
-                let nullable_ids = production_ids_by_rhs
-                    .get(production.lhs)
-                    .into_iter()
-                    .flatten();
-                nullable_queue.extend(nullable_ids);
+                ids_by_rhs.entry(rhs).or_default().push(id);
             }
         }
 
-        while let Some(id) = nullable_queue.pop() {
-            println!("PROD ID {id:?} may be nullable");
-
-            let production = productions.get_mut(id).expect("invalid production ID");
-
-            // TODO
-            // let null_matches: Option<Vec<TermMatch>> = production
-            //     .rhs
-            //     .terms_iter()
-            //     .map(|term| match term {
-            //         Term::Terminal(term) if term.is_empty() => Some(TermMatch::Terminal("")),
-            //         Term::Nonterminal(_) => {
-            //             let a = production_ids_by_lhs.get(term);
-            //             todo!()
-            //         }
-            //         _ => None,
-            //     })
-            //     .collect();
-        }
-
-        let starting_production_ids = production_ids_by_lhs
+        let starting_production_ids = ids_by_lhs
             .get(starting_term)
             .expect("starting Term has no production")
             .clone();
 
+        let null_matches_by_id =
+            Self::match_nullable_productions(&productions, &ids_by_lhs, &ids_by_rhs);
+
         Self {
-            starting_production_ids,
+            ids_by_lhs,
+            ids_by_rhs,
+            null_matches_by_id,
             productions,
-            production_ids_by_lhs,
+            starting_production_ids,
         }
+    }
+    fn match_nullable_productions(
+        productions: &AppendOnlyVec<Production<'gram>, ProductionId>,
+        ids_by_lhs: &ProdIdMap<'gram>,
+        ids_by_rhs: &ProdIdMap<'gram>,
+    ) -> NullMatchesMap<'gram> {
+        let mut null_matches_by_id = NullMatchesMap::new();
+        let mut queue = std::collections::VecDeque::<ProductionId>::new();
+
+        let mut match_null_production = |prod: &Production| -> Option<&Vec<ProductionId>> {
+            let mut nullable_terms_match: Vec<Vec<TermMatch>> =
+                vec![Vec::new(); prod.rhs.terms.len()];
+            let term_match_iter = nullable_terms_match.iter_mut();
+            let rhs_term_iter = prod.rhs.terms_iter();
+
+            for (rhs_term_matched, rhs_term) in term_match_iter.zip(rhs_term_iter) {
+                match rhs_term {
+                    Term::Terminal(rhs_terminal) => {
+                        if rhs_terminal.is_empty() {
+                            *rhs_term_matched = vec![TermMatch::Terminal("")];
+                        }
+                    }
+                    Term::Nonterminal(_) => {
+                        let null_matches: Vec<TermMatch> = ids_by_lhs
+                            .get(rhs_term)
+                            .into_iter()
+                            .flatten()
+                            .filter(|term_prod_id| null_matches_by_id.contains_key(term_prod_id))
+                            .map(|prod_id| TermMatch::NullableNonTerminal(*prod_id))
+                            .collect();
+
+                        if !null_matches.is_empty() {
+                            *rhs_term_matched = null_matches
+                        }
+                    }
+                };
+
+                // if rhs term went unmatched then all rhs cannot be matched
+                if rhs_term_matched.is_empty() {
+                    break;
+                }
+            }
+
+            // success!
+            if nullable_terms_match.iter().all(|terms| !terms.is_empty()) {
+                println!("PROD ID {:?} is nullable", prod.id);
+                null_matches_by_id.insert(prod.id, nullable_terms_match);
+                ids_by_rhs.get(prod.lhs)
+            } else {
+                None
+            }
+        };
+
+        for prod in productions.iter() {
+            if let Some(affected_prod_ids) = match_null_production(prod) {
+                queue.extend(affected_prod_ids);
+            }
+        }
+
+        while let Some(prod_id) = queue.pop_front() {
+            println!("PROD ID {prod_id:?} may be nullable");
+            let prod = productions.get(prod_id).expect("invalid production ID");
+
+            if let Some(affected_prod_ids) = match_null_production(prod) {
+                queue.extend(affected_prod_ids);
+            }
+        }
+
+        null_matches_by_id
     }
     pub fn starting_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.starting_production_ids
@@ -150,7 +177,7 @@ impl<'gram> Grammar<'gram> {
         &self,
         lhs: &'gram Term,
     ) -> impl Iterator<Item = &Production<'gram>> {
-        self.production_ids_by_lhs
+        self.ids_by_lhs
             .get(lhs)
             .into_iter()
             .flat_map(|v| v.iter())
@@ -253,6 +280,8 @@ enum TermMatch<'gram> {
     Terminal(&'gram str),
     /// The `Term` matched with completed non-terminal `State`
     NonTerminal(StateId),
+    /// TODO
+    NullableNonTerminal(ProductionId),
 }
 
 /// One state in an Earley parser
@@ -542,6 +571,9 @@ impl<'gram> ParseIter<'gram> {
                     let state = self.state_arena.get(*state_id);
                     state.map(|state| ParseTreeNode::Nonterminal(self.get_parse_tree(state)))
                 }
+                TermMatch::NullableNonTerminal(prod_id) => {
+                    todo!()
+                }
             })
             .collect();
 
@@ -733,6 +765,9 @@ mod tests {
     //     let parses = parse(&grammar, input);
     //     assert_eq!(parses.count(), 1);
     // }
+
+    // TODO: test case for <start> ::= <a> | <b>, with both <a> and <b> nullable should give two parses
+    // TODO: test case for <nonterm> without a rule
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
     // #[test]

@@ -3,13 +3,91 @@ mod input_range;
 mod traversal;
 
 use crate::ParseTree;
+use grammar::MatchingGrammar;
+use input_range::InputRange;
+use std::collections::HashMap;
+use traversal::{Traversal, TraversalCompletionKey, TraversalCompletionQueue};
+
+fn predict<'gram>(traversal: &Traversal<'gram>) -> impl Iterator<Item = Traversal<'gram>> {
+    // TODO
+    std::iter::empty()
+}
+
+fn predict_nullable<'gram>(traversal: &Traversal<'gram>) -> impl Iterator<Item = Traversal<'gram>> {
+    // TODO
+    std::iter::empty()
+}
+
+fn scan<'gram>(traversal: &Traversal<'gram>) -> impl Iterator<Item = Traversal<'gram>> {
+    // TODO
+    std::iter::empty()
+}
+
+fn complete<'gram>(
+    traversal: &Traversal<'gram>,
+    incomplete: &HashMap<TraversalCompletionKey, Vec<Traversal<'gram>>>,
+) -> impl Iterator<Item = Traversal<'gram>> {
+    // TODO
+    std::iter::empty()
+}
+
+#[derive(Debug)]
+struct ParseIter<'gram> {
+    grammar: MatchingGrammar<'gram>,
+    traversal_queue: TraversalCompletionQueue<'gram>,
+    incomplete: HashMap<TraversalCompletionKey<'gram>, Vec<Traversal<'gram>>>,
+}
+
+impl<'gram> ParseIter<'gram> {
+    pub fn new(grammar: &'gram crate::Grammar, input: &'gram str) -> Self {
+        let grammar = MatchingGrammar::new(grammar);
+        let input_range = InputRange::new(input);
+        let traversal_queue = TraversalCompletionQueue::new(&grammar, input_range);
+
+        Self {
+            grammar,
+            traversal_queue,
+            incomplete: Default::default(),
+        }
+    }
+    fn parse_tree(traversal: Traversal<'gram>) -> ParseTree<'gram> {
+        todo!()
+    }
+}
+
+impl<'gram> Iterator for ParseIter<'gram> {
+    type Item = ParseTree<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let fully_complete_traversal = self.traversal_queue.process(|traversal| {
+            let mut created = Vec::<Traversal>::new();
+            match traversal.matching() {
+                // predict
+                Some(matching @ crate::Term::Nonterminal(_)) => {
+                    created.extend(predict(traversal));
+                    created.extend(predict_nullable(traversal));
+                }
+                // scan
+                Some(crate::Term::Terminal(_)) => {
+                    created.extend(scan(traversal));
+                }
+                // complete
+                None => {
+                    created.extend(complete(traversal, &self.incomplete));
+                }
+            }
+            created.into_iter()
+        });
+
+        fully_complete_traversal.map(Self::parse_tree)
+    }
+}
 
 pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
     input: &'gram str,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
-    todo!();
-    std::iter::empty()
+    ParseIter::new(grammar, input)
 }
 
 #[cfg(test)]

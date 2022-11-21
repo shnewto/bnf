@@ -1,7 +1,7 @@
 macro_rules! append_only_vec_id {
-    ($id:ident) => {
+    ($visible:vis $id:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        struct $id(usize);
+        $visible struct $id(usize);
 
         impl From<usize> for $id {
             fn from(id: usize) -> Self {

@@ -1,24 +1,11 @@
 use crate::{
-    append_vec::AppendOnlyVec,
+    append_vec::{append_only_vec_id, AppendOnlyVec},
     grammar::{ParseTree, ParseTreeNode},
     Term,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct ProductionId(usize);
-
-// TODO: move this into a macro
-impl From<usize> for ProductionId {
-    fn from(id: usize) -> Self {
-        Self(id)
-    }
-}
-
-impl From<ProductionId> for usize {
-    fn from(id: ProductionId) -> Self {
-        id.0
-    }
-}
+append_only_vec_id!(ProductionId);
+append_only_vec_id!(StateId);
 
 /// `crate::Production` offers multiple possible "right hand side" `Expression`s, which is overly flexible for Earley parsing.
 /// `earley::Production` is a one-to-one relationship of `Term` -> `Expression`.
@@ -39,6 +26,7 @@ struct Grammar<'gram> {
     ids_by_lhs: ProdIdMap<'gram>,
     ids_by_rhs: ProdIdMap<'gram>,
     null_matches_by_id: NullMatchesMap<'gram>,
+    // null_matches: AppendOnlyVec<TermMatch<'gram>, ()>,
 }
 
 impl<'gram> Grammar<'gram> {
@@ -255,22 +243,6 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
         let scanned = &self.input[self.start..][..self.len];
         let after = &self.input[self.start..][self.len..];
         write!(f, "InputRange({:?} | {:?} | {:?})", before, scanned, after)
-    }
-}
-
-/// A unique ID for `State` in the append only vector
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct StateId(usize);
-
-impl From<usize> for StateId {
-    fn from(id: usize) -> Self {
-        Self(id)
-    }
-}
-
-impl From<StateId> for usize {
-    fn from(id: StateId) -> Self {
-        id.0
     }
 }
 
@@ -582,6 +554,15 @@ impl<'gram> ParseIter<'gram> {
                     state.map(|state| ParseTreeNode::Nonterminal(self.get_parse_tree(state)))
                 }
                 TermMatch::NullableNonTerminal(prod_id) => {
+                    // TODO NEXT: oh, but WHICH nullable prod rule was used?
+                    // MAYBE "NullMatch" is not actually a TermMatch (altho similar)
+                    // and MAYBE "matches" should also be AppendVec?
+                    // can AppendVec give slices of multiple inserts? avoid Vec<T> everywhere...
+                    let foo = self
+                        .grammar
+                        .null_matches_by_id
+                        .get(prod_id)
+                        .expect("invalid production ID");
                     Some(ParseTreeNode::Terminal("NULLABLE TODO"))
                 }
             })
@@ -783,6 +764,7 @@ mod tests {
 
     // TODO: test case for <start> ::= <a> | <b>, with both <a> and <b> nullable should give two parses
     // TODO: test case for <nonterm> without a rule
+    // TODO: property test which inserts empty rule terms and should still parse
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
     // #[test]

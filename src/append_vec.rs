@@ -1,3 +1,24 @@
+macro_rules! append_only_vec_id {
+    ($id:ident) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        struct $id(usize);
+
+        impl From<usize> for $id {
+            fn from(id: usize) -> Self {
+                Self(id)
+            }
+        }
+
+        impl From<$id> for usize {
+            fn from(id: $id) -> Self {
+                id.0
+            }
+        }
+    };
+}
+
+pub(crate) use append_only_vec_id;
+
 #[derive(Debug, Clone)]
 pub(crate) struct AppendOnlyVec<T, I> {
     vec: Vec<T>,

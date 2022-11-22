@@ -1,14 +1,20 @@
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct InputRangeOffset {
-    start: usize,
-    len: usize,
+    pub start: usize,
+    pub len: usize,
+}
+
+impl InputRangeOffset {
+    pub fn total_len(&self) -> usize {
+        self.start + self.len
+    }
 }
 
 /// A sliding window over the input strings being parsed.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct InputRange<'gram> {
     input: &'gram str,
-    pub(crate) offset: InputRangeOffset,
+    pub offset: InputRangeOffset,
 }
 
 impl<'gram> InputRange<'gram> {
@@ -44,5 +50,17 @@ impl<'gram> InputRange<'gram> {
     }
     pub fn is_complete(&self) -> bool {
         self.offset.start == 0 && self.offset.len == self.input.len()
+    }
+}
+
+/// A clear view of `InputRange`, in the format "InputRange(before | current | after)"
+/// e.g., "`InputRange`(["1", "+", "("] | ["2"] | ["*", "3", "-", "4", ")"])"
+impl<'gram> std::fmt::Debug for InputRange<'gram> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let InputRangeOffset { start, len } = self.offset;
+        let before = &self.input[..start];
+        let scanned = &self.input[start..][..len];
+        let after = &self.input[start..][len..];
+        write!(f, "InputRange({before:?} | {scanned:?} | {after:?})")
     }
 }

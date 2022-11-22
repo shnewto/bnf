@@ -372,7 +372,7 @@ fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>
 /// For example, given a pending Earley state "<dna> ::= • <base>" (<dna> is pending on <base>)
 /// and a completed Earley state "<base> ::= 'A' •".
 ///
-/// Then we say "<dna> ::= • <base>" is *completed* by "<base> ::= 'A' •",
+/// Then "<dna> ::= • <base>" is *completed* by "<base> ::= 'A' •",
 /// which yields a new state: "<dna> ::= <base> •"
 ///
 /// Note: An `State` can only be completed by another `State` with matching `StateStart`, the offset where the state is matching.

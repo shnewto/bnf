@@ -1,15 +1,16 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
+use std::collections::VecDeque;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum TermMatch<'gram> {
     Terminal(&'gram str),
-    Nonterminal(Vec<TermMatch<'gram>>),
+    Nonterminal(ProductionMatch<'gram>),
 }
 
-#[derive(Debug)]
-pub(crate) enum MatchingTerm<'gram> {
+#[derive(Debug, Clone)]
+pub(crate) enum TermMatching<'gram> {
     Unmatched(&'gram crate::Term),
     Matched(TermMatch<'gram>),
 }
@@ -24,39 +25,110 @@ pub(crate) struct Production<'gram> {
 }
 
 impl<'gram> Production<'gram> {
-    pub fn start_matching(&self) -> MatchingProduction<'gram> {
+    pub fn start_matching(&self) -> ProductionMatching<'gram> {
         let prod_id = self.id;
-        let matching = self.rhs.terms_iter().map(MatchingTerm::Unmatched).collect();
-        MatchingProduction {
+        let lhs = self.lhs;
+        let rhs = self.rhs.terms_iter().map(TermMatching::Unmatched).collect();
+        ProductionMatching {
             prod_id,
-            matching,
-            matching_idx: 0,
+            lhs,
+            rhs,
+            matched_count: 0,
         }
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct MatchingProduction<'gram> {
-    pub(crate) prod_id: ProductionId,
-    matching: Vec<MatchingTerm<'gram>>,
-    matching_idx: usize,
+pub(crate) struct ProductionMatching<'gram> {
+    pub prod_id: ProductionId,
+    pub lhs: &'gram crate::Term,
+    rhs: Vec<TermMatching<'gram>>,
+    matched_count: usize,
 }
 
-impl<'gram> MatchingProduction<'gram> {
-    pub fn unmatched(&self) -> &[MatchingTerm] {
-        &self.matching[self.matching_idx..]
+impl<'gram> ProductionMatching<'gram> {
+    pub fn complete(&self) -> Option<ProductionMatch<'gram>> {
+        let rhs: Option<Vec<TermMatch>> = self
+            .rhs
+            .iter()
+            .map(|term| match term {
+                TermMatching::Unmatched(_) => None,
+                // TODO: avoid clone
+                TermMatching::Matched(term) => Some(term.clone()),
+            })
+            .collect();
+
+        rhs.map(|rhs| {
+            let input_len = rhs
+                .iter()
+                .map(|term| match term {
+                    TermMatch::Terminal(term) => term.len(),
+                    TermMatch::Nonterminal(prod) => prod.input_len,
+                })
+                .sum();
+
+            ProductionMatch {
+                prod_id: self.prod_id,
+                lhs: self.lhs,
+                rhs,
+                input_len,
+            }
+        })
     }
-    pub fn matching(&self) -> Option<&MatchingTerm<'gram>> {
-        self.matching.get(self.matching_idx)
+    pub fn next(&self) -> Option<&'gram crate::Term> {
+        self.rhs.get(self.matched_count).map(|term| match term {
+            TermMatching::Matched(_) => {
+                unreachable!("terms ahead of matching cursor cannot already be matched")
+            }
+            TermMatching::Unmatched(term) => *term,
+        })
+    }
+    pub fn matched_count(&self) -> usize {
+        self.matched_count
+    }
+    pub fn match_term(&self, term_match: TermMatch<'gram>) -> Option<Self> {
+        // only match term if there is next
+        self.next().map(|_| {
+            let Self {
+                lhs,
+                matched_count,
+                rhs,
+                prod_id,
+            } = self;
+            let prod_id = prod_id.clone();
+
+            // TODO: avoid clone
+            let mut rhs = rhs.clone();
+            rhs[*matched_count] = TermMatching::Matched(term_match);
+            let matched_count = matched_count + 1;
+
+            Self {
+                lhs,
+                matched_count,
+                prod_id,
+                rhs,
+            }
+        })
     }
 }
+
+#[derive(Debug, Clone)]
+pub(crate) struct ProductionMatch<'gram> {
+    pub prod_id: ProductionId,
+    pub lhs: &'gram crate::Term,
+    pub rhs: Vec<TermMatch<'gram>>,
+    pub input_len: usize,
+}
+
+impl<'gram> ProductionMatch<'gram> {}
 
 type ProdArena<'gram> = AppendOnlyVec<Production<'gram>, ProductionId>;
 type ProdTermMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec<ProductionId>>;
-type NullMatchMap<'gram> = std::collections::HashMap<ProductionId, Vec<MatchingProduction<'gram>>>;
+type NullMatchMap<'gram> =
+    std::collections::HashMap<&'gram crate::Term, Vec<ProductionMatch<'gram>>>;
 
 #[derive(Debug)]
-pub(crate) struct MatchingGrammar<'gram> {
+pub(crate) struct GrammarMatching<'gram> {
     starting_production_ids: Vec<ProductionId>,
     productions: ProdArena<'gram>,
     prods_by_lhs: ProdTermMap<'gram>,
@@ -70,13 +142,14 @@ fn find_null_matches<'gram>(
     prods_by_rhs: &ProdTermMap<'gram>,
 ) -> NullMatchMap<'gram> {
     let mut null_matches_by_prod = NullMatchMap::new();
+    let mut queue = VecDeque::<ProductionId>::new();
 
-    // TODO
+    // TODO NEXT
 
     null_matches_by_prod
 }
 
-impl<'gram> MatchingGrammar<'gram> {
+impl<'gram, 'a> GrammarMatching<'gram> {
     pub fn new(grammar: &'gram crate::Grammar) -> Self {
         let starting_term = &grammar
             .productions_iter()
@@ -125,5 +198,24 @@ impl<'gram> MatchingGrammar<'gram> {
         self.starting_production_ids
             .iter()
             .filter_map(|prod_id| self.productions.get(*prod_id))
+    }
+    pub fn get_production_by_id(&'a self, prod_id: ProductionId) -> Option<&'a Production<'gram>> {
+        self.productions.get(prod_id)
+    }
+    pub fn get_productions_by_lhs(
+        &self,
+        lhs: &'gram crate::Term,
+    ) -> impl Iterator<Item = &Production<'gram>> {
+        self.prods_by_lhs
+            .get(lhs)
+            .into_iter()
+            .flatten()
+            .filter_map(|prod_id| self.get_production_by_id(*prod_id))
+    }
+    pub fn get_nullable_production_matches_by_lhs(
+        &self,
+        lhs: &'gram crate::Term,
+    ) -> impl Iterator<Item = &ProductionMatch<'gram>> {
+        self.null_matches_by_prod.get(lhs).into_iter().flatten()
     }
 }

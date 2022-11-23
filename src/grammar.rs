@@ -251,7 +251,7 @@ impl Grammar {
 
     /// Parse input strings according to `Grammar`
     pub fn parse_input<'gram>(&'gram self, input: &'gram str) -> impl Iterator<Item = ParseTree> {
-        crate::earley::parse(self, input)
+        crate::new_earley::parse(self, input)
     }
 
     fn eval_terminal(

@@ -30,7 +30,7 @@ impl<'gram> InputRange<'gram> {
     }
     pub fn after(&self) -> Self {
         Self {
-            input: self.next(),
+            input: self.input,
             offset: InputRangeOffset {
                 start: self.offset.start + self.offset.len,
                 len: 0,
@@ -61,6 +61,10 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
         let before = &self.input[..start];
         let scanned = &self.input[start..][..len];
         let after = &self.input[start..][len..];
-        write!(f, "InputRange({before:?} | {scanned:?} | {after:?})")
+        write!(
+            f,
+            "InputRange({before:?} | {scanned:?} | {after:?}) ({:?})",
+            self.offset
+        )
     }
 }

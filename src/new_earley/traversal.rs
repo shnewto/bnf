@@ -19,7 +19,7 @@ pub(crate) struct Traversal<'gram> {
 
 impl<'gram> Traversal<'gram> {
     pub fn start_production(prod: &Production<'gram>, input_range: &InputRange<'gram>) -> Self {
-        let input_range = input_range.clone();
+        let input_range = input_range.after();
         let matching = prod.start_matching();
         Self {
             matching,
@@ -106,8 +106,6 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         for traversal in traversals {
             let processed_key = traversal.duplicate_key();
             let is_new_traversal = self.processed.insert(processed_key);
-            let prefix = if is_new_traversal { "NEW" } else { "DUPE" };
-            println!("{prefix} {traversal:#?}");
 
             if !is_new_traversal {
                 continue;
@@ -133,9 +131,7 @@ impl<'gram> TraversalCompletionQueue<'gram> {
             };
 
             let new_traversals = handler(traversal);
-            let before = self.queue.len();
             self.extend(new_traversals);
-            for trav in self.queue.range(before..).into_iter() {}
 
             if let Some(prod_match) = full_prod_match {
                 return Some(prod_match);

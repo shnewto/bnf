@@ -1,5 +1,4 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
-use std::collections::VecDeque;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
@@ -38,7 +37,7 @@ impl<'gram> Production<'gram> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ProductionMatching<'gram> {
     pub prod_id: ProductionId,
     pub lhs: &'gram crate::Term,
@@ -68,7 +67,6 @@ impl<'gram> ProductionMatching<'gram> {
                 .sum();
 
             ProductionMatch {
-                prod_id: self.prod_id,
                 lhs: self.lhs,
                 rhs,
                 input_len,
@@ -114,7 +112,6 @@ impl<'gram> ProductionMatching<'gram> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ProductionMatch<'gram> {
-    pub prod_id: ProductionId,
     pub lhs: &'gram crate::Term,
     pub rhs: Vec<TermMatch<'gram>>,
     pub input_len: usize,
@@ -132,21 +129,7 @@ pub(crate) struct GrammarMatching<'gram> {
     starting_production_ids: Vec<ProductionId>,
     productions: ProdArena<'gram>,
     prods_by_lhs: ProdTermMap<'gram>,
-    prods_by_rhs: ProdTermMap<'gram>,
-    null_matches_by_prod: NullMatchMap<'gram>,
-}
-
-fn find_null_matches<'gram>(
-    productions: &ProdArena<'gram>,
-    prods_by_lhs: &ProdTermMap<'gram>,
-    prods_by_rhs: &ProdTermMap<'gram>,
-) -> NullMatchMap<'gram> {
-    let mut null_matches_by_prod = NullMatchMap::new();
-    let mut queue = VecDeque::<ProductionId>::new();
-
-    // TODO NEXT
-
-    null_matches_by_prod
+    null_matches_by_lhs: NullMatchMap<'gram>,
 }
 
 impl<'gram, 'a> GrammarMatching<'gram> {
@@ -184,16 +167,57 @@ impl<'gram, 'a> GrammarMatching<'gram> {
             .expect("starting Term has no production")
             .clone();
 
-        let null_matches_by_prod = find_null_matches(&productions, &prods_by_lhs, &prods_by_rhs);
+        let null_matches_by_lhs = NullMatchMap::new();
 
-        Self {
+        let mut grammar = Self {
             prods_by_lhs,
-            prods_by_rhs,
-            null_matches_by_prod,
+            null_matches_by_lhs,
             productions,
             starting_production_ids,
+        };
+
+        grammar.find_null_matches();
+
+        grammar
+    }
+    fn find_null_matches(&mut self) {
+        let mut null_matchings: Vec<ProductionMatching> = self
+            .productions
+            .iter()
+            .map(|prod| prod.start_matching())
+            .collect();
+
+        while let Some(null_match) = null_matchings.pop() {
+            match null_match.next() {
+                None => self
+                    .null_matches_by_lhs
+                    .entry(null_match.lhs)
+                    .or_default()
+                    .push(null_match.complete().unwrap()),
+                Some(unmatched_term) => match unmatched_term {
+                    crate::Term::Terminal(terminal) => {
+                        if terminal.is_empty() {
+                            let new_null_match =
+                                null_match.match_term(TermMatch::Terminal("")).unwrap();
+                            null_matchings.push(new_null_match);
+                        }
+                    }
+                    crate::Term::Nonterminal(_) => {
+                        if let Some(null_term_prod) = self.null_matches_by_lhs.get(&unmatched_term)
+                        {
+                            let new_null_match = null_term_prod.iter().map(|rhs_match| {
+                                null_match
+                                    .match_term(TermMatch::Nonterminal(rhs_match.clone()))
+                                    .unwrap()
+                            });
+                            null_matchings.extend(new_null_match);
+                        }
+                    }
+                },
+            };
         }
     }
+
     pub fn starting_productions(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.starting_production_ids
             .iter()
@@ -216,6 +240,6 @@ impl<'gram, 'a> GrammarMatching<'gram> {
         &self,
         lhs: &'gram crate::Term,
     ) -> impl Iterator<Item = &ProductionMatch<'gram>> {
-        self.null_matches_by_prod.get(lhs).into_iter().flatten()
+        self.null_matches_by_lhs.get(lhs).into_iter().flatten()
     }
 }

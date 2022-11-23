@@ -91,7 +91,6 @@ impl<'gram> Grammar<'gram> {
             let rhs_term_iter = prod.rhs.terms_iter();
 
             for (rhs_term_matched, rhs_term) in term_match_iter.zip(rhs_term_iter) {
-                println!("trying to null match {rhs_term:?}");
                 match rhs_term {
                     Term::Terminal(rhs_terminal) => {
                         if rhs_terminal.is_empty() {
@@ -121,7 +120,6 @@ impl<'gram> Grammar<'gram> {
 
             // success!
             if nullable_terms_match.iter().all(|terms| !terms.is_empty()) {
-                println!("PROD ID {:?} is nullable", prod.id);
                 null_matches_by_id.insert(prod.id, nullable_terms_match);
                 ids_by_rhs.get(prod.lhs)
             } else {
@@ -136,7 +134,6 @@ impl<'gram> Grammar<'gram> {
         }
 
         while let Some(prod_id) = queue.pop_front() {
-            println!("PROD ID {prod_id:?} may be nullable");
             let prod = productions.get(prod_id).expect("invalid production ID");
 
             if let Some(affected_prod_ids) = match_null_production(prod) {
@@ -713,9 +710,6 @@ mod tests {
 
         let parses = parse(&grammar, input);
         assert_eq!(parses.count(), 1);
-
-        let tree = parse(&grammar, input).next().unwrap();
-        println!("{tree}");
     }
 
     // #[test]

@@ -305,9 +305,8 @@ mod tests {
         let input = "";
 
         let parses = parse(&grammar, input);
-        assert_eq!(parses.count(), 2);
+        assert_eq!(parses.count(), 3);
 
-        println!("{grammar:#?}");
         println!("input: '{input}'");
         let mut parses = parse(&grammar, input);
         while let Some(parse) = parses.next() {

@@ -6,6 +6,7 @@ use crate::{ParseTree, ParseTreeNode, Term};
 use grammar::{GrammarMatching, ProductionMatch, TermMatch};
 use input_range::InputRange;
 use std::collections::HashMap;
+use std::rc::Rc;
 use traversal::{EarleyStep, Traversal, TraversalCompletionQueue};
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -83,15 +84,29 @@ fn complete<'gram, 'a>(
 }
 
 #[derive(Debug)]
+pub struct EarleyParser<'gram> {
+    grammar: Rc<GrammarMatching<'gram>>,
+}
+
+impl<'gram> EarleyParser<'gram> {
+    pub fn new(grammar: &'gram crate::Grammar) -> Self {
+        let grammar = GrammarMatching::new(grammar);
+        let grammar = Rc::new(grammar);
+        Self { grammar }
+    }
+    pub fn parse<'a>(&'a self, input: &'gram str) -> impl Iterator<Item = ParseTree<'gram>> + 'a {
+        ParseIter::new(self.grammar.clone(), input)
+    }
+}
+
 struct ParseIter<'gram> {
-    grammar: GrammarMatching<'gram>,
+    grammar: Rc<GrammarMatching<'gram>>,
     traversal_queue: TraversalCompletionQueue<'gram>,
     incomplete: TermCompletionMap<'gram>,
 }
 
 impl<'gram> ParseIter<'gram> {
-    pub fn new(grammar: &'gram crate::Grammar, input: &'gram str) -> Self {
-        let grammar = GrammarMatching::new(grammar);
+    pub fn new<'a>(grammar: Rc<GrammarMatching<'gram>>, input: &'gram str) -> Self {
         let input_range = InputRange::new(input);
         let traversal_queue = TraversalCompletionQueue::new(&grammar, input_range);
 
@@ -156,6 +171,8 @@ pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
     input: &'gram str,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let grammar = GrammarMatching::new(grammar);
+    let grammar = Rc::new(grammar);
     ParseIter::new(grammar, input)
 }
 
@@ -304,11 +321,12 @@ mod tests {
 
         let input = "";
 
-        let parses = parse(&grammar, input);
-        assert_eq!(parses.count(), 3);
+        // take first 100 parses of infinite parse iterator
+        let parses = parse(&grammar, input).take(100);
+        assert_eq!(parses.count(), 100);
 
         println!("input: '{input}'");
-        let mut parses = parse(&grammar, input);
+        let mut parses = parse(&grammar, input).take(100);
         while let Some(parse) = parses.next() {
             println!("{parse}")
         }

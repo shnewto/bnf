@@ -254,6 +254,11 @@ impl Grammar {
         crate::new_earley::parse(self, input)
     }
 
+    /// Get reusable parser according to `Grammar`
+    pub fn parser<'gram>(&'gram self) -> GrammarParser<'gram> {
+        GrammarParser::new(self)
+    }
+
     fn eval_terminal(
         &self,
         term: &Term,
@@ -446,6 +451,22 @@ impl str::FromStr for Grammar {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct GrammarParser<'gram> {
+    parser: crate::new_earley::EarleyParser<'gram>,
+}
+
+impl<'gram> GrammarParser<'gram> {
+    pub fn new(grammar: &'gram Grammar) -> Self {
+        Self {
+            parser: crate::new_earley::EarleyParser::new(grammar),
+        }
+    }
+    pub fn parse<'a>(&'a self, input: &'gram str) -> impl Iterator<Item = ParseTree<'gram>> + 'a {
+        self.parser.parse(input)
     }
 }
 
@@ -683,6 +704,22 @@ mod tests {
 
         let mut parses = grammar.parse_input(input);
         assert!(matches!(parses.next(), Some(_)));
+    }
+
+    #[test]
+    fn parse_dna_reused() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            .parse()
+            .unwrap();
+        let parser = grammar.parser();
+
+        let input = "GATTACA";
+
+        // reusing parser should give same parse tree iterations
+        let mut first = parser.parse(input);
+        let mut second = parser.parse(input);
+        assert!(first.eq(second));
     }
 
     #[test]

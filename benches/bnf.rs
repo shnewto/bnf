@@ -3,17 +3,17 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rand::seq::SliceRandom;
 
 fn examples(c: &mut Criterion) {
-    c.bench_function("parse postal", |b| {
-        let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
-        b.iter(|| input.parse::<Grammar>().unwrap());
-    });
+    // c.bench_function("parse postal", |b| {
+    //     let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
+    //     b.iter(|| input.parse::<Grammar>().unwrap());
+    // });
 
-    c.bench_function("generate DNA", |b| {
-        let input = "<dna> ::= <base> | <base> <dna>
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-        let grammar: Grammar = input.parse().unwrap();
-        b.iter(|| grammar.generate().unwrap());
-    });
+    // c.bench_function("generate DNA", |b| {
+    //     let input = "<dna> ::= <base> | <base> <dna>
+    //         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    //     let grammar: Grammar = input.parse().unwrap();
+    //     b.iter(|| grammar.generate().unwrap());
+    // });
 
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= \"+\" | \"-\" | \"*\" | \"/\"
@@ -31,6 +31,14 @@ fn examples(c: &mut Criterion) {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
             let _: Vec<_> = polish_calc_grammar.parse_input(input).collect();
+        })
+    });
+
+    c.bench_function("reuse polish calculator parser", |b| {
+        let parser = polish_calc_grammar.parser();
+        b.iter(|| {
+            let input = random_walks.choose(&mut rng).unwrap();
+            let _: Vec<_> = parser.parse(input).collect();
         })
     });
 }

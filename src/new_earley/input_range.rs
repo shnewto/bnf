@@ -2,6 +2,7 @@
 pub(crate) struct InputRangeOffset {
     pub start: usize,
     pub len: usize,
+    pub null_count: usize,
 }
 
 impl InputRangeOffset {
@@ -21,7 +22,11 @@ impl<'gram> InputRange<'gram> {
     pub fn new(input: &'gram str) -> Self {
         Self {
             input,
-            offset: InputRangeOffset { start: 0, len: 0 },
+            offset: InputRangeOffset {
+                start: 0,
+                len: 0,
+                null_count: 0,
+            },
         }
     }
     pub fn next(&self) -> &'gram str {
@@ -34,17 +39,24 @@ impl<'gram> InputRange<'gram> {
             offset: InputRangeOffset {
                 start: self.offset.start + self.offset.len,
                 len: 0,
+                null_count: self.offset.null_count,
             },
         }
     }
     pub fn advance_by(&self, step: usize) -> Self {
-        let max_len = self.input.len() - self.offset.start;
-        let len = std::cmp::min(self.offset.len + step, max_len);
+        let InputRangeOffset {
+            start,
+            len,
+            null_count,
+        } = self.offset;
+        let max_len = self.input.len() - start;
+        let len = std::cmp::min(len + step, max_len);
         Self {
             input: self.input,
             offset: InputRangeOffset {
-                start: self.offset.start,
+                start,
                 len,
+                null_count,
             },
         }
     }
@@ -57,7 +69,7 @@ impl<'gram> InputRange<'gram> {
 /// e.g., "`InputRange`(["1", "+", "("] | ["2"] | ["*", "3", "-", "4", ")"])"
 impl<'gram> std::fmt::Debug for InputRange<'gram> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let InputRangeOffset { start, len } = self.offset;
+        let InputRangeOffset { start, len, .. } = self.offset;
         let before = &self.input[..start];
         let scanned = &self.input[start..][..len];
         let after = &self.input[start..][len..];

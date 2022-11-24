@@ -222,6 +222,19 @@ mod tests {
     }
 
     #[test]
+    fn infinite_recursive_empty() {
+        let grammar: Grammar = "<a> ::= <a> '' | 'a'
+        "
+        .parse()
+        .unwrap();
+
+        let input = "a";
+
+        let parses = parse(&grammar, input).take(1000);
+        assert_eq!(parses.count(), 1000);
+    }
+
+    #[test]
     fn complete_empty() {
         let grammar: Grammar = "<start> ::= \"hi\" <empty>
         <empty> ::= \"\""
@@ -325,7 +338,6 @@ mod tests {
         let parses = parse(&grammar, input).take(100);
         assert_eq!(parses.count(), 100);
 
-        println!("input: '{input}'");
         let mut parses = parse(&grammar, input).take(100);
         while let Some(parse) = parses.next() {
             println!("{parse}")

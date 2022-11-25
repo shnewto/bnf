@@ -429,22 +429,20 @@ mod tests {
             .quickcheck(prop_empty_rules_allow_parse as fn(NestedEmptyGrammar) -> TestResult)
     }
 
-    // TODO: is this infinite "right" ? Earley de-duping is unclear
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
-    // #[test]
-    // fn empty_infinite() {
-    //     let grammar: Grammar = "
-    //     <a> ::= '' | <b>
-    //     <b> ::= <a>"
-    //         .parse()
-    //         .unwrap();
+    #[test]
+    fn empty_noop() {
+        let grammar: Grammar = "
+        <a> ::= '' | <b>
+        <b> ::= <a>"
+            .parse()
+            .unwrap();
 
-    //     let input = "";
+        let input = "";
 
-    //     // take first 100 parses of infinite parse iterator
-    //     let parses = parse(&grammar, input).take(100);
-    //     assert_eq!(parses.count(), 100);
-    // }
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 2);
+    }
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)
     // Sum     -> Sum     [+-] Product

@@ -180,6 +180,22 @@ pub fn parse<'gram>(
 mod tests {
     use super::*;
     use crate::Grammar;
+    use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+
+    #[test]
+    fn undefined_prod() {
+        let grammar: Grammar = "
+        <start> ::= <a> | <b>
+        <a> ::= 'a'
+        "
+        .parse()
+        .unwrap();
+
+        let input = "a";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
+    }
 
     #[test]
     fn dna_left_recursive() {
@@ -222,16 +238,52 @@ mod tests {
     }
 
     #[test]
-    fn infinite_recursive_empty() {
-        let grammar: Grammar = "<a> ::= <a> '' | 'a'
+    fn optional_noop() {
+        let grammar: Grammar = "
+        <a> ::= <b> | 'a'
+        <b> ::= <a>"
+            .parse()
+            .unwrap();
+
+        let input = "a";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 2);
+    }
+
+    #[test]
+    fn recursive_nested() {
+        let grammar: Grammar = "
+            <a> ::= <b> | 'a'
+            <b> ::= <a> 
         "
         .parse()
         .unwrap();
 
         let input = "a";
 
-        let parses = parse(&grammar, input).take(1000);
-        assert_eq!(parses.count(), 1000);
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 2);
+    }
+
+    #[test]
+    fn empty_right_recursive() {
+        let grammar: Grammar = "<a> ::= '' | 'a' <a>".parse().unwrap();
+
+        let input = "aaaaaaaaaa";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
+    }
+
+    #[test]
+    fn empty_left_recursive() {
+        let grammar: Grammar = "<a> ::= '' | <a> 'a'".parse().unwrap();
+
+        let input = "aaaaaaaaaa";
+
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 1);
     }
 
     #[test]
@@ -270,9 +322,6 @@ mod tests {
 
         let parses = parse(&grammar, input);
         assert_eq!(parses.count(), 1);
-
-        let tree = parse(&grammar, input).next().unwrap();
-        println!("{tree}");
     }
 
     #[test]
@@ -319,30 +368,83 @@ mod tests {
         assert_eq!(parses.count(), 1);
     }
 
-    // TODO: test case for <start> ::= <a> | <b>, with both <a> and <b> nullable should give two parses
-    // TODO: test case for <nonterm> without a rule
-    // TODO: property test which inserts empty rule terms and should still parse
-
-    // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
     #[test]
-    fn empty_infinite() {
+    fn empty_ambiguous() {
         let grammar: Grammar = "
-        <a> ::= '' | <b>
-        <b> ::= <a>"
+        <start> ::= <a> | <b>
+        <a> ::= ''
+        <b> ::= ''"
             .parse()
             .unwrap();
 
         let input = "";
 
-        // take first 100 parses of infinite parse iterator
-        let parses = parse(&grammar, input).take(100);
-        assert_eq!(parses.count(), 100);
+        let parses = parse(&grammar, input);
+        assert_eq!(parses.count(), 2);
+    }
 
-        let mut parses = parse(&grammar, input).take(100);
-        while let Some(parse) = parses.next() {
-            println!("{parse}")
+    #[derive(Debug, Clone)]
+    struct NestedEmptyGrammar(Grammar);
+    impl Arbitrary for NestedEmptyGrammar {
+        fn arbitrary(g: &mut Gen) -> Self {
+            let mut grammar: Grammar = "
+            <start> ::= <a> <empty>
+            <a> ::= 'a' <empty>"
+                .parse()
+                .unwrap();
+
+            let mut expressions: Vec<_> = grammar
+                .productions_iter_mut()
+                .flat_map(|prod| prod.rhs_iter_mut())
+                .collect();
+
+            let expr_indexes: Vec<usize> = (0..expressions.len()).collect();
+            let expr_choice_index = g.choose(&expr_indexes).unwrap();
+            let expr_choice: &mut crate::Expression = expressions[*expr_choice_index];
+
+            let term_choice_indexes: Vec<usize> = (0..expr_choice.terms.len()).collect();
+            let term_choice_index = g.choose(&term_choice_indexes).unwrap();
+
+            expr_choice
+                .terms
+                .insert(*term_choice_index, Term::Nonterminal(String::from("empty")));
+
+            grammar.add_production("<empty> ::= ''".parse().unwrap());
+
+            Self(grammar)
         }
     }
+
+    fn prop_empty_rules_allow_parse(grammar: NestedEmptyGrammar) -> TestResult {
+        let input = "a";
+
+        let mut parses = parse(&grammar.0, input);
+        TestResult::from_bool(parses.next().is_some())
+    }
+
+    #[test]
+    fn empty_rules_allow_parse() {
+        QuickCheck::new()
+            .tests(1000)
+            .quickcheck(prop_empty_rules_allow_parse as fn(NestedEmptyGrammar) -> TestResult)
+    }
+
+    // TODO: is this infinite "right" ? Earley de-duping is unclear
+    // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
+    // #[test]
+    // fn empty_infinite() {
+    //     let grammar: Grammar = "
+    //     <a> ::= '' | <b>
+    //     <b> ::= <a>"
+    //         .parse()
+    //         .unwrap();
+
+    //     let input = "";
+
+    //     // take first 100 parses of infinite parse iterator
+    //     let parses = parse(&grammar, input).take(100);
+    //     assert_eq!(parses.count(), 100);
+    // }
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)
     // Sum     -> Sum     [+-] Product

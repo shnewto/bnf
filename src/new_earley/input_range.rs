@@ -2,7 +2,6 @@
 pub(crate) struct InputRangeOffset {
     pub start: usize,
     pub len: usize,
-    pub null_count: usize,
 }
 
 impl InputRangeOffset {
@@ -22,11 +21,7 @@ impl<'gram> InputRange<'gram> {
     pub fn new(input: &'gram str) -> Self {
         Self {
             input,
-            offset: InputRangeOffset {
-                start: 0,
-                len: 0,
-                null_count: 0,
-            },
+            offset: InputRangeOffset { start: 0, len: 0 },
         }
     }
     pub fn next(&self) -> &'gram str {
@@ -39,25 +34,23 @@ impl<'gram> InputRange<'gram> {
             offset: InputRangeOffset {
                 start: self.offset.start + self.offset.len,
                 len: 0,
-                null_count: self.offset.null_count,
             },
         }
     }
     pub fn advance_by(&self, step: usize) -> Self {
-        let InputRangeOffset {
-            start,
-            len,
-            null_count,
-        } = self.offset;
-        let max_len = self.input.len() - start;
-        let len = std::cmp::min(len + step, max_len);
-        Self {
-            input: self.input,
-            offset: InputRangeOffset {
-                start,
-                len,
-                null_count,
-            },
+        let InputRangeOffset { start, len } = self.offset;
+        if step == 0 {
+            Self {
+                input: self.input,
+                offset: InputRangeOffset { start, len },
+            }
+        } else {
+            let max_len = self.input.len() - start;
+            let len = std::cmp::min(len + step, max_len);
+            Self {
+                input: self.input,
+                offset: InputRangeOffset { start, len },
+            }
         }
     }
     pub fn is_complete(&self) -> bool {
@@ -75,7 +68,7 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
         let after = &self.input[start..][len..];
         write!(
             f,
-            "InputRange({before:?} | {scanned:?} | {after:?}) ({:?})",
+            "InputRange(\"{before}|{scanned}|{after}\" ({:?}))",
             self.offset
         )
     }

@@ -106,9 +106,6 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         for traversal in traversals {
             let processed_key = traversal.duplicate_key();
             let is_new_traversal = self.processed.insert(processed_key);
-            let prefix = if is_new_traversal { "NEW" } else { "DUPE" };
-            let processed_key = traversal.duplicate_key();
-            println!("{prefix} {processed_key:#?} {traversal:#?}");
 
             if !is_new_traversal {
                 continue;

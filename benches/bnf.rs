@@ -2,6 +2,25 @@ use bnf::Grammar;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::seq::SliceRandom;
 
+#[cfg(feature = "tracing")]
+fn init_tracing() -> impl Drop {
+    use tracing_flame::FlameLayer;
+    use tracing_subscriber::{fmt, prelude::*};
+    let fmt_layer = fmt::Layer::default();
+
+    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(flame_layer)
+        .init();
+
+    _guard
+}
+
+#[cfg(not(feature = "tracing"))]
+fn init_tracing() {}
+
 fn examples(c: &mut Criterion) {
     // c.bench_function("parse postal", |b| {
     //     let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
@@ -14,6 +33,8 @@ fn examples(c: &mut Criterion) {
     //     let grammar: Grammar = input.parse().unwrap();
     //     b.iter(|| grammar.generate().unwrap());
     // });
+
+    let _tracing = init_tracing();
 
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= \"+\" | \"-\" | \"*\" | \"/\"

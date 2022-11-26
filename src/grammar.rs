@@ -717,8 +717,8 @@ mod tests {
         let input = "GATTACA";
 
         // reusing parser should give same parse tree iterations
-        let mut first = parser.parse(input);
-        let mut second = parser.parse(input);
+        let first = parser.parse(input);
+        let second = parser.parse(input);
         assert!(first.eq(second));
     }
 

@@ -2,7 +2,7 @@ mod grammar;
 mod input_range;
 mod traversal;
 
-use crate::{ParseTree, ParseTreeNode, Term};
+use crate::{tracing, ParseTree, ParseTreeNode, Term};
 use grammar::{GrammarMatching, ProductionMatch, TermMatch};
 use input_range::InputRange;
 use std::collections::HashMap;
@@ -136,7 +136,9 @@ impl<'gram> Iterator for ParseIter<'gram> {
     type Item = ParseTree<'gram>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::next").entered();
         let starting_prod_match = self.traversal_queue.handle_pop(|traversal| {
+            let _span = tracing::span!(tracing::Level::TRACE, "handle_pop").entered();
             let mut created = Vec::<Traversal>::new();
             match traversal.earley() {
                 EarleyStep::Predict(nonterminal) => {

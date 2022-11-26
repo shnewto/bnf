@@ -1,13 +1,12 @@
 #[cfg(feature = "tracing")]
 mod defs {
-    pub(crate) use tracing::Level;
-
-    pub(crate) use tracing::span;
+    pub use tracing::span;
+    pub use tracing::Level;
 }
 
 #[cfg(not(feature = "tracing"))]
 mod defs {
-    enum Level {
+    pub enum Level {
         OFF,
         ERROR,
         WARN,
@@ -16,8 +15,19 @@ mod defs {
         TRACE,
     }
 
+    pub struct Span {}
+
+    impl Span {
+        pub fn entered(&self) -> Self {
+            Self {}
+        }
+    }
+
     macro_rules! span {
-        ($($any:tt)*) => {};
+        ($($any:tt)*) => {{
+            use crate::tracing::Span;
+            Span {}
+        }};
     }
 
     pub(crate) use span;

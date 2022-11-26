@@ -2,6 +2,7 @@ use super::grammar::{
     GrammarMatching, Production, ProductionId, ProductionMatch, ProductionMatching, TermMatch,
 };
 use super::input_range::{InputRange, InputRangeOffset};
+use crate::tracing;
 use crate::Term;
 use std::collections::{HashSet, VecDeque};
 
@@ -103,6 +104,7 @@ impl<'gram> TraversalCompletionQueue<'gram> {
     where
         I: Iterator<Item = Traversal<'gram>>,
     {
+        let _span = tracing::span!(tracing::Level::TRACE, "Queue::extend").entered();
         for traversal in traversals {
             let processed_key = traversal.duplicate_key();
             let is_new_traversal = self.processed.insert(processed_key);
@@ -120,14 +122,17 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         I: Iterator<Item = Traversal<'gram>>,
         H: FnMut(Traversal<'gram>) -> I,
     {
+        let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
         while let Some(traversal) = self.queue.pop_front() {
-            let is_full_traversal = traversal.input_range.is_complete()
-                && self.starting_prod_ids.contains(&traversal.matching.prod_id);
-
-            let full_prod_match = if is_full_traversal {
-                traversal.matching.complete()
-            } else {
-                None
+            let full_prod_match = {
+                let _span = tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
+                let is_full_traversal = traversal.input_range.is_complete()
+                    && self.starting_prod_ids.contains(&traversal.matching.prod_id);
+                if is_full_traversal {
+                    traversal.matching.complete()
+                } else {
+                    None
+                }
             };
 
             let new_traversals = handler(traversal);

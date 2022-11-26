@@ -138,10 +138,11 @@ impl<'gram> Iterator for ParseIter<'gram> {
     fn next(&mut self) -> Option<Self::Item> {
         let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::next").entered();
         let starting_prod_match = self.traversal_queue.handle_pop(|traversal| {
-            let _span = tracing::span!(tracing::Level::TRACE, "handle_pop").entered();
+            let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handle_pop").entered();
             let mut created = Vec::<Traversal>::new();
             match traversal.earley() {
                 EarleyStep::Predict(nonterminal) => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
                     created.extend(predict(&traversal, nonterminal, &self.grammar));
                     created.extend(complete_nullable(&traversal, nonterminal, &self.grammar));
 
@@ -156,16 +157,21 @@ impl<'gram> Iterator for ParseIter<'gram> {
                         .push(traversal);
                 }
                 EarleyStep::Scan(terminal) => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
                     created.extend(scan(&traversal, terminal));
                 }
                 EarleyStep::Complete(prod_match) => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
                     created.extend(complete(&traversal, &prod_match, &self.incomplete));
                 }
             }
             created.into_iter()
         });
 
-        starting_prod_match.map(|prod_match| self.parse_tree(prod_match))
+        {
+            let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::parse_tree").entered();
+            starting_prod_match.map(|prod_match| self.parse_tree(prod_match))
+        }
     }
 }
 
@@ -173,6 +179,7 @@ pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
     input: &'gram str,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(tracing::Level::TRACE, "parse").entered();
     let grammar = GrammarMatching::new(grammar);
     let grammar = Rc::new(grammar);
     ParseIter::new(grammar, input)

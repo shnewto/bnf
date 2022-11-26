@@ -1,4 +1,5 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
+use crate::tracing;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
@@ -134,6 +135,7 @@ pub(crate) struct GrammarMatching<'gram> {
 
 impl<'gram, 'a> GrammarMatching<'gram> {
     pub fn new(grammar: &'gram crate::Grammar) -> Self {
+        let _span = tracing::span!(tracing::Level::TRACE, "GrammarMatching::new").entered();
         let starting_term = &grammar
             .productions_iter()
             .next()

@@ -30,3 +30,11 @@ These benchmarks are not run during continuous integration testing. But if a dev
 
 [criterion]: https://crates.io/crates/criterion
 [cargo-criterion]: https://github.com/bheisler/cargo-criterion
+
+### Tracing
+
+BNF has an optional "tracing" feature which will provide tracing spans during parsing.
+
+The benchmarks are enabled to write these tracing spans to `tracing.folded`. This data can then be parsed to provide a flamegraph.
+
+> RUST_LOG=TRACE cargo criterion --features "tracing" && cat tracing.folded | inferno-flamegraph > flamegraph.svg

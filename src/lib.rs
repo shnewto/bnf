@@ -10,6 +10,7 @@ mod parsers;
 mod production;
 mod slice_iter;
 mod term;
+mod tracing;
 pub use crate::error::Error;
 pub use crate::expression::Expression;
 pub use crate::grammar::{Grammar, ParseTree, ParseTreeNode};

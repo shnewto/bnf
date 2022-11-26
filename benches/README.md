@@ -3,6 +3,7 @@
 Benchmarking numbers will vary across tests, specific grammars, rust versions, and hardware. With so many sources of noise, it is important to remember that "faster" is not always easy to define.
 
 With that in mind, BNF's benchmarking has the following goals:
+
 * identify statistically significant performance regressions
 * validate performance hypothesis
 

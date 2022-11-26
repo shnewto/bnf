@@ -135,11 +135,10 @@ impl<'gram> ParseIter<'gram> {
 impl<'gram> Iterator for ParseIter<'gram> {
     type Item = ParseTree<'gram>;
 
-    fn next(&mut self) -> Option<Self::Item> {
+    fn next<'a>(&'a mut self) -> Option<Self::Item> {
         let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::next").entered();
-        let starting_prod_match = self.traversal_queue.handle_pop(|traversal| {
-            let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handle_pop").entered();
-            let mut created = Vec::<Traversal>::new();
+        let starting_prod_match = self.traversal_queue.handle_pop(|traversal, created| {
+            let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handler").entered();
             match traversal.earley() {
                 EarleyStep::Predict(nonterminal) => {
                     let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
@@ -165,7 +164,6 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     created.extend(complete(&traversal, &prod_match, &self.incomplete));
                 }
             }
-            created.into_iter()
         });
 
         {

@@ -20,6 +20,7 @@ pub(crate) struct Traversal<'gram> {
 
 impl<'gram> Traversal<'gram> {
     pub fn start_production(prod: &Production<'gram>, input_range: &InputRange<'gram>) -> Self {
+        let _span = tracing::span!(tracing::Level::TRACE, "start_production").entered();
         let input_range = input_range.after();
         let matching = prod.start_matching();
         Self {
@@ -28,6 +29,7 @@ impl<'gram> Traversal<'gram> {
         }
     }
     pub fn duplicate_key(&self) -> TraversalDuplicateKey {
+        let _span = tracing::span!(tracing::Level::TRACE, "duplicate_key").entered();
         TraversalDuplicateKey {
             input_range: self.input_range.offset.clone(),
             prod_id: self.matching.prod_id,
@@ -35,6 +37,7 @@ impl<'gram> Traversal<'gram> {
         }
     }
     pub fn earley(&self) -> EarleyStep<'gram> {
+        let _span = tracing::span!(tracing::Level::TRACE, "earley").entered();
         match self.matching.next() {
             None => {
                 let prod_match = self
@@ -50,6 +53,7 @@ impl<'gram> Traversal<'gram> {
         }
     }
     pub fn match_term(&self, term_match: TermMatch<'gram>) -> Option<Self> {
+        let _span = tracing::span!(tracing::Level::TRACE, "match_term").entered();
         let input_len = match &term_match {
             TermMatch::Terminal(term) => term.len(),
             TermMatch::Nonterminal(prod) => prod.input_len,
@@ -117,13 +121,19 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         }
     }
 
-    pub fn handle_pop<H, I>(&mut self, mut handler: H) -> Option<ProductionMatch<'gram>>
+    pub fn handle_pop<H>(&mut self, mut handler: H) -> Option<ProductionMatch<'gram>>
     where
-        I: Iterator<Item = Traversal<'gram>>,
-        H: FnMut(Traversal<'gram>) -> I,
+        H: FnMut(Traversal<'gram>, &mut Vec<Traversal<'gram>>),
     {
         let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
-        while let Some(traversal) = self.queue.pop_front() {
+        let pop = |queue: &mut VecDeque<Traversal<'gram>>| -> Option<Traversal> {
+            let _span = tracing::span!(tracing::Level::TRACE, "Queue::pop").entered();
+            queue.pop_front()
+        };
+        let mut created = Vec::<Traversal>::new();
+        let _outer = tracing::span!(tracing::Level::TRACE, "Queue::outer_while_let").entered();
+        while let Some(traversal) = pop(&mut self.queue) {
+            let _inner = tracing::span!(tracing::Level::TRACE, "Queue::inner_while_let").entered();
             let full_prod_match = {
                 let _span = tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
                 let is_full_traversal = traversal.input_range.is_complete()
@@ -135,14 +145,23 @@ impl<'gram> TraversalCompletionQueue<'gram> {
                 }
             };
 
-            let new_traversals = handler(traversal);
-            self.extend(new_traversals);
-
-            if let Some(prod_match) = full_prod_match {
-                return Some(prod_match);
+            {
+                let _span = tracing::span!(tracing::Level::TRACE, "new_traversals").entered();
+                handler(traversal, &mut created);
+                self.extend(created.drain(..));
             }
+
+            {
+                let _span = tracing::span!(tracing::Level::TRACE, "return").entered();
+                if let Some(prod_match) = full_prod_match {
+                    return Some(prod_match);
+                }
+            }
+            drop(_inner);
         }
 
+        drop(_outer);
+        drop(_span);
         None
     }
 }

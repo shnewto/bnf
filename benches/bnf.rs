@@ -48,6 +48,9 @@ fn examples(c: &mut Criterion) {
         .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
         .collect();
 
+    #[cfg(feature = "tracing")]
+    let _span = tracing::span!(tracing::Level::TRACE, "BENCH ITER").entered();
+
     c.bench_function("parse polish calculator", |b| {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
@@ -55,13 +58,13 @@ fn examples(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("reuse polish calculator parser", |b| {
-        let parser = polish_calc_grammar.parser();
-        b.iter(|| {
-            let input = random_walks.choose(&mut rng).unwrap();
-            let _: Vec<_> = parser.parse(input).collect();
-        })
-    });
+    // c.bench_function("reuse polish calculator parser", |b| {
+    //     let parser = polish_calc_grammar.parser();
+    //     b.iter(|| {
+    //         let input = random_walks.choose(&mut rng).unwrap();
+    //         let _: Vec<_> = parser.parse(input).collect();
+    //     })
+    // });
 }
 
 criterion_group!(benches, examples);

@@ -244,4 +244,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
     ) -> impl Iterator<Item = &ProductionMatch<'gram>> {
         self.null_matches_by_lhs.get(lhs).into_iter().flatten()
     }
+    pub fn is_starting_prod_id(&self, id: &ProductionId) -> bool {
+        self.starting_production_ids.contains(id)
+    }
 }

@@ -2,8 +2,10 @@ use super::grammar::{
     GrammarMatching, Production, ProductionId, ProductionMatch, ProductionMatching, TermMatch,
 };
 use super::input_range::{InputRange, InputRangeOffset};
-use crate::tracing;
-use crate::Term;
+use crate::{
+    append_vec::{append_only_vec_id, AppendOnlyVec},
+    tracing, Term,
+};
 use std::collections::{HashSet, VecDeque};
 
 pub(crate) enum EarleyStep<'gram> {
@@ -11,6 +13,8 @@ pub(crate) enum EarleyStep<'gram> {
     Scan(&'gram String),
     Complete(ProductionMatch<'gram>),
 }
+
+append_only_vec_id!(pub(crate) TraversalId);
 
 #[derive(Debug)]
 pub(crate) struct Traversal<'gram> {
@@ -79,9 +83,9 @@ pub(crate) struct TraversalDuplicateKey {
 
 #[derive(Debug, Default)]
 pub(crate) struct TraversalCompletionQueue<'gram> {
-    queue: VecDeque<Traversal<'gram>>,
+    arena: AppendOnlyVec<Traversal<'gram>, TraversalId>,
+    queue: VecDeque<TraversalId>,
     processed: HashSet<TraversalDuplicateKey>,
-    starting_prod_ids: HashSet<ProductionId>,
 }
 
 impl<'gram> TraversalCompletionQueue<'gram> {
@@ -91,11 +95,8 @@ impl<'gram> TraversalCompletionQueue<'gram> {
             .starting_productions()
             .map(|prod| Traversal::start_production(prod, &input_range));
 
-        let starting_prod_ids = grammar.starting_productions().map(|prod| prod.id).collect();
-
         let mut traversal_queue = Self {
             queue,
-            starting_prod_ids,
             ..Default::default()
         };
 
@@ -117,51 +118,36 @@ impl<'gram> TraversalCompletionQueue<'gram> {
                 continue;
             }
 
-            self.queue.push_back(traversal);
+            let id = self.arena.push(traversal);
+            self.queue.push_back(id);
         }
     }
 
     pub fn handle_pop<H>(&mut self, mut handler: H) -> Option<ProductionMatch<'gram>>
     where
-        H: FnMut(Traversal<'gram>, &mut Vec<Traversal<'gram>>),
+        H: FnMut(
+            TraversalId,
+            &AppendOnlyVec<Traversal<'gram>, TraversalId>,
+            &mut Vec<Traversal<'gram>>,
+        ) -> Option<ProductionMatch<'gram>>,
     {
         let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
-        let pop = |queue: &mut VecDeque<Traversal<'gram>>| -> Option<Traversal> {
+        let pop = |queue: &mut VecDeque<TraversalId>| -> Option<TraversalId> {
             let _span = tracing::span!(tracing::Level::TRACE, "Queue::pop").entered();
             queue.pop_front()
         };
         let mut created = Vec::<Traversal>::new();
         let _outer = tracing::span!(tracing::Level::TRACE, "Queue::outer_while_let").entered();
-        while let Some(traversal) = pop(&mut self.queue) {
+        while let Some(id) = pop(&mut self.queue) {
             let _inner = tracing::span!(tracing::Level::TRACE, "Queue::inner_while_let").entered();
-            let full_prod_match = {
-                let _span = tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
-                let is_full_traversal = traversal.input_range.is_complete()
-                    && self.starting_prod_ids.contains(&traversal.matching.prod_id);
-                if is_full_traversal {
-                    traversal.matching.complete()
-                } else {
-                    None
-                }
-            };
+            let prod_match = handler(id, &self.arena, &mut created);
+            self.extend(created.drain(..));
 
-            {
-                let _span = tracing::span!(tracing::Level::TRACE, "new_traversals").entered();
-                handler(traversal, &mut created);
-                self.extend(created.drain(..));
+            if prod_match.is_some() {
+                return prod_match;
             }
-
-            {
-                let _span = tracing::span!(tracing::Level::TRACE, "return").entered();
-                if let Some(prod_match) = full_prod_match {
-                    return Some(prod_match);
-                }
-            }
-            drop(_inner);
         }
 
-        drop(_outer);
-        drop(_span);
         None
     }
 }

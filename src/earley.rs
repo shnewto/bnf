@@ -1,7 +1,7 @@
 use crate::{
     append_vec::{append_only_vec_id, AppendOnlyVec},
     grammar::{ParseTree, ParseTreeNode},
-    Term,
+    tracing, Term,
 };
 
 append_only_vec_id!(ProductionId);
@@ -24,9 +24,6 @@ struct Grammar<'gram> {
     starting_production_ids: Vec<ProductionId>,
     productions: AppendOnlyVec<Production<'gram>, ProductionId>,
     ids_by_lhs: ProdIdMap<'gram>,
-    ids_by_rhs: ProdIdMap<'gram>,
-    null_matches_by_id: NullMatchesMap<'gram>,
-    // null_matches: AppendOnlyVec<TermMatch<'gram>, ()>,
 }
 
 impl<'gram> Grammar<'gram> {
@@ -40,7 +37,6 @@ impl<'gram> Grammar<'gram> {
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut ids_by_lhs = ProdIdMap::new();
-        let mut ids_by_rhs = ProdIdMap::new();
 
         let flat_prod_iter = grammar
             .productions_iter()
@@ -54,10 +50,6 @@ impl<'gram> Grammar<'gram> {
             let id = prod.id;
 
             ids_by_lhs.entry(lhs).or_default().push(id);
-
-            for rhs in rhs.terms_iter() {
-                ids_by_rhs.entry(rhs).or_default().push(id);
-            }
         }
 
         let starting_production_ids = ids_by_lhs
@@ -65,83 +57,11 @@ impl<'gram> Grammar<'gram> {
             .expect("starting Term has no production")
             .clone();
 
-        let null_matches_by_id =
-            Self::match_nullable_productions(&productions, &ids_by_lhs, &ids_by_rhs);
-
         Self {
             ids_by_lhs,
-            ids_by_rhs,
-            null_matches_by_id,
             productions,
             starting_production_ids,
         }
-    }
-    fn match_nullable_productions(
-        productions: &AppendOnlyVec<Production<'gram>, ProductionId>,
-        ids_by_lhs: &ProdIdMap<'gram>,
-        ids_by_rhs: &ProdIdMap<'gram>,
-    ) -> NullMatchesMap<'gram> {
-        let mut null_matches_by_id = NullMatchesMap::new();
-        let mut queue = std::collections::VecDeque::<ProductionId>::new();
-
-        let mut match_null_production = |prod: &Production| -> Option<&Vec<ProductionId>> {
-            let mut nullable_terms_match: Vec<Vec<TermMatch>> =
-                vec![Vec::new(); prod.rhs.terms.len()];
-            let term_match_iter = nullable_terms_match.iter_mut();
-            let rhs_term_iter = prod.rhs.terms_iter();
-
-            for (rhs_term_matched, rhs_term) in term_match_iter.zip(rhs_term_iter) {
-                match rhs_term {
-                    Term::Terminal(rhs_terminal) => {
-                        if rhs_terminal.is_empty() {
-                            *rhs_term_matched = vec![TermMatch::Terminal("")];
-                        }
-                    }
-                    Term::Nonterminal(_) => {
-                        let null_matches: Vec<TermMatch> = ids_by_lhs
-                            .get(rhs_term)
-                            .into_iter()
-                            .flatten()
-                            .filter(|term_prod_id| null_matches_by_id.contains_key(term_prod_id))
-                            .map(|prod_id| TermMatch::NullableNonTerminal(*prod_id))
-                            .collect();
-
-                        if !null_matches.is_empty() {
-                            *rhs_term_matched = null_matches
-                        }
-                    }
-                };
-
-                // if rhs term went unmatched then all rhs cannot be matched
-                if rhs_term_matched.is_empty() {
-                    break;
-                }
-            }
-
-            // success!
-            if nullable_terms_match.iter().all(|terms| !terms.is_empty()) {
-                null_matches_by_id.insert(prod.id, nullable_terms_match);
-                ids_by_rhs.get(prod.lhs)
-            } else {
-                None
-            }
-        };
-
-        for prod in productions.iter() {
-            if let Some(affected_prod_ids) = match_null_production(prod) {
-                queue.extend(affected_prod_ids);
-            }
-        }
-
-        while let Some(prod_id) = queue.pop_front() {
-            let prod = productions.get(prod_id).expect("invalid production ID");
-
-            if let Some(affected_prod_ids) = match_null_production(prod) {
-                queue.extend(affected_prod_ids);
-            }
-        }
-
-        null_matches_by_id
     }
     pub fn starting_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.starting_production_ids
@@ -328,25 +248,6 @@ fn predict<'gram, 'a>(
     })
 }
 
-/// TODO
-fn predict_nullable<'gram, 'a>(
-    matching: &'gram Term,
-    parent: &'a State<'gram>,
-    grammar: &'a Grammar<'gram>,
-) -> impl Iterator<Item = State<'gram>> + 'a {
-    grammar
-        .ids_by_lhs
-        .get(matching)
-        .into_iter()
-        .flatten()
-        .filter(|prod_id| grammar.null_matches_by_id.contains_key(prod_id))
-        .map(|prod_id| {
-            let term_match = TermMatch::NullableNonTerminal(*prod_id);
-            let input_range_step = 0;
-            State::new_term_match(parent, term_match, input_range_step)
-        })
-}
-
 /// Create new `State` if the current matching `Term` matches the next inpu text
 fn scan<'gram, 'a>(state: &'a State<'gram>) -> impl Iterator<Item = State<'gram>> {
     state
@@ -458,6 +359,7 @@ impl<'gram> StateArena<'gram> {
     }
     /// Allocate new `State`s
     pub fn alloc_extend(&mut self, iter: impl Iterator<Item = State<'gram>>) {
+        let _span = tracing::span!(tracing::Level::TRACE, "alloc_extend").entered();
         for state in iter {
             let state_key = StateProcessingKey::from_state(&state);
             let is_new_state = self.processed_set.insert(state_key);
@@ -551,15 +453,6 @@ impl<'gram> ParseIter<'gram> {
                     state.map(|state| ParseTreeNode::Nonterminal(self.get_parse_tree(state)))
                 }
                 TermMatch::NullableNonTerminal(prod_id) => {
-                    // TODO NEXT: oh, but WHICH nullable prod rule was used?
-                    // MAYBE "NullMatch" is not actually a TermMatch (altho similar)
-                    // and MAYBE "matches" should also be AppendVec?
-                    // can AppendVec give slices of multiple inserts? avoid Vec<T> everywhere...
-                    let foo = self
-                        .grammar
-                        .null_matches_by_id
-                        .get(prod_id)
-                        .expect("invalid production ID");
                     Some(ParseTreeNode::Terminal("NULLABLE TODO"))
                 }
             })
@@ -573,27 +466,26 @@ impl<'gram> Iterator for ParseIter<'gram> {
     type Item = ParseTree<'gram>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let _span = tracing::span!(tracing::Level::TRACE, "outer_while_let").entered();
         while let Some(Unprocessed {
             state_id,
             matching,
             input_range,
         }) = self.state_arena.pop_unprocessed()
         {
+            let _span = tracing::span!(tracing::Level::TRACE, "inner_while_let").entered();
             // buffer for when new states are created
             let mut created_states = Vec::<State>::new();
             match matching {
                 // predict
                 Some(matching @ Term::Nonterminal(_)) => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
                     let predictions = predict(matching, &input_range, &self.grammar);
                     self.state_arena.alloc_extend(predictions);
-
-                    let state = self.state_arena.get(state_id)?;
-                    let nullable_predictions = predict_nullable(matching, state, &self.grammar);
-                    created_states.extend(nullable_predictions);
-                    self.state_arena.alloc_extend(created_states.drain(..));
                 }
                 // scan
                 Some(Term::Terminal(_)) => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
                     let state = self.state_arena.get(state_id)?;
 
                     let scanned = scan(state);
@@ -602,6 +494,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 }
                 // complete
                 None => {
+                    let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
                     let state = self.state_arena.get(state_id)?;
                     if state.is_complete(&self.grammar.starting_production_ids) {
                         let parse_tree = self.get_parse_tree(state);
@@ -626,6 +519,7 @@ pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
     input: &'gram str,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(tracing::Level::TRACE, "Parse").entered();
     ParseIter::new(grammar, input)
 }
 

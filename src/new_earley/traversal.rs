@@ -7,11 +7,12 @@ use crate::{
     tracing, Term,
 };
 use std::collections::{HashSet, VecDeque};
+use std::rc::Rc;
 
 pub(crate) enum EarleyStep<'gram> {
     Predict(&'gram Term),
     Scan(&'gram String),
-    Complete(ProductionMatch<'gram>),
+    Complete(Rc<ProductionMatch<'gram>>),
 }
 
 append_only_vec_id!(pub(crate) TraversalId);
@@ -48,7 +49,7 @@ impl<'gram> Traversal<'gram> {
                     .matching
                     .complete()
                     .expect("matching must be complete because no next term");
-                EarleyStep::Complete(prod_match)
+                EarleyStep::Complete(Rc::new(prod_match))
             }
             Some(term) => match term {
                 Term::Nonterminal(_) => EarleyStep::Predict(term),
@@ -123,13 +124,13 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         }
     }
 
-    pub fn handle_pop<H>(&mut self, mut handler: H) -> Option<ProductionMatch<'gram>>
+    pub fn handle_pop<H>(&mut self, mut handler: H) -> Option<Rc<ProductionMatch<'gram>>>
     where
         H: FnMut(
             TraversalId,
             &AppendOnlyVec<Traversal<'gram>, TraversalId>,
             &mut Vec<Traversal<'gram>>,
-        ) -> Option<ProductionMatch<'gram>>,
+        ) -> Option<Rc<ProductionMatch<'gram>>>,
     {
         let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
         let pop = |queue: &mut VecDeque<TraversalId>| -> Option<TraversalId> {

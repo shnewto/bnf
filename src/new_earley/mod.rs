@@ -66,7 +66,7 @@ fn scan<'gram>(
 
 fn complete<'gram, 'a>(
     complete_traversal: &'a Traversal<'gram>,
-    prod_match: &'a ProductionMatch<'gram>,
+    prod_match: &'a Rc<ProductionMatch<'gram>>,
     incomplete: &'a TermCompletionMap<'gram>,
     arena: &'a crate::append_vec::AppendOnlyVec<Traversal<'gram>, TraversalId>,
 ) -> impl Iterator<Item = Traversal<'gram>> + 'a {
@@ -119,17 +119,17 @@ impl<'gram> ParseIter<'gram> {
             incomplete: Default::default(),
         }
     }
-    fn parse_tree(&self, prod_match: ProductionMatch<'gram>) -> ParseTree<'gram> {
+    fn parse_tree(&self, prod_match: Rc<ProductionMatch<'gram>>) -> ParseTree<'gram> {
         let rhs = prod_match
             .rhs
-            .into_iter()
+            .iter()
             .map(|term_match| match term_match {
                 TermMatch::Terminal(term) => ParseTreeNode::Terminal(term),
                 TermMatch::Nonterminal(prod_match) => {
-                    ParseTreeNode::Nonterminal(self.parse_tree(prod_match))
+                    ParseTreeNode::Nonterminal(self.parse_tree(prod_match.clone()))
                 }
             })
-            .collect();
+            .collect::<Vec<ParseTreeNode>>();
 
         ParseTree::new(prod_match.lhs, rhs)
     }

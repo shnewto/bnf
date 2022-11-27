@@ -1,12 +1,13 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
 use crate::tracing;
+use std::rc::Rc;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
 #[derive(Debug, Clone)]
 pub(crate) enum TermMatch<'gram> {
     Terminal(&'gram str),
-    Nonterminal(ProductionMatch<'gram>),
+    Nonterminal(Rc<ProductionMatch<'gram>>),
 }
 
 #[derive(Debug, Clone)]
@@ -96,7 +97,7 @@ impl<'gram> ProductionMatching<'gram> {
             } = self;
             let prod_id = prod_id.clone();
 
-            // TODO: avoid clone
+            // TODO: avoid clone, PROBABLY THIS
             let mut rhs = rhs.clone();
             rhs[*matched_count] = TermMatching::Matched(term_match);
             let matched_count = matched_count + 1;
@@ -123,7 +124,7 @@ impl<'gram> ProductionMatch<'gram> {}
 type ProdArena<'gram> = AppendOnlyVec<Production<'gram>, ProductionId>;
 type ProdTermMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec<ProductionId>>;
 type NullMatchMap<'gram> =
-    std::collections::HashMap<&'gram crate::Term, Vec<ProductionMatch<'gram>>>;
+    std::collections::HashMap<&'gram crate::Term, Vec<Rc<ProductionMatch<'gram>>>>;
 
 #[derive(Debug)]
 pub(crate) struct GrammarMatching<'gram> {
@@ -195,7 +196,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
                     .null_matches_by_lhs
                     .entry(null_match.lhs)
                     .or_default()
-                    .push(null_match.complete().unwrap()),
+                    .push(Rc::new(null_match.complete().unwrap())),
                 Some(unmatched_term) => match unmatched_term {
                     crate::Term::Terminal(terminal) => {
                         if terminal.is_empty() {
@@ -241,7 +242,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
     pub fn get_nullable_production_matches_by_lhs(
         &self,
         lhs: &'gram crate::Term,
-    ) -> impl Iterator<Item = &ProductionMatch<'gram>> {
+    ) -> impl Iterator<Item = &Rc<ProductionMatch<'gram>>> {
         self.null_matches_by_lhs.get(lhs).into_iter().flatten()
     }
     pub fn is_starting_prod_id(&self, id: &ProductionId) -> bool {

@@ -9,14 +9,20 @@ use crate::{
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
+/// The three main steps of the "Earley" parsing algorithm
+#[derive(Debug)]
 pub(crate) enum EarleyStep<'gram> {
+    /// If the next [`crate::Term`] is [`crate::Term::Nonterminal`] then "predict" more [`Traversal`]s
     Predict(&'gram Term),
+    /// If the next [`crate::Term`] is [`crate::Term::Terminal`] then "scan" input text
     Scan(&'gram String),
+    /// If the [`ProductionMatching`] has no unmatched [`crate::Term`]s then "complete" pending [`Traversal`]s
     Complete(Rc<ProductionMatch<'gram>>),
 }
 
 append_only_vec_id!(pub(crate) TraversalId);
 
+/// A step in traversing a [`crate::Grammar`]
 #[derive(Debug)]
 pub(crate) struct Traversal<'gram> {
     pub input_range: InputRange<'gram>,
@@ -64,7 +70,7 @@ impl<'gram> Traversal<'gram> {
             TermMatch::Nonterminal(prod) => prod.input_len,
         };
 
-        self.matching.match_term(term_match).map(|matching| {
+        self.matching.add_term_match(term_match).map(|matching| {
             let input_range = self.input_range.advance_by(input_len);
 
             Self {
@@ -75,6 +81,7 @@ impl<'gram> Traversal<'gram> {
     }
 }
 
+/// Key used for ignoring duplicate [`Traversal`]s
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct TraversalDuplicateKey {
     input_range: InputRangeOffset,
@@ -83,13 +90,13 @@ pub(crate) struct TraversalDuplicateKey {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct TraversalCompletionQueue<'gram> {
+pub(crate) struct TraversalQueue<'gram> {
     arena: AppendOnlyVec<Traversal<'gram>, TraversalId>,
     queue: VecDeque<TraversalId>,
     processed: HashSet<TraversalDuplicateKey>,
 }
 
-impl<'gram> TraversalCompletionQueue<'gram> {
+impl<'gram> TraversalQueue<'gram> {
     pub fn new(grammar: &GrammarMatching<'gram>, input_range: InputRange<'gram>) -> Self {
         let queue = VecDeque::new();
         let starting_traversals = grammar
@@ -106,6 +113,7 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         traversal_queue
     }
 
+    /// Extend queue with new [`Traversal`]s. Ignores duplicates, according to [`TraversalDuplicateKey`]
     fn extend<I>(&mut self, traversals: I)
     where
         I: Iterator<Item = Traversal<'gram>>,
@@ -124,6 +132,9 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         }
     }
 
+    /// Pop the next [`Traversal`] from the queue, and invoke a provided "handler" function.
+    /// Any newly created [`Traversal`] by the "handler" should be placed in the provided output buffer,
+    /// which will be added to the queue (and filtered for duplicates).
     pub fn handle_pop<H>(&mut self, mut handler: H) -> Option<Rc<ProductionMatch<'gram>>>
     where
         H: FnMut(
@@ -133,14 +144,9 @@ impl<'gram> TraversalCompletionQueue<'gram> {
         ) -> Option<Rc<ProductionMatch<'gram>>>,
     {
         let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
-        let pop = |queue: &mut VecDeque<TraversalId>| -> Option<TraversalId> {
-            let _span = tracing::span!(tracing::Level::TRACE, "Queue::pop").entered();
-            queue.pop_front()
-        };
         let mut created = Vec::<Traversal>::new();
-        let _outer = tracing::span!(tracing::Level::TRACE, "Queue::outer_while_let").entered();
-        while let Some(id) = pop(&mut self.queue) {
-            let _inner = tracing::span!(tracing::Level::TRACE, "Queue::inner_while_let").entered();
+
+        while let Some(id) = self.queue.pop_front() {
             let prod_match = handler(id, &self.arena, &mut created);
             self.extend(created.drain(..));
 

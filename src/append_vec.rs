@@ -1,3 +1,5 @@
+/// Create a new id type for an [`AppendOnlyVec`], which will be a wrapped [`usize`].
+/// Example usage: `append_only_vec_id!(pub(crate) ProductionId)`;
 macro_rules! append_only_vec_id {
     ($visible:vis $id:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -19,6 +21,8 @@ macro_rules! append_only_vec_id {
 
 pub(crate) use append_only_vec_id;
 
+/// Vector type which does *not* allow item removal during lifetime.
+/// Useful for data structures with complex, shared ownership, such as graphs.
 #[derive(Debug, Clone)]
 pub(crate) struct AppendOnlyVec<T, I> {
     vec: Vec<T>,
@@ -55,14 +59,8 @@ where
     pub fn get(&self, id: I) -> Option<&T> {
         self.vec.get::<usize>(id.into())
     }
-    pub fn get_mut(&mut self, id: I) -> Option<&mut T> {
-        self.vec.get_mut::<usize>(id.into())
-    }
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.vec.iter()
-    }
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.vec.iter_mut()
     }
 }
 

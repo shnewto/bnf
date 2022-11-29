@@ -5,7 +5,6 @@ mod earley;
 mod error;
 mod expression;
 mod grammar;
-mod new_earley;
 mod parsers;
 mod production;
 mod slice_iter;

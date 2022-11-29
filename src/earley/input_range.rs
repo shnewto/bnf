@@ -58,18 +58,14 @@ impl<'gram> InputRange<'gram> {
     }
 }
 
-/// A clear view of `InputRange`, in the format "InputRange(before | current | after)"
-/// e.g., "`InputRange`(["1", "+", "("] | ["2"] | ["*", "3", "-", "4", ")"])"
+/// A clear view of [`InputRange`], in the format "InputRange(before | current | after)"
+/// e.g., "InputRange(["1", "+", "("] | ["2"] | ["*", "3", "-", "4", ")"])"
 impl<'gram> std::fmt::Debug for InputRange<'gram> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let InputRangeOffset { start, len, .. } = self.offset;
         let before = &self.input[..start];
         let scanned = &self.input[start..][..len];
         let after = &self.input[start..][len..];
-        write!(
-            f,
-            "InputRange(\"{before}|{scanned}|{after}\" ({:?}))",
-            self.offset
-        )
+        write!(f, "InputRange(\"{before}|{scanned}|{after}\")",)
     }
 }

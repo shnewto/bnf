@@ -1,20 +1,11 @@
 #[cfg(feature = "tracing")]
 mod defs {
-    pub use tracing::span;
-    pub use tracing::Level;
+    pub(crate) use tracing::span;
+    pub(crate) use tracing::Level;
 }
 
 #[cfg(not(feature = "tracing"))]
 mod defs {
-    pub enum Level {
-        OFF,
-        ERROR,
-        WARN,
-        INFO,
-        DEBUG,
-        TRACE,
-    }
-
     pub struct Span {}
 
     impl Span {

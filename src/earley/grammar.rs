@@ -4,20 +4,26 @@ use std::rc::Rc;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
+/// A [`crate::Term`] which has been "matched" while parsing input
 #[derive(Debug, Clone)]
 pub(crate) enum TermMatch<'gram> {
+    /// [`crate::Term::Terminal`] which matched with a string literal
     Terminal(&'gram str),
+    /// [`crate::Term::Nonterminal`] which was matched with a fully completed production
     Nonterminal(Rc<ProductionMatch<'gram>>),
 }
 
+/// A `Term` to be "matched" with input
 #[derive(Debug, Clone)]
 pub(crate) enum TermMatching<'gram> {
+    /// A [`crate::Term`] which has not yet been matched
     Unmatched(&'gram crate::Term),
+    /// A [`crate::Term`] which has been matched
     Matched(TermMatch<'gram>),
 }
 
-/// `crate::Production` offers multiple possible "right hand side" `Expression`s, which is overly flexible for Earley parsing.
-/// `earley::Production` is a one-to-one relationship of `Term` -> `Expression`.
+/// [`crate::Production`] offers multiple possible "right hand side" [`crate::Expression`]s, which is overly flexible for Earley parsing.
+/// [`Production`] is a one-to-one relationship of [`crate::Term`] -> [`crate::Expression`].
 #[derive(Debug)]
 pub(crate) struct Production<'gram> {
     pub id: ProductionId,
@@ -39,22 +45,26 @@ impl<'gram> Production<'gram> {
     }
 }
 
+/// An attempt at matching a [`Production`]'s "right hand side" [`crate::Term`]s
 #[derive(Debug, Clone)]
 pub(crate) struct ProductionMatching<'gram> {
     pub prod_id: ProductionId,
     pub lhs: &'gram crate::Term,
+    /// "right hand side" [`TermMatching`]s which are partitioned by the matched and unmatched.
+    /// For example: [Matched, Matched, Matched, Unmatched, Unmatched]
     rhs: Vec<TermMatching<'gram>>,
+    /// The progress cursor used to separate [`TermMatching`]s in the "right hand side"
     matched_count: usize,
 }
 
 impl<'gram> ProductionMatching<'gram> {
+    /// Attempt to "complete" the production, by having no unmatched terms remaining.
     pub fn complete(&self) -> Option<ProductionMatch<'gram>> {
         let rhs: Option<Vec<TermMatch>> = self
             .rhs
             .iter()
             .map(|term| match term {
                 TermMatching::Unmatched(_) => None,
-                // TODO: avoid clone
                 TermMatching::Matched(term) => Some(term.clone()),
             })
             .collect();
@@ -75,6 +85,7 @@ impl<'gram> ProductionMatching<'gram> {
             }
         })
     }
+    /// Get the next unmatched [`crate::Term`]
     pub fn next(&self) -> Option<&'gram crate::Term> {
         self.rhs.get(self.matched_count).map(|term| match term {
             TermMatching::Matched(_) => {
@@ -83,10 +94,14 @@ impl<'gram> ProductionMatching<'gram> {
             TermMatching::Unmatched(term) => *term,
         })
     }
+    /// Get how many [`crate::Term`] have been matched
     pub fn matched_count(&self) -> usize {
         self.matched_count
     }
-    pub fn match_term(&self, term_match: TermMatch<'gram>) -> Option<Self> {
+    /// Add a [`TermMatch`].
+    /// Does **not** check if the added term is a valid match. That responsibility is on the caller,
+    /// which likely has more context for faster matching of terms.
+    pub fn add_term_match(&self, term_match: TermMatch<'gram>) -> Option<Self> {
         // only match term if there is next
         self.next().map(|_| {
             let Self {
@@ -95,9 +110,8 @@ impl<'gram> ProductionMatching<'gram> {
                 rhs,
                 prod_id,
             } = self;
-            let prod_id = prod_id.clone();
+            let prod_id = *prod_id;
 
-            // TODO: avoid clone, PROBABLY THIS
             let mut rhs = rhs.clone();
             rhs[*matched_count] = TermMatching::Matched(term_match);
             let matched_count = matched_count + 1;
@@ -112,6 +126,8 @@ impl<'gram> ProductionMatching<'gram> {
     }
 }
 
+/// A fully complete [`ProductionMatching`].
+/// Created via [`ProductionMatching::complete`]
 #[derive(Debug, Clone)]
 pub(crate) struct ProductionMatch<'gram> {
     pub lhs: &'gram crate::Term,
@@ -119,13 +135,12 @@ pub(crate) struct ProductionMatch<'gram> {
     pub input_len: usize,
 }
 
-impl<'gram> ProductionMatch<'gram> {}
-
 type ProdArena<'gram> = AppendOnlyVec<Production<'gram>, ProductionId>;
 type ProdTermMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec<ProductionId>>;
 type NullMatchMap<'gram> =
     std::collections::HashMap<&'gram crate::Term, Vec<Rc<ProductionMatch<'gram>>>>;
 
+/// Similar to [`crate::Grammar`], but using [`Production`] and tables useful for parsing.
 #[derive(Debug)]
 pub(crate) struct GrammarMatching<'gram> {
     starting_production_ids: Vec<ProductionId>,
@@ -152,10 +167,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
             .flat_map(|prod| prod.rhs_iter().map(|rhs| (&prod.lhs, rhs)));
 
         for (lhs, rhs) in flat_prod_iter {
-            let prod = productions.push_with_id(|id| {
-                let prod = Production { id, lhs, rhs };
-                prod
-            });
+            let prod = productions.push_with_id(|id| Production { id, lhs, rhs });
             let id = prod.id;
 
             prods_by_lhs.entry(lhs).or_default().push(id);
@@ -183,6 +195,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
 
         grammar
     }
+    // TODO: test if "nullable" rules come first
     fn find_null_matches(&mut self) {
         let mut null_matchings: Vec<ProductionMatching> = self
             .productions
@@ -201,7 +214,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
                     crate::Term::Terminal(terminal) => {
                         if terminal.is_empty() {
                             let new_null_match =
-                                null_match.match_term(TermMatch::Terminal("")).unwrap();
+                                null_match.add_term_match(TermMatch::Terminal("")).unwrap();
                             null_matchings.push(new_null_match);
                         }
                     }
@@ -210,7 +223,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
                         {
                             let new_null_match = null_term_prod.iter().map(|rhs_match| {
                                 null_match
-                                    .match_term(TermMatch::Nonterminal(rhs_match.clone()))
+                                    .add_term_match(TermMatch::Nonterminal(rhs_match.clone()))
                                     .unwrap()
                             });
                             null_matchings.extend(new_null_match);

@@ -97,10 +97,14 @@ pub(crate) struct TraversalQueue<'gram> {
 }
 
 impl<'gram> TraversalQueue<'gram> {
-    pub fn new(grammar: &GrammarMatching<'gram>, input_range: InputRange<'gram>) -> Self {
+    pub fn new(
+        grammar: &GrammarMatching<'gram>,
+        input_range: InputRange<'gram>,
+        starting_term: &'gram Term,
+    ) -> Self {
         let queue = VecDeque::new();
         let starting_traversals = grammar
-            .starting_productions()
+            .get_productions_by_lhs(starting_term)
             .map(|prod| Traversal::start_production(prod, &input_range));
 
         let mut traversal_queue = Self {

@@ -32,7 +32,13 @@ These benchmarks are not run during continuous integration testing. But if a dev
 [criterion]: https://crates.io/crates/criterion
 [cargo-criterion]: https://github.com/bheisler/cargo-criterion
 
-### Tracing
+#### Flamegraph
+
+> CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --bench bnf -- --bench
+
+`sudo` may be required for `dtrace` on macOS
+
+#### Tracing
 
 BNF has an optional "tracing" feature which will provide tracing spans during parsing.
 

@@ -6,7 +6,7 @@ use crate::{
     append_vec::{append_only_vec_id, AppendOnlyVec},
     tracing, Term,
 };
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 /// The three main steps of the "Earley" parsing algorithm
@@ -90,9 +90,55 @@ pub(crate) struct TraversalDuplicateKey {
 }
 
 #[derive(Debug, Default)]
+pub(crate) struct TraversalCompletionMap<'gram> {
+    map: HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>,
+}
+
+impl<'gram> TraversalCompletionMap<'gram> {
+    pub fn get(
+        &'_ self,
+        complete_traversal: &Traversal<'gram>,
+    ) -> impl Iterator<Item = TraversalId> + '_ {
+        let key = TermCompletionKey::new(
+            complete_traversal.matching.lhs,
+            complete_traversal.input_range.offset.start,
+        );
+        self.map.get(&key).into_iter().flatten().cloned()
+    }
+    pub fn insert(&mut self, traversal: &Traversal<'gram>, id: TraversalId) -> bool {
+        match traversal.matching.next() {
+            Some(unmatched @ Term::Nonterminal(_)) => {
+                let key =
+                    TermCompletionKey::new(unmatched, traversal.input_range.offset.total_len());
+                self.map.entry(key).or_default().push(id);
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Key used for "incomplete" [`Traversal`]
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub(crate) struct TermCompletionKey<'gram> {
+    input_start: usize,
+    matching: &'gram Term,
+}
+
+impl<'gram> TermCompletionKey<'gram> {
+    pub fn new(matching: &'gram Term, input_start: usize) -> Self {
+        Self {
+            matching,
+            input_start,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 pub(crate) struct TraversalQueue<'gram> {
     arena: AppendOnlyVec<Traversal<'gram>, TraversalId>,
     queue: VecDeque<TraversalId>,
+    incomplete: TraversalCompletionMap<'gram>,
     processed: HashSet<TraversalDuplicateKey>,
 }
 
@@ -133,6 +179,9 @@ impl<'gram> TraversalQueue<'gram> {
 
             let id = self.arena.push(traversal);
             self.queue.push_back(id);
+
+            let traversal = self.arena.get(id).unwrap();
+            self.incomplete.insert(traversal, id);
         }
     }
 
@@ -144,6 +193,7 @@ impl<'gram> TraversalQueue<'gram> {
         H: FnMut(
             TraversalId,
             &AppendOnlyVec<Traversal<'gram>, TraversalId>,
+            &mut TraversalCompletionMap<'gram>,
             &mut Vec<Traversal<'gram>>,
         ) -> Option<Rc<ProductionMatch<'gram>>>,
     {
@@ -151,7 +201,7 @@ impl<'gram> TraversalQueue<'gram> {
         let mut created = Vec::<Traversal>::new();
 
         while let Some(id) = self.queue.pop_front() {
-            let prod_match = handler(id, &self.arena, &mut created);
+            let prod_match = handler(id, &self.arena, &mut self.incomplete, &mut created);
             self.extend(created.drain(..));
 
             if prod_match.is_some() {

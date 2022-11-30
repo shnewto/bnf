@@ -5,27 +5,8 @@ mod traversal;
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
 use grammar::{GrammarMatching, ProductionMatch, TermMatch};
 use input_range::InputRange;
-use std::collections::HashMap;
 use std::rc::Rc;
-use traversal::{EarleyStep, Traversal, TraversalId, TraversalQueue};
-
-/// Key used for "incomplete" [`crate::Production`] during [`complete`]
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub(crate) struct TermCompletionKey<'gram> {
-    input_start: usize,
-    matching: &'gram Term,
-}
-
-impl<'gram> TermCompletionKey<'gram> {
-    pub fn new(matching: &'gram Term, input_start: usize) -> Self {
-        Self {
-            matching,
-            input_start,
-        }
-    }
-}
-
-type TermCompletionMap<'gram> = HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>;
+use traversal::{EarleyStep, Traversal, TraversalCompletionMap, TraversalId, TraversalQueue};
 
 fn predict<'gram, 'a>(
     traversal: &'a Traversal<'gram>,
@@ -69,22 +50,16 @@ fn scan<'gram>(
 fn complete<'gram, 'a>(
     complete_traversal: &'a Traversal<'gram>,
     prod_match: &'a Rc<ProductionMatch<'gram>>,
-    incomplete: &'a TermCompletionMap<'gram>,
     arena: &'a crate::append_vec::AppendOnlyVec<Traversal<'gram>, TraversalId>,
+    incomplete: &'a TraversalCompletionMap<'gram>,
 ) -> impl Iterator<Item = Traversal<'gram>> + 'a {
-    let incomplete_key =
-        TermCompletionKey::new(prod_match.lhs, complete_traversal.input_range.offset.start);
+    incomplete.get(complete_traversal).filter_map(|id| {
+        let term_match = TermMatch::Nonterminal(prod_match.clone());
 
-    incomplete
-        .get(&incomplete_key)
-        .into_iter()
-        .flatten()
-        .filter_map(|id| {
-            let term_match = TermMatch::Nonterminal(prod_match.clone());
-            arena
-                .get(*id)
-                .and_then(|traversal| traversal.match_term(term_match))
-        })
+        arena
+            .get(id)
+            .and_then(|traversal| traversal.match_term(term_match))
+    })
 }
 
 type NullMatchMap<'gram> =
@@ -130,7 +105,6 @@ struct ParseIter<'gram> {
     grammar: Rc<GrammarMatching<'gram>>,
     null_match_map: NullMatchMap<'gram>,
     traversal_queue: TraversalQueue<'gram>,
-    incomplete: TermCompletionMap<'gram>,
     starting_term: &'gram Term,
 }
 
@@ -154,7 +128,6 @@ impl<'gram> ParseIter<'gram> {
             traversal_queue,
             starting_term,
             null_match_map,
-            incomplete: Default::default(),
         }
     }
 }
@@ -164,51 +137,45 @@ impl<'gram> Iterator for ParseIter<'gram> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::next").entered();
-        self.traversal_queue.handle_pop(|id, arena, created| {
-            let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handler").entered();
-            let traversal = arena.get(id).expect("invalid traversal ID");
+        self.traversal_queue
+            .handle_pop(|id, arena, incomplete, created| {
+                let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handler").entered();
+                let traversal = arena.get(id).expect("invalid traversal ID");
 
-            match traversal.earley() {
-                EarleyStep::Predict(nonterminal) => {
-                    let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
-                    created.extend(predict(traversal, nonterminal, &self.grammar));
-                    created.extend(complete_nullable(
-                        traversal,
-                        nonterminal,
-                        &self.null_match_map,
-                    ));
+                match traversal.earley() {
+                    EarleyStep::Predict(nonterminal) => {
+                        let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
+                        created.extend(predict(traversal, nonterminal, &self.grammar));
+                        created.extend(complete_nullable(
+                            traversal,
+                            nonterminal,
+                            &self.null_match_map,
+                        ));
+                    }
+                    EarleyStep::Scan(terminal) => {
+                        let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
+                        created.extend(scan(traversal, terminal));
+                    }
+                    EarleyStep::Complete(prod_match) => {
+                        let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
+                        created.extend(complete(traversal, &prod_match, arena, incomplete));
 
-                    let incomplete_key = TermCompletionKey::new(
-                        nonterminal,
-                        traversal.input_range.offset.total_len(),
-                    );
+                        {
+                            let _span =
+                                tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
 
-                    self.incomplete.entry(incomplete_key).or_default().push(id);
-                }
-                EarleyStep::Scan(terminal) => {
-                    let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
-                    created.extend(scan(traversal, terminal));
-                }
-                EarleyStep::Complete(prod_match) => {
-                    let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
-                    created.extend(complete(traversal, &prod_match, &self.incomplete, arena));
+                            let is_full_traversal = traversal.input_range.is_complete()
+                                && traversal.matching.lhs == self.starting_term;
 
-                    {
-                        let _span =
-                            tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
-
-                        let is_full_traversal = traversal.input_range.is_complete()
-                            && traversal.matching.lhs == self.starting_term;
-
-                        if is_full_traversal {
-                            return Some(prod_match);
+                            if is_full_traversal {
+                                return Some(prod_match);
+                            }
                         }
                     }
                 }
-            }
 
-            None
-        })
+                None
+            })
     }
 }
 
@@ -483,6 +450,29 @@ mod tests {
         .unwrap();
 
         let input = "()";
+
+        assert!(
+            grammar.parse_input(input).next().is_some(),
+            "can't parse: {input}"
+        );
+    }
+
+    #[test]
+    fn qualified_whitespace() {
+        let grammar: Grammar = "
+        <terms> ::= <terms> <ws> <term>
+                  | <term>
+        <term> ::= <qualified>
+                 | 'unqualified'
+        <qualified> ::= 'QUALIFIER:' <qual-term>
+        <qual-term> ::= <qual-term> <ws>
+                      | 'qualified'
+        <ws> ::= ' ' | ' ' <ws>
+        "
+        .parse()
+        .unwrap();
+
+        let input = "QUALIFIER:qualified unqualified";
 
         assert!(
             grammar.parse_input(input).next().is_some(),

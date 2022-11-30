@@ -39,18 +39,11 @@ impl<'gram> InputRange<'gram> {
     }
     pub fn advance_by(&self, step: usize) -> Self {
         let InputRangeOffset { start, len } = self.offset;
-        if step == 0 {
-            Self {
-                input: self.input,
-                offset: InputRangeOffset { start, len },
-            }
-        } else {
-            let max_len = self.input.len() - start;
-            let len = std::cmp::min(len + step, max_len);
-            Self {
-                input: self.input,
-                offset: InputRangeOffset { start, len },
-            }
+        let max_len = self.input.len() - start;
+        let len = std::cmp::min(len + step, max_len);
+        Self {
+            input: self.input,
+            offset: InputRangeOffset { start, len },
         }
     }
     pub fn is_complete(&self) -> bool {

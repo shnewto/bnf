@@ -69,3 +69,18 @@ impl<'gram> std::fmt::Debug for InputRange<'gram> {
         write!(f, "InputRange(\"{before}|{scanned}|{after}\")",)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_fmt() {
+        let input = "GATTACA";
+        let input_range = InputRange::new(input).advance_by(3).after().advance_by(2);
+
+        let debug_format = format!("{input_range:?}");
+
+        assert_eq!(debug_format, "InputRange(\"GAT|TA|CA\")");
+    }
+}

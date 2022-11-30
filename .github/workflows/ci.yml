@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -29,7 +29,7 @@ jobs:
     needs: [format]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -44,7 +44,7 @@ jobs:
     needs: [format]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -59,7 +59,7 @@ jobs:
     needs: [format]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -74,7 +74,7 @@ jobs:
     needs: [format]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -89,7 +89,7 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -135,7 +135,7 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: toolchain
         uses: actions-rs/toolchain@v1
         with:

@@ -3,6 +3,7 @@
 Benchmarking numbers will vary across tests, specific grammars, rust versions, and hardware. With so many sources of noise, it is important to remember that "faster" is not always easy to define.
 
 With that in mind, BNF's benchmarking has the following goals:
+
 * identify statistically significant performance regressions
 * validate performance hypothesis
 
@@ -30,3 +31,17 @@ These benchmarks are not run during continuous integration testing. But if a dev
 
 [criterion]: https://crates.io/crates/criterion
 [cargo-criterion]: https://github.com/bheisler/cargo-criterion
+
+#### Flamegraph
+
+> CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --bench bnf -- --bench
+
+`sudo` may be required for `dtrace` on macOS
+
+#### Tracing
+
+BNF has an optional "tracing" feature which will provide tracing spans during parsing.
+
+The benchmarks are enabled to write these tracing spans to `tracing.folded`. This data can then be parsed to provide a flamegraph.
+
+> RUST_LOG=TRACE cargo criterion --features "tracing" && cat tracing.folded | inferno-flamegraph > flamegraph.svg

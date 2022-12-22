@@ -690,35 +690,53 @@ mod tests {
     }
 
     #[test]
-    fn issue() {
+    fn shared_nonterminal_failure() {
+        crate::tracing::init_subscriber();
+        let grammar = "
+        <start> ::= <shortfail> | <longsuccess>
+        <shortfail> ::= <char> 'never'
+        <char> ::= 'a'
+        <longsuccess> ::= <long2>
+        <long2> ::= <long3>
+        <long3> ::= <long4>
+        <long4> ::= <char>
+        ";
+
+        let grammar = grammar.parse::<Grammar>().unwrap();
+
+        let input = "a";
+
+        assert!(
+            grammar.parse_input(input).next().is_some(),
+            "minimal issue failed to parse: {input}"
+        );
+    }
+
+    #[test]
+    fn swap_left_right_recursion() {
         crate::tracing::init_subscriber();
         let input = "aa a";
 
         let left_recursive: &str = "
         <conjunction> ::= <conjunction> <ws> <predicate> | <predicate>
         <predicate> ::= <string_null_one> | <special-string> '.'
-    
         <string_null_one> ::= <string_null_two>
         <string_null_two> ::= <string_null_three>
         <string_null_three> ::= <string>
-    
         <string> ::= <char_null> | <string> <char_null>
         <special-string> ::= <special-char> | <special-string> <special-char>
-    
         <char_null> ::= <char>
         <char> ::= 'a'
-    
         <special-char> ::= <char_null> | <whitespace>
         <whitespace> ::= ' '
-    
         <ws> ::= ' ' | ' ' <ws>
         ";
-        // assert!(left_recursive
-        //     .parse::<Grammar>()
-        //     .unwrap()
-        //     .parse_input(input)
-        //     .next()
-        //     .is_some());
+        assert!(left_recursive
+            .parse::<Grammar>()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .is_some());
 
         let right_recursive = left_recursive.replace(
             // rewrite production from left- to right- recursive

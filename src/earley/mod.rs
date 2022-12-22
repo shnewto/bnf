@@ -142,6 +142,8 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handler").entered();
                 let traversal = arena.get(id).expect("invalid traversal ID");
 
+                tracing::event!(tracing::Level::TRACE, "popped traversal: {traversal:#?}");
+
                 match traversal.earley() {
                     EarleyStep::Predict(nonterminal) => {
                         let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();

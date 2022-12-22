@@ -171,7 +171,20 @@ impl<'gram> TraversalQueue<'gram> {
         let _span = tracing::span!(tracing::Level::TRACE, "Queue::extend").entered();
         for traversal in traversals {
             let processed_key = traversal.duplicate_key();
+
             let is_new_traversal = self.processed.insert(processed_key);
+
+            let _new_traversal_prefix = if is_new_traversal {
+                "new traversal"
+            } else {
+                "ignored duplicate traversal"
+            };
+
+            tracing::event!(
+                tracing::Level::TRACE,
+                "{_new_traversal_prefix}: {:#?}",
+                traversal
+            );
 
             if !is_new_traversal {
                 continue;

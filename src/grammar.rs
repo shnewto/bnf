@@ -687,6 +687,7 @@ mod tests {
 
     #[test]
     fn issue() {
+        crate::tracing::init_subscriber();
         let input = "aa a";
 
         let left_recursive: &str = "

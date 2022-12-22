@@ -116,12 +116,20 @@ impl<'gram> ParseIter<'gram> {
         is_nullable_productions: bool,
     ) -> Self {
         let input_range = InputRange::new(input);
-        let traversal_queue = TraversalQueue::new(&grammar, input_range, starting_term);
         let null_match_map = if is_nullable_productions {
             find_null_prod_matches(grammar.clone())
         } else {
             NullMatchMap::new()
         };
+
+        if is_nullable_productions {
+            tracing::event!(
+                tracing::Level::TRACE,
+                "grammar nullable terms: {null_match_map:#?}"
+            );
+        }
+
+        let traversal_queue = TraversalQueue::new(&grammar, input_range, starting_term);
 
         Self {
             grammar,
@@ -136,10 +144,10 @@ impl<'gram> Iterator for ParseIter<'gram> {
     type Item = Rc<ProductionMatch<'gram>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::next").entered();
+        let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_new").entered();
         self.traversal_queue
             .handle_pop(|id, arena, incomplete, created| {
-                let _span = tracing::span!(tracing::Level::TRACE, "ParseIter::handler").entered();
+                let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_handler").entered();
                 let traversal = arena.get(id).expect("invalid traversal ID");
 
                 tracing::event!(tracing::Level::TRACE, "popped traversal: {traversal:#?}");

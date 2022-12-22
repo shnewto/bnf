@@ -2,8 +2,12 @@
 mod defs {
     pub(crate) use tracing::{event, span, Level};
 
+    #[allow(dead_code)]
     pub fn init_subscriber() {
-        tracing_subscriber::fmt::init()
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_ansi(false)
+            .init();
     }
 }
 

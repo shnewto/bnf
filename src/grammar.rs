@@ -690,6 +690,52 @@ mod tests {
     }
 
     #[test]
+    fn issue() {
+        let input = "aa a";
+
+        let left_recursive: &str = "
+        <conjunction> ::= <conjunction> <ws> <predicate> | <predicate>
+        <predicate> ::= <string_null_one> | <special-string> '.'
+    
+        <string_null_one> ::= <string_null_two>
+        <string_null_two> ::= <string_null_three>
+        <string_null_three> ::= <string>
+    
+        <string> ::= <char_null> | <string> <char_null>
+        <special-string> ::= <special-char> | <special-string> <special-char>
+    
+        <char_null> ::= <char>
+        <char> ::= 'a'
+    
+        <special-char> ::= <char_null> | <whitespace>
+        <whitespace> ::= ' '
+    
+        <ws> ::= ' ' | ' ' <ws>
+        ";
+        assert!(left_recursive
+            .parse::<Grammar>()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .is_some());
+
+        let right_recursive = left_recursive.replace(
+            // rewrite production from left- to right- recursive
+            "<string> ::= <char_null> | <string> <char_null>",
+            "<string> ::= <char_null> | <char_null> <string>",
+        );
+        assert!(
+            right_recursive
+                .parse::<Grammar>()
+                .unwrap()
+                .parse_input(input)
+                .next()
+                .is_some(),
+            "right-recursive grammar failed to parse: {input}"
+        );
+    }
+
+    #[test]
     fn format_parse_tree() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""

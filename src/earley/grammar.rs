@@ -147,7 +147,7 @@ pub(crate) struct GrammarMatching<'gram> {
 
 impl<'gram, 'a> GrammarMatching<'gram> {
     pub fn new(grammar: &'gram crate::Grammar) -> Self {
-        let _span = tracing::span!(tracing::Level::TRACE, "GrammarMatching::new").entered();
+        let _span = tracing::span!(tracing::Level::TRACE, "GrammarMatching_new").entered();
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();

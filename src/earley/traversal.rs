@@ -148,6 +148,8 @@ impl<'gram> TraversalQueue<'gram> {
         input_range: InputRange<'gram>,
         starting_term: &'gram Term,
     ) -> Self {
+        let _span = tracing::span!(tracing::Level::TRACE, "TraversalQueue_new").entered();
+
         let queue = VecDeque::new();
         let starting_traversals = grammar
             .get_productions_by_lhs(starting_term)
@@ -168,7 +170,7 @@ impl<'gram> TraversalQueue<'gram> {
     where
         I: Iterator<Item = Traversal<'gram>>,
     {
-        let _span = tracing::span!(tracing::Level::TRACE, "Queue::extend").entered();
+        let _span = tracing::span!(tracing::Level::TRACE, "TraversalQueue_extend").entered();
         for traversal in traversals {
             let processed_key = traversal.duplicate_key();
 
@@ -210,7 +212,7 @@ impl<'gram> TraversalQueue<'gram> {
             &mut Vec<Traversal<'gram>>,
         ) -> Option<Rc<ProductionMatch<'gram>>>,
     {
-        let _span = tracing::span!(tracing::Level::TRACE, "Queue::handle_pop").entered();
+        let _span = tracing::span!(tracing::Level::TRACE, "TraversalQueue_handle_pop").entered();
         let mut created = Vec::<Traversal>::new();
 
         while let Some(id) = self.queue.pop_front() {

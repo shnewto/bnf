@@ -16,7 +16,7 @@ license = "MIT"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }
-tracing-subscriber = { version = "0.3.16", optional = true }
+tracing-subscriber = { version = "0.3.16", optional = true, features = ["env-filter"] }
 tracing-flame = { version = "0.2.0", optional = true }
 
 [dependencies.stacker]

@@ -755,6 +755,74 @@ mod tests {
     }
 
     #[test]
+    fn shared_nullable_nonterminal() {
+        let fails: &str = "
+        <disjunction> ::= <predicate> | <disjunction> <or> <predicate>
+        <predicate> ::= <char_null_one> | <special-string> '.'
+
+        <char_null_one> ::= <char_null_two>
+        <char_null_two> ::= <char_null_three>
+        <char_null_three> ::= <char>
+
+        <or> ::= <ws> 'or' <ws>
+        <ws> ::= <whitespace> | ' ' <ws>
+        <whitespace> ::= ' '
+
+        <special-string> ::= <special-char> | <special-char> <special-string>
+        <special-char> ::= <char> | <whitespace>
+        <char> ::= 'a'
+        ";
+
+        let input = "a or a";
+
+        let passes_1 = fails.replace(
+            // skip nullable production <char_null_two>
+            "<char_null_one> ::= <char_null_two>",
+            "<char_null_one> ::= <char_null_three>",
+        );
+        assert!(passes_1
+            .parse::<Grammar>()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .is_some());
+
+        let passes_2 = fails.replace(
+            // replace <whitespace> with its terminal ' '
+            "<ws> ::= <whitespace> | ' ' <ws>",
+            "<ws> ::= ' ' | ' ' <ws>",
+        );
+        assert!(passes_2
+            .parse::<Grammar>()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .is_some());
+
+        let passes_3 = fails.replace(
+            // again, replace <whitespace> with its terminal ' '
+            "<special-char> ::= <char> | <whitespace>",
+            "<special-char> ::= <char> | ' '",
+        );
+        assert!(passes_3
+            .parse::<Grammar>()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .is_some());
+
+        assert!(
+            fails
+                .parse::<Grammar>()
+                .unwrap()
+                .parse_input(input)
+                .next()
+                .is_some(),
+            "all grammars except last one parsed: {input}"
+        );
+    }
+
+    #[test]
     fn format_parse_tree() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""

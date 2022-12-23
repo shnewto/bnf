@@ -91,11 +91,12 @@ pub(crate) struct TraversalDuplicateKey {
 
 #[derive(Debug, Default)]
 pub(crate) struct TraversalCompletionMap<'gram> {
-    map: HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>,
+    incomplete: HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>,
+    complete: HashMap<TermCompletionKey<'gram>, Vec<Rc<ProductionMatch<'gram>>>>,
 }
 
 impl<'gram> TraversalCompletionMap<'gram> {
-    pub fn get(
+    pub fn get_incomplete(
         &'_ self,
         complete_traversal: &Traversal<'gram>,
     ) -> impl Iterator<Item = TraversalId> + '_ {
@@ -103,17 +104,38 @@ impl<'gram> TraversalCompletionMap<'gram> {
             complete_traversal.matching.lhs,
             complete_traversal.input_range.offset.start,
         );
-        self.map.get(&key).into_iter().flatten().cloned()
+        self.incomplete.get(&key).into_iter().flatten().cloned()
     }
-    pub fn insert(&mut self, traversal: &Traversal<'gram>, id: TraversalId) -> bool {
+    pub fn get_complete(
+        &'_ self,
+        matching: &'gram Term,
+        input_range: &InputRange<'gram>,
+    ) -> impl Iterator<Item = Rc<ProductionMatch<'gram>>> + '_ {
+        let key = TermCompletionKey::new(matching, input_range.offset.total_len());
+        self.complete.get(&key).into_iter().flatten().cloned()
+    }
+    pub fn insert(&mut self, traversal: &Traversal<'gram>, id: TraversalId) {
         match traversal.matching.next() {
+            Some(Term::Terminal(_)) => {
+                // do nothing, because terminals are irrelevant to completion
+            }
             Some(unmatched @ Term::Nonterminal(_)) => {
                 let key =
                     TermCompletionKey::new(unmatched, traversal.input_range.offset.total_len());
-                self.map.entry(key).or_default().push(id);
-                true
+                self.incomplete.entry(key).or_default().push(id);
             }
-            _ => false,
+            None => {
+                let key = TermCompletionKey::new(
+                    traversal.matching.lhs,
+                    traversal.input_range.offset.start,
+                );
+                let prod_match = traversal
+                    .matching
+                    .complete()
+                    .expect("matching must be complete because no next term");
+                let prod_match = Rc::new(prod_match);
+                self.complete.entry(key).or_default().push(prod_match);
+            }
         }
     }
 }
@@ -138,7 +160,7 @@ impl<'gram> TermCompletionKey<'gram> {
 pub(crate) struct TraversalQueue<'gram> {
     arena: AppendOnlyVec<Traversal<'gram>, TraversalId>,
     queue: VecDeque<TraversalId>,
-    incomplete: TraversalCompletionMap<'gram>,
+    completion_map: TraversalCompletionMap<'gram>,
     processed: HashSet<TraversalDuplicateKey>,
 }
 
@@ -196,7 +218,7 @@ impl<'gram> TraversalQueue<'gram> {
             self.queue.push_back(id);
 
             let traversal = self.arena.get(id).unwrap();
-            self.incomplete.insert(traversal, id);
+            self.completion_map.insert(traversal, id);
         }
     }
 
@@ -216,7 +238,7 @@ impl<'gram> TraversalQueue<'gram> {
         let mut created = Vec::<Traversal>::new();
 
         while let Some(id) = self.queue.pop_front() {
-            let prod_match = handler(id, &self.arena, &mut self.incomplete, &mut created);
+            let prod_match = handler(id, &self.arena, &mut self.completion_map, &mut created);
             self.extend(created.drain(..));
 
             if prod_match.is_some() {

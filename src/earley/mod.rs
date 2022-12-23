@@ -18,6 +18,18 @@ fn predict<'gram, 'a>(
         .map(|prod| Traversal::start_production(prod, &traversal.input_range))
 }
 
+fn complete_prior<'gram, 'a>(
+    incomplete_traversal: &'a Traversal<'gram>,
+    matching: &'gram Term,
+    completion_map: &'a TraversalCompletionMap<'gram>,
+) -> impl Iterator<Item = Traversal<'gram>> + 'a {
+    completion_map
+        .get_complete(matching, &incomplete_traversal.input_range)
+        .filter_map(|term_match| {
+            incomplete_traversal.match_term(TermMatch::Nonterminal(term_match))
+        })
+}
+
 fn complete_nullable<'gram, 'a>(
     traversal: &'a Traversal<'gram>,
     nonterminal: &'gram Term,
@@ -51,15 +63,17 @@ fn complete<'gram, 'a>(
     complete_traversal: &'a Traversal<'gram>,
     prod_match: &'a Rc<ProductionMatch<'gram>>,
     arena: &'a crate::append_vec::AppendOnlyVec<Traversal<'gram>, TraversalId>,
-    incomplete: &'a TraversalCompletionMap<'gram>,
+    completion_map: &'a TraversalCompletionMap<'gram>,
 ) -> impl Iterator<Item = Traversal<'gram>> + 'a {
-    incomplete.get(complete_traversal).filter_map(|id| {
-        let term_match = TermMatch::Nonterminal(prod_match.clone());
+    completion_map
+        .get_incomplete(complete_traversal)
+        .filter_map(|id| {
+            let term_match = TermMatch::Nonterminal(prod_match.clone());
 
-        arena
-            .get(id)
-            .and_then(|traversal| traversal.match_term(term_match))
-    })
+            arena
+                .get(id)
+                .and_then(|traversal| traversal.match_term(term_match))
+        })
 }
 
 type NullMatchMap<'gram> =
@@ -146,7 +160,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
     fn next(&mut self) -> Option<Self::Item> {
         let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_new").entered();
         self.traversal_queue
-            .handle_pop(|id, arena, incomplete, created| {
+            .handle_pop(|id, arena, completion_map, created| {
                 let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_handler").entered();
                 let traversal = arena.get(id).expect("invalid traversal ID");
 
@@ -156,6 +170,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     EarleyStep::Predict(nonterminal) => {
                         let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
                         created.extend(predict(traversal, nonterminal, &self.grammar));
+                        created.extend(complete_prior(traversal, nonterminal, completion_map));
                         created.extend(complete_nullable(
                             traversal,
                             nonterminal,
@@ -168,7 +183,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     }
                     EarleyStep::Complete(prod_match) => {
                         let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
-                        created.extend(complete(traversal, &prod_match, arena, incomplete));
+                        created.extend(complete(traversal, &prod_match, arena, completion_map));
 
                         {
                             let _span =
@@ -578,6 +593,10 @@ mod tests {
         let input = "1+(2*3-4)";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
+
+        for parse in &parses {
+            println!("{parse}");
+        }
 
         let expected_parse_tree = "
 <sum> ::= <sum> <add> <product>

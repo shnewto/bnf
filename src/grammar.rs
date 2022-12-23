@@ -687,7 +687,6 @@ mod tests {
 
     #[test]
     fn shared_nonterminal_failure() {
-        crate::tracing::init_subscriber();
         let grammar = "
         <start> ::= <shortfail> | <longsuccess>
         <shortfail> ::= <char> 'never'
@@ -710,7 +709,6 @@ mod tests {
 
     #[test]
     fn swap_left_right_recursion() {
-        crate::tracing::init_subscriber();
         let input = "aa a";
 
         let left_recursive: &str = "

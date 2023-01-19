@@ -821,6 +821,32 @@ mod tests {
     }
 
     #[test]
+    fn wip() {
+        crate::tracing::init_subscriber();
+        let bnf = "
+        <and> ::= <and> ' AND ' <terminal>
+                | <and> ' ' <terminal>
+                | <terminal>
+        <terminal> ::= 'AND'
+        ";
+        let input = "AND AND AND AND AND";
+
+        for p in bnf.parse::<Grammar>().unwrap().parse_input(input) {
+            println!("{p}");
+        }
+
+        // 1. 'AND' <and> 'AND' <and> 'AND'
+        // 2. 'AND' <and> 'AND' 'AND' 'AND'
+        // 3. 'AND' 'AND' <and> 'AND' 'AND'
+        // 4. 'AND' 'AND' 'AND' <and> 'AND'
+        // 5. 'AND' 'AND' 'AND' 'AND' 'AND'
+        assert_eq!(
+            bnf.parse::<Grammar>().unwrap().parse_input(input).count(),
+            5
+        );
+    }
+
+    #[test]
     fn format_parse_tree() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""

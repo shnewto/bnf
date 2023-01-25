@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct InputRangeOffset {
     pub start: usize,
     pub len: usize,

@@ -1,9 +1,10 @@
 mod grammar;
 mod input_range;
 mod traversal;
+mod traversal_new;
 
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
-use grammar::{GrammarMatching, ProductionMatch, TermMatch};
+use grammar::{GrammarMatching, Production, ProductionId, ProductionMatch, TermMatch};
 use input_range::InputRange;
 use std::rc::Rc;
 use traversal::{EarleyStep, Traversal, TraversalCompletionMap, TraversalId, TraversalQueue};
@@ -18,6 +19,7 @@ fn predict<'gram, 'a>(
         .map(|prod| Traversal::start_production(prod, &traversal.input_range))
 }
 
+// TODO: maybe no longer needed after TraversalTree
 fn complete_prior<'gram, 'a>(
     incomplete_traversal: &'a Traversal<'gram>,
     matching: &'gram Term,
@@ -83,6 +85,7 @@ fn find_null_prod_matches(grammar: Rc<GrammarMatching>) -> NullMatchMap {
     let mut null_matches = NullMatchMap::new();
     let input = "";
 
+    // TODO: can do a work queue of affected productions to save on the happy case, which is common
     for starting_prod in grammar.productions_iter() {
         let starting_term = starting_prod.lhs;
         let is_nullable_productions = false;
@@ -210,15 +213,13 @@ pub fn parse<'gram>(
 ) -> impl Iterator<Item = ParseTree<'gram>> {
     let _span = tracing::span!(tracing::Level::TRACE, "parse").entered();
 
-    let first_prod = grammar
-        .productions_iter()
-        .next()
+    let starting_term = grammar
+        .starting_term()
         .expect("Grammar must have one production to parse");
 
     let grammar = GrammarMatching::new(grammar);
     let grammar = Rc::new(grammar);
 
-    let starting_term = &first_prod.lhs;
     let is_nullable_productions = true;
 
     parse_matching(grammar, input, starting_term, is_nullable_productions).map(parse_tree)

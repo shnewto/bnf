@@ -254,6 +254,11 @@ impl Grammar {
         crate::earley::parse(self, input)
     }
 
+    /// Get the starting term
+    pub(crate) fn starting_term(&self) -> Option<&Term> {
+        self.productions_iter().next().map(|prod| &prod.lhs)
+    }
+
     fn eval_terminal(
         &self,
         term: &Term,

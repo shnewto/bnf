@@ -2,7 +2,7 @@
 /// Example usage: `append_only_vec_id!(pub(crate) ProductionId)`;
 macro_rules! append_only_vec_id {
     ($visible:vis $id:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $visible struct $id(usize);
 
         impl From<usize> for $id {

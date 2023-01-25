@@ -28,7 +28,7 @@ pub(crate) enum TermMatching<'gram> {
 pub(crate) struct Production<'gram> {
     pub id: ProductionId,
     pub lhs: &'gram crate::Term,
-    rhs: &'gram crate::Expression,
+    pub rhs: &'gram crate::Expression,
 }
 
 impl<'gram> Production<'gram> {

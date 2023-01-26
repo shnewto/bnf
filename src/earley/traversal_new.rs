@@ -3,6 +3,7 @@ use crate::{
     append_vec::{append_only_vec_id, AppendOnlyVec},
     tracing, Grammar, Term,
 };
+use std::collections::HashMap;
 use std::rc::Rc;
 
 /// A [`crate::Term`] which has been "matched" while parsing input
@@ -18,15 +19,18 @@ append_only_vec_id!(pub(crate) TraversalId);
 
 #[derive(Debug)]
 pub(crate) struct Traversal<'gram> {
-    id: TraversalId,
-    unmatched: &'gram [crate::Term],
-    input_range: InputRange<'gram>,
+    pub id: TraversalId,
+    pub unmatched: &'gram [crate::Term],
+    pub input_range: InputRange<'gram>,
     from: Option<TraversalEdge<'gram>>,
 }
 
 impl<'gram> Traversal<'gram> {
     pub fn is_complete(&self) -> bool {
         self.unmatched.is_empty()
+    }
+    pub fn next_unmatched(&self) -> Option<&'gram Term> {
+        self.unmatched.get(0)
     }
 }
 
@@ -42,29 +46,42 @@ struct TraversalRootKey {
     input_start: usize,
 }
 
+type TraversalArena<'gram> = AppendOnlyVec<Traversal<'gram>, TraversalId>;
+type TreeRootMap = HashMap<TraversalRootKey, TraversalId>;
+type TreeEdgeMap<'gram> = HashMap<TraversalEdge<'gram>, TraversalId>;
+
 #[derive(Debug, Default)]
 pub(crate) struct TraversalTree<'gram> {
-    arena: AppendOnlyVec<Traversal<'gram>, TraversalId>,
-    tree_roots: std::collections::HashMap<TraversalRootKey, TraversalId>,
-    edges: std::collections::HashMap<TraversalEdge<'gram>, TraversalId>,
+    arena: TraversalArena<'gram>,
+    tree_roots: TreeRootMap,
+    edges: TreeEdgeMap<'gram>,
 }
 
 impl<'gram> TraversalTree<'gram> {
+    pub fn get(&self, id: TraversalId) -> &Traversal<'gram> {
+        self.arena.get(id).expect("valid traversal ID")
+    }
+    pub fn get_matching(&self, id: TraversalId) -> Option<&'gram Term> {
+        self.get(id).next_unmatched()
+    }
     pub fn predict(
         &mut self,
         production: &Production<'gram>,
         input_range: &InputRange<'gram>,
     ) -> &Traversal {
-        let traversal_root_key = TraversalRootKey {
-            production_id: production.id,
-            input_start: input_range.offset.total_len(),
-        };
+        fn inner<'gram>(
+            arena: &mut TraversalArena<'gram>,
+            tree_roots: &mut TreeRootMap,
+            input_range: &InputRange<'gram>,
+            production: &Production<'gram>,
+        ) -> TraversalId {
+            let traversal_root_key = TraversalRootKey {
+                production_id: production.id,
+                input_start: input_range.offset.total_len(),
+            };
 
-        let traversal_root = self
-            .tree_roots
-            .entry(traversal_root_key)
-            .or_insert_with(|| {
-                let traversal = self.arena.push_with_id(|id| Traversal {
+            let traversal_root = tree_roots.entry(traversal_root_key).or_insert_with(|| {
+                let traversal = arena.push_with_id(|id| Traversal {
                     id,
                     unmatched: &production.rhs.terms,
                     input_range: input_range.after(),
@@ -73,53 +90,51 @@ impl<'gram> TraversalTree<'gram> {
                 traversal.id
             });
 
-        self.arena
-            .get(*traversal_root)
-            .expect("traversal exists after insertion")
+            *traversal_root
+        }
+
+        let predicted_id = inner(
+            &mut self.arena,
+            &mut self.tree_roots,
+            input_range,
+            production,
+        );
+
+        self.get(predicted_id)
     }
     pub fn match_term(&mut self, parent: TraversalId, term: TermMatch<'gram>) -> &Traversal {
-        let parent = self.arena.get(parent).expect("parent traversal must exist");
-        let input_range = match term {
-            TermMatch::Terminal(term) => parent.input_range.advance_by(term.len()),
-            TermMatch::Nonterminal(_) => parent.input_range.clone(),
-        };
+        fn inner<'gram>(
+            arena: &mut TraversalArena<'gram>,
+            edges: &mut TreeEdgeMap<'gram>,
+            parent: TraversalId,
+            term: TermMatch<'gram>,
+        ) -> TraversalId {
+            let parent = arena.get(parent).expect("valid parent traversal ID");
+            let input_range = match term {
+                TermMatch::Terminal(term) => parent.input_range.advance_by(term.len()),
+                TermMatch::Nonterminal(_) => parent.input_range.clone(),
+            };
 
-        let parent_id = parent.id;
-        let unmatched = &parent.unmatched[1..];
-        let from = TraversalEdge { term, parent_id };
+            let parent_id = parent.id;
+            let unmatched = &parent.unmatched[1..];
+            let from = TraversalEdge { term, parent_id };
 
-        let matched = self.edges.entry(from).or_insert_with_key(|from| {
-            let traversal = self.arena.push_with_id(|id| Traversal {
-                id,
-                unmatched,
-                input_range: input_range.clone(),
-                from: Some(from.clone()),
+            let matched = edges.entry(from).or_insert_with_key(|from| {
+                let traversal = arena.push_with_id(|id| Traversal {
+                    id,
+                    unmatched,
+                    input_range: input_range.clone(),
+                    from: Some(from.clone()),
+                });
+                traversal.id
             });
-            traversal.id
-        });
 
-        self.arena
-            .get(*matched)
-            .expect("traversal exists after insertion")
-    }
-    pub fn traverse(&mut self, grammar: &GrammarMatching<'gram>, id: TraversalId) -> impl Iterator<Item=&Traversal> {
-        let traversal = self.arena.get(id).expect("valid traversal ID");
-        match traversal.unmatched.iter().next() {
-            // predict
-            Some(term @ Term::Nonterminal(_)) => {
-                todo!()
-            },
-            // scan
-            Some(Term::Terminal(term)) => {
-                todo!()
-            }
-            // complete
-            None => {
-                todo!()
-                
-            }
+            *matched
         }
-        std::iter::empty()
+
+        let matched_id = inner(&mut self.arena, &mut self.edges, parent, term);
+
+        self.get(matched_id)
     }
 }
 

@@ -173,8 +173,8 @@ impl<'gram, 'a> GrammarMatching<'gram> {
             productions,
         }
     }
-    pub fn get_production_by_id(&'a self, prod_id: ProductionId) -> Option<&'a Production<'gram>> {
-        self.productions.get(prod_id)
+    pub fn get_production_by_id(&'a self, prod_id: ProductionId) -> &'a Production<'gram> {
+        self.productions.get(prod_id).expect("valid production ID")
     }
     pub fn get_productions_by_lhs(
         &self,
@@ -184,7 +184,7 @@ impl<'gram, 'a> GrammarMatching<'gram> {
             .get(lhs)
             .into_iter()
             .flatten()
-            .filter_map(|prod_id| self.get_production_by_id(*prod_id))
+            .map(|prod_id| self.get_production_by_id(*prod_id))
     }
     pub fn productions_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.productions.iter()

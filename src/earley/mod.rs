@@ -6,7 +6,7 @@ mod traversal_new;
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
 use grammar::{GrammarMatching, Production, ProductionMatch};
 use input_range::InputRange;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 use traversal_new::{TermMatch, Traversal, TraversalId, TraversalTree};
 
@@ -122,6 +122,7 @@ fn find_null_prod_matches(grammar: Rc<GrammarMatching>) -> NullMatchMap {
 
 struct ParseIter<'gram> {
     grammar: Rc<GrammarMatching<'gram>>,
+    incomplete_map: HashMap<&'gram Term, Vec<TraversalId>>,
     null_match_map: NullMatchMap<'gram>,
     traversal_tree: TraversalTree<'gram>,
     traversal_queue: VecDeque<TraversalId>,
@@ -160,6 +161,7 @@ impl<'gram> ParseIter<'gram> {
         Self {
             grammar,
             starting_term,
+            incomplete_map: Default::default(),
             null_match_map,
             traversal_tree,
             traversal_queue,
@@ -177,6 +179,12 @@ impl<'gram> Iterator for ParseIter<'gram> {
             match self.traversal_tree.get_matching(traversal_id) {
                 Some(nonterminal @ Term::Nonterminal(_)) => {
                     let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
+
+                    self.incomplete_map
+                        .entry(nonterminal)
+                        .or_default()
+                        .push(traversal_id);
+
                     let input_range = self.traversal_tree.get(traversal_id).input_range.after();
                     for production in self.grammar.get_productions_by_lhs(nonterminal) {
                         let predicted = self.traversal_tree.predict(production, &input_range);
@@ -195,17 +203,28 @@ impl<'gram> Iterator for ParseIter<'gram> {
                 None => {
                     let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
 
-                    // {
-                    //     let _span =
-                    //         tracing::span!(tracing::Level::TRACE, "full_prod_match").entered();
+                    let traversal = self.traversal_tree.get(traversal_id);
+                    let lhs = self
+                        .grammar
+                        .get_production_by_id(traversal.production_id)
+                        .lhs;
 
-                    //     let is_full_traversal = traversal.input_range.is_complete()
-                    //         && traversal.matching.lhs == self.starting_term;
+                    let is_full_traversal =
+                        traversal.input_range.is_complete() && lhs == self.starting_term;
 
-                    //     if is_full_traversal {
-                    //         return Some(prod_match);
-                    //     }
-                    // }
+                    if let Some(incomplete_traversals) = self.incomplete_map.get(lhs) {
+                        for incomplete_traversal_id in incomplete_traversals {
+                            let term_match = TermMatch::Nonterminal(traversal_id);
+                            let completed = self
+                                .traversal_tree
+                                .match_term(*incomplete_traversal_id, term_match);
+                            self.traversal_queue.push_back(completed.id);
+                        }
+                    }
+
+                    if is_full_traversal {
+                        // return Some(prod_match);
+                    }
                 }
             }
         }

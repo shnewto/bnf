@@ -1,4 +1,4 @@
-use super::{GrammarMatching, InputRange, Production};
+use super::{grammar::ProductionId, GrammarMatching, InputRange, Production};
 use crate::{
     append_vec::{append_only_vec_id, AppendOnlyVec},
     tracing, Grammar, Term,
@@ -22,6 +22,7 @@ pub(crate) struct Traversal<'gram> {
     pub id: TraversalId,
     pub unmatched: &'gram [crate::Term],
     pub input_range: InputRange<'gram>,
+    pub production_id: ProductionId,
     from: Option<TraversalEdge<'gram>>,
 }
 
@@ -75,14 +76,16 @@ impl<'gram> TraversalTree<'gram> {
             input_range: &InputRange<'gram>,
             production: &Production<'gram>,
         ) -> TraversalId {
+            let production_id = production.id;
             let traversal_root_key = TraversalRootKey {
-                production_id: production.id,
+                production_id,
                 input_start: input_range.offset.total_len(),
             };
 
             let traversal_root = tree_roots.entry(traversal_root_key).or_insert_with(|| {
                 let traversal = arena.push_with_id(|id| Traversal {
                     id,
+                    production_id,
                     unmatched: &production.rhs.terms,
                     input_range: input_range.after(),
                     from: None,
@@ -116,12 +119,14 @@ impl<'gram> TraversalTree<'gram> {
             };
 
             let parent_id = parent.id;
+            let production_id = parent.production_id;
             let unmatched = &parent.unmatched[1..];
             let from = TraversalEdge { term, parent_id };
 
             let matched = edges.entry(from).or_insert_with_key(|from| {
                 let traversal = arena.push_with_id(|id| Traversal {
                     id,
+                    production_id,
                     unmatched,
                     input_range: input_range.clone(),
                     from: Some(from.clone()),

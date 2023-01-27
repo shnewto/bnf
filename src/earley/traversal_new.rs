@@ -27,9 +27,6 @@ pub(crate) struct Traversal<'gram> {
 }
 
 impl<'gram> Traversal<'gram> {
-    pub fn is_complete(&self) -> bool {
-        self.unmatched.is_empty()
-    }
     pub fn next_unmatched(&self) -> Option<&'gram Term> {
         self.unmatched.get(0)
     }
@@ -51,6 +48,24 @@ type TraversalArena<'gram> = AppendOnlyVec<Traversal<'gram>, TraversalId>;
 type TreeRootMap = HashMap<TraversalRootKey, TraversalId>;
 type TreeEdgeMap<'gram> = HashMap<TraversalEdge<'gram>, TraversalId>;
 
+#[derive(Debug)]
+pub(crate) struct TraversalMatchIter<'gram, 'tree> {
+    tree: &'tree TraversalTree<'gram>,
+    current: TraversalId,
+}
+
+impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
+    type Item = &'tree TermMatch<'gram>;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(edge) = &self.tree.get(self.current).from {
+            self.current = edge.parent_id;
+            Some(&edge.term)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct TraversalTree<'gram> {
     arena: TraversalArena<'gram>,
@@ -64,6 +79,13 @@ impl<'gram> TraversalTree<'gram> {
     }
     pub fn get_matching(&self, id: TraversalId) -> Option<&'gram Term> {
         self.get(id).next_unmatched()
+    }
+    pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'gram>> {
+        // TODO: this is backward!! how to reverse without allocation...
+        TraversalMatchIter {
+            current: id,
+            tree: self,
+        }
     }
     pub fn predict(
         &mut self,
@@ -115,7 +137,15 @@ impl<'gram> TraversalTree<'gram> {
             let parent = arena.get(parent).expect("valid parent traversal ID");
             let input_range = match term {
                 TermMatch::Terminal(term) => parent.input_range.advance_by(term.len()),
-                TermMatch::Nonterminal(_) => parent.input_range.clone(),
+                TermMatch::Nonterminal(nonterminal_traversal_id) => {
+                    let nonterminal_traversal = arena
+                        .get(nonterminal_traversal_id)
+                        .expect("valid completed traversal ID");
+
+                    parent
+                        .input_range
+                        .advance_by(nonterminal_traversal.input_range.offset.total_len())
+                }
             };
 
             let parent_id = parent.id;
@@ -229,7 +259,7 @@ mod tests {
         for term_match in ["A", "B", "C"] {
             let term_match = TermMatch::Terminal(term_match);
             let traversal = tree.match_term(prediction, term_match);
-            assert!(traversal.is_complete());
+            assert_eq!(traversal.next_unmatched(), None);
         }
     }
 }

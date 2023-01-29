@@ -52,17 +52,42 @@ type TreeEdgeMap<'gram> = HashMap<TraversalEdge<'gram>, TraversalId>;
 pub(crate) struct TraversalMatchIter<'gram, 'tree> {
     tree: &'tree TraversalTree<'gram>,
     current: TraversalId,
+    last: TraversalId,
+}
+
+impl<'gram, 'tree> TraversalMatchIter<'gram, 'tree> {
+    pub fn new(last: TraversalId, tree: &'tree TraversalTree<'gram>) -> Self {
+        let mut current = last;
+        while let Some(edge) = &tree.get(current).from {
+            current = edge.parent_id;
+        }
+
+        Self {
+            current,
+            tree,
+            last,
+        }
+    }
 }
 
 impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
     type Item = &'tree TermMatch<'gram>;
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(edge) = &self.tree.get(self.current).from {
-            self.current = edge.parent_id;
-            Some(&edge.term)
-        } else {
-            None
+        if self.current == self.last {
+            return None;
         }
+
+        let mut scan = self.last;
+        while let Some(edge) = &self.tree.get(scan).from {
+            if self.current == edge.parent_id {
+                self.current = scan;
+                return Some(&edge.term);
+            }
+
+            scan = edge.parent_id;
+        }
+
+        None
     }
 }
 
@@ -81,11 +106,7 @@ impl<'gram> TraversalTree<'gram> {
         self.get(id).next_unmatched()
     }
     pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'gram>> {
-        // TODO: this is backward!! how to reverse without allocation...
-        TraversalMatchIter {
-            current: id,
-            tree: self,
-        }
+        TraversalMatchIter::new(id, self)
     }
     pub fn predict(
         &mut self,
@@ -144,7 +165,7 @@ impl<'gram> TraversalTree<'gram> {
 
                     parent
                         .input_range
-                        .advance_by(nonterminal_traversal.input_range.offset.total_len())
+                        .advance_by(nonterminal_traversal.input_range.offset.len)
                 }
             };
 

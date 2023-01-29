@@ -1,14 +1,13 @@
 mod grammar;
 mod input_range;
 mod traversal;
-mod traversal_new;
 
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
 use grammar::{GrammarMatching, Production};
 use input_range::InputRange;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
-use traversal_new::{TermMatch, Traversal, TraversalId, TraversalTree};
+use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
 type NullMatchMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec<ParseTree<'gram>>>;
 
@@ -62,14 +61,6 @@ impl<'gram> TraversalCompletionMap<'gram> {
     ) -> impl Iterator<Item = TraversalId> + '_ {
         let key = TermCompletionKey::new(term, complete_traversal.input_range.offset.start);
         self.incomplete.get(&key).into_iter().flatten().cloned()
-    }
-    pub fn get_complete(
-        &'_ self,
-        term: &'gram Term,
-        input_range: &InputRange<'gram>,
-    ) -> impl Iterator<Item = TraversalId> + '_ {
-        let key = TermCompletionKey::new(term, input_range.offset.total_len());
-        self.complete.get(&key).into_iter().flatten().cloned()
     }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {
         match traversal.next_unmatched() {
@@ -172,7 +163,7 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     }
 
                     // TODO: null match completions, cant be parse trees
-                    for null_match in self.null_match_map.get(lhs).into_iter().flatten() {}
+                    for _null_match in self.null_match_map.get(lhs).into_iter().flatten() {}
                 }
                 Some(Term::Terminal(term)) => {
                     let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();

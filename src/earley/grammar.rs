@@ -1,26 +1,7 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
 use crate::tracing;
-use std::rc::Rc;
 
 append_only_vec_id!(pub(crate) ProductionId);
-
-/// A [`crate::Term`] which has been "matched" while parsing input
-#[derive(Debug, Clone)]
-pub(crate) enum TermMatch<'gram> {
-    /// [`crate::Term::Terminal`] which matched with a string literal
-    Terminal(&'gram str),
-    /// [`crate::Term::Nonterminal`] which was matched with a fully completed production
-    Nonterminal(Rc<ProductionMatch<'gram>>),
-}
-
-/// A `Term` to be "matched" with input
-#[derive(Debug, Clone)]
-pub(crate) enum TermMatching<'gram> {
-    /// A [`crate::Term`] which has not yet been matched
-    Unmatched(&'gram crate::Term),
-    /// A [`crate::Term`] which has been matched
-    Matched(TermMatch<'gram>),
-}
 
 /// [`crate::Production`] offers multiple possible "right hand side" [`crate::Expression`]s, which is overly flexible for Earley parsing.
 /// [`Production`] is a one-to-one relationship of [`crate::Term`] -> [`crate::Expression`].
@@ -29,110 +10,6 @@ pub(crate) struct Production<'gram> {
     pub id: ProductionId,
     pub lhs: &'gram crate::Term,
     pub rhs: &'gram crate::Expression,
-}
-
-impl<'gram> Production<'gram> {
-    pub fn start_matching(&self) -> ProductionMatching<'gram> {
-        let prod_id = self.id;
-        let lhs = self.lhs;
-        let rhs = self.rhs.terms_iter().map(TermMatching::Unmatched).collect();
-        ProductionMatching {
-            prod_id,
-            lhs,
-            rhs,
-            matched_count: 0,
-        }
-    }
-}
-
-/// An attempt at matching a [`Production`]'s "right hand side" [`crate::Term`]s
-#[derive(Debug, Clone)]
-pub(crate) struct ProductionMatching<'gram> {
-    pub prod_id: ProductionId,
-    pub lhs: &'gram crate::Term,
-    /// "right hand side" [`TermMatching`]s which are partitioned by the matched and unmatched.
-    /// For example: [Matched, Matched, Matched, Unmatched, Unmatched]
-    rhs: Vec<TermMatching<'gram>>,
-    /// The progress cursor used to separate [`TermMatching`]s in the "right hand side"
-    matched_count: usize,
-}
-
-impl<'gram> ProductionMatching<'gram> {
-    /// Attempt to "complete" the production, by having no unmatched terms remaining.
-    pub fn complete(&self) -> Option<ProductionMatch<'gram>> {
-        let rhs: Option<Vec<TermMatch>> = self
-            .rhs
-            .iter()
-            .map(|term| match term {
-                TermMatching::Unmatched(_) => None,
-                TermMatching::Matched(term) => Some(term.clone()),
-            })
-            .collect();
-
-        rhs.map(|rhs| {
-            let input_len = rhs
-                .iter()
-                .map(|term| match term {
-                    TermMatch::Terminal(term) => term.len(),
-                    TermMatch::Nonterminal(prod) => prod.input_len,
-                })
-                .sum();
-
-            ProductionMatch {
-                lhs: self.lhs,
-                rhs,
-                input_len,
-            }
-        })
-    }
-    /// Get the next unmatched [`crate::Term`]
-    pub fn next(&self) -> Option<&'gram crate::Term> {
-        self.rhs.get(self.matched_count).map(|term| match term {
-            TermMatching::Matched(_) => {
-                unreachable!("terms ahead of matching cursor cannot already be matched")
-            }
-            TermMatching::Unmatched(term) => *term,
-        })
-    }
-    /// Get how many [`crate::Term`] have been matched
-    pub fn matched_count(&self) -> usize {
-        self.matched_count
-    }
-    /// Add a [`TermMatch`].
-    /// Does **not** check if the added term is a valid match. That responsibility is on the caller,
-    /// which likely has more context for faster matching of terms.
-    pub fn add_term_match(&self, term_match: TermMatch<'gram>) -> Option<Self> {
-        // only match term if there is next
-        self.next().map(|_| {
-            let Self {
-                lhs,
-                matched_count,
-                rhs,
-                prod_id,
-            } = self;
-            let prod_id = *prod_id;
-
-            let mut rhs = rhs.clone();
-            rhs[*matched_count] = TermMatching::Matched(term_match);
-            let matched_count = matched_count + 1;
-
-            Self {
-                lhs,
-                matched_count,
-                prod_id,
-                rhs,
-            }
-        })
-    }
-}
-
-/// A fully complete [`ProductionMatching`].
-/// Created via [`ProductionMatching::complete`]
-#[derive(Debug, Clone)]
-pub(crate) struct ProductionMatch<'gram> {
-    pub lhs: &'gram crate::Term,
-    pub rhs: Vec<TermMatch<'gram>>,
-    pub input_len: usize,
 }
 
 type ProdArena<'gram> = AppendOnlyVec<Production<'gram>, ProductionId>;

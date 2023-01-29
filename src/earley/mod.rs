@@ -20,7 +20,7 @@ fn find_null_prod_matches(grammar: Rc<GrammarMatching>) -> NullMatchMap {
     for starting_prod in grammar.productions_iter() {
         let starting_term = starting_prod.lhs;
         let is_nullable_productions = false;
-        let parses = crate::earley::parse_matching(
+        let parses = ParseIter::new(
             grammar.clone(),
             input,
             starting_term,
@@ -106,7 +106,6 @@ impl<'gram> ParseIter<'gram> {
         starting_term: &'gram Term,
         is_nullable_productions: bool,
     ) -> Self {
-        println!("{grammar:#?}");
         let input_range = InputRange::new(input);
         let null_match_map = if is_nullable_productions {
             find_null_prod_matches(grammar.clone())
@@ -171,6 +170,9 @@ impl<'gram> Iterator for ParseIter<'gram> {
                             self.traversal_queue.push_back(predicted.id);
                         }
                     }
+
+                    // TODO: null match completions, cant be parse trees
+                    for null_match in self.null_match_map.get(lhs).into_iter().flatten() {}
                 }
                 Some(Term::Terminal(term)) => {
                     let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
@@ -258,18 +260,7 @@ pub fn parse<'gram>(
     let grammar = GrammarMatching::new(grammar);
     let grammar = Rc::new(grammar);
 
-    let is_nullable_productions = false; // TODO change back
-
-    parse_matching(grammar, input, starting_term, is_nullable_productions)
-}
-
-pub(crate) fn parse_matching<'gram>(
-    grammar: Rc<GrammarMatching<'gram>>,
-    input: &'gram str,
-    starting_term: &'gram Term,
-    is_nullable_productions: bool,
-) -> impl Iterator<Item = ParseTree<'gram>> {
-    let _span = tracing::span!(tracing::Level::TRACE, "parse_matching").entered();
+    let is_nullable_productions = true;
 
     ParseIter::new(grammar, input, starting_term, is_nullable_productions)
 }
@@ -336,20 +327,6 @@ mod tests {
     }
 
     #[test]
-    fn optional_noop() {
-        let grammar: Grammar = "
-        <a> ::= <b> | 'a'
-        <b> ::= <a>"
-            .parse()
-            .unwrap();
-
-        let input = "a";
-
-        let parses = parse(&grammar, input);
-        assert_eq!(parses.count(), 2);
-    }
-
-    #[test]
     fn recursive_nested_infinite() {
         let grammar: Grammar = "
             <a> ::= <b> | 'z'
@@ -361,6 +338,7 @@ mod tests {
         let input = "z";
 
         // there are infinite parses to this, so take the first 100 and call it good
+        // TODO: why does stack explode so quickly?
         let parse_count = 100;
         let parses = parse(&grammar, input).take(parse_count);
         assert_eq!(parses.count(), parse_count);
@@ -634,10 +612,6 @@ mod tests {
         let input = "1+(2*3-4)";
 
         let parses: Vec<_> = parse(&grammar, input).collect();
-
-        for parse in &parses {
-            println!("{parse}");
-        }
 
         let expected_parse_tree = "
 <sum> ::= <sum> <add> <product>

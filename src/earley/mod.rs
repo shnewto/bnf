@@ -98,19 +98,6 @@ impl<'gram> ParseIter<'gram> {
         is_nullable_productions: bool,
     ) -> Self {
         let input_range = InputRange::new(input);
-        let null_match_map = if is_nullable_productions {
-            find_null_prod_matches(grammar.clone())
-        } else {
-            NullMatchMap::new()
-        };
-
-        if is_nullable_productions {
-            tracing::event!(
-                tracing::Level::TRACE,
-                "grammar nullable terms: {null_match_map:#?}"
-            );
-        }
-
         let mut traversal_queue = VecDeque::<TraversalId>::default();
         let mut traversal_processed = HashSet::<TraversalId>::default();
         let mut traversal_tree = TraversalTree::default();
@@ -121,24 +108,23 @@ impl<'gram> ParseIter<'gram> {
             traversal_processed.insert(traversal.id);
         }
 
-        Self {
+        let mut parse_iter = Self {
             grammar,
             starting_term,
             completion_map: Default::default(),
-            null_match_map,
+            null_match_map: NullMatchMap::new(),
             traversal_tree,
             traversal_queue,
             traversal_processed,
+        };
+
+        if is_nullable_productions {
+            // parse_iter.find_nullable_productions();
         }
+
+        parse_iter
     }
-}
-
-impl<'gram> Iterator for ParseIter<'gram> {
-    type Item = ParseTree<'gram>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_next").entered();
-
+    fn earley(&mut self) -> Option<TraversalId> {
         while let Some(traversal_id) = self.traversal_queue.pop_front() {
             // println!("{:#?}", self.traversal_tree.get(traversal_id));
             match self.traversal_tree.get_matching(traversal_id) {
@@ -203,16 +189,24 @@ impl<'gram> Iterator for ParseIter<'gram> {
                     }
 
                     if is_full_traversal {
-                        return Some(parse_tree(
-                            &self.traversal_tree,
-                            &self.grammar,
-                            traversal_id,
-                        ));
+                        return Some(traversal_id);
                     }
                 }
             }
         }
+
         None
+    }
+}
+
+impl<'gram> Iterator for ParseIter<'gram> {
+    type Item = ParseTree<'gram>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let _span = tracing::span!(tracing::Level::TRACE, "ParseIter_next").entered();
+
+        self.earley()
+            .map(|traversal_id| parse_tree(&self.traversal_tree, &self.grammar, traversal_id))
     }
 }
 

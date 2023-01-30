@@ -22,6 +22,7 @@ pub(crate) struct Traversal<'gram> {
     pub unmatched: &'gram [crate::Term],
     pub input_range: InputRange<'gram>,
     pub production_id: ProductionId,
+    pub is_starting: bool,
     from: Option<TraversalEdge<'gram>>,
 }
 
@@ -107,42 +108,63 @@ impl<'gram> TraversalTree<'gram> {
     pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'gram>> {
         TraversalMatchIter::new(id, self)
     }
+    fn predict_is_starting(
+        arena: &mut TraversalArena<'gram>,
+        tree_roots: &mut TreeRootMap,
+        input_range: &InputRange<'gram>,
+        production: &Production<'gram>,
+        is_starting: bool,
+    ) -> TraversalId {
+        let production_id = production.id;
+        let traversal_root_key = TraversalRootKey {
+            production_id,
+            input_start: input_range.offset.total_len(),
+        };
+
+        let traversal_root = tree_roots.entry(traversal_root_key).or_insert_with(|| {
+            let traversal = arena.push_with_id(|id| Traversal {
+                id,
+                production_id,
+                unmatched: &production.rhs.terms,
+                input_range: input_range.after(),
+                is_starting,
+                from: None,
+            });
+            traversal.id
+        });
+
+        *traversal_root
+    }
+
+    pub fn predict_starting(
+        &mut self,
+        production: &Production<'gram>,
+        input_range: &InputRange<'gram>,
+    ) -> &Traversal {
+        let is_starting = true;
+        let predicted_id = Self::predict_is_starting(
+            &mut self.arena,
+            &mut self.tree_roots,
+            input_range,
+            production,
+            is_starting,
+        );
+
+        self.get(predicted_id)
+    }
+
     pub fn predict(
         &mut self,
         production: &Production<'gram>,
         input_range: &InputRange<'gram>,
     ) -> &Traversal {
-        fn inner<'gram>(
-            arena: &mut TraversalArena<'gram>,
-            tree_roots: &mut TreeRootMap,
-            input_range: &InputRange<'gram>,
-            production: &Production<'gram>,
-        ) -> TraversalId {
-            let production_id = production.id;
-            let traversal_root_key = TraversalRootKey {
-                production_id,
-                input_start: input_range.offset.total_len(),
-            };
-
-            let traversal_root = tree_roots.entry(traversal_root_key).or_insert_with(|| {
-                let traversal = arena.push_with_id(|id| Traversal {
-                    id,
-                    production_id,
-                    unmatched: &production.rhs.terms,
-                    input_range: input_range.after(),
-                    from: None,
-                });
-                traversal.id
-            });
-
-            *traversal_root
-        }
-
-        let predicted_id = inner(
+        let is_starting = false;
+        let predicted_id = Self::predict_is_starting(
             &mut self.arena,
             &mut self.tree_roots,
             input_range,
             production,
+            is_starting,
         );
 
         self.get(predicted_id)
@@ -171,6 +193,7 @@ impl<'gram> TraversalTree<'gram> {
             let parent_id = parent.id;
             let production_id = parent.production_id;
             let unmatched = &parent.unmatched[1..];
+            let is_starting = parent.is_starting;
             let from = TraversalEdge { term, parent_id };
 
             let matched = edges.entry(from).or_insert_with_key(|from| {
@@ -179,6 +202,7 @@ impl<'gram> TraversalTree<'gram> {
                     production_id,
                     unmatched,
                     input_range: input_range.clone(),
+                    is_starting,
                     from: Some(from.clone()),
                 });
                 traversal.id

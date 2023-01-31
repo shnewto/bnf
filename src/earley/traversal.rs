@@ -220,7 +220,7 @@ impl<'gram> TraversalTree<'gram> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::earley::GrammarMatching;
+    use crate::earley::ParseGrammar;
     use crate::Grammar;
 
     fn dna_grammar() -> Grammar {
@@ -235,8 +235,8 @@ mod tests {
     fn traversal_test_setup<'a>(
         grammar: &'a Grammar,
         input: &'static str,
-    ) -> (GrammarMatching<'a>, InputRange<'static>, TraversalTree<'a>) {
-        let matching = GrammarMatching::new(&grammar);
+    ) -> (ParseGrammar<'a>, InputRange<'static>, TraversalTree<'a>) {
+        let matching = ParseGrammar::new(&grammar);
         let input = InputRange::new(input);
         let tree = TraversalTree::default();
 

@@ -3,7 +3,7 @@ mod input_range;
 mod traversal;
 
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
-use grammar::{GrammarMatching, Production};
+use grammar::{ParseGrammar, Production};
 use input_range::InputRange;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
@@ -13,12 +13,12 @@ type NullTraversalMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec
 
 /// Key used for "incomplete" [`Traversal`]
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub(crate) struct TermCompletionKey<'gram> {
+pub(crate) struct CompletionKey<'gram> {
     term: &'gram Term,
     input_start: usize,
 }
 
-impl<'gram> TermCompletionKey<'gram> {
+impl<'gram> CompletionKey<'gram> {
     pub fn new_start(term: &'gram Term, input: &InputRange<'gram>) -> Self {
         Self {
             term,
@@ -34,18 +34,18 @@ impl<'gram> TermCompletionKey<'gram> {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct TraversalCompletionMap<'gram> {
-    incomplete: HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>,
-    complete: HashMap<TermCompletionKey<'gram>, Vec<TraversalId>>,
+pub(crate) struct CompletionMap<'gram> {
+    incomplete: HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+    complete: HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
 }
 
-impl<'gram> TraversalCompletionMap<'gram> {
+impl<'gram> CompletionMap<'gram> {
     pub fn get_incomplete(
         &'_ self,
         term: &'gram Term,
         complete_traversal: &Traversal<'gram>,
     ) -> impl Iterator<Item = TraversalId> + '_ {
-        let key = TermCompletionKey::new_start(term, &complete_traversal.input_range);
+        let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
     }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {
@@ -54,7 +54,7 @@ impl<'gram> TraversalCompletionMap<'gram> {
                 // do nothing, because terminals are irrelevant to completion
             }
             Some(unmatched @ Term::Nonterminal(_)) => {
-                let key = TermCompletionKey::new_total(unmatched, &traversal.input_range);
+                let key = CompletionKey::new_total(unmatched, &traversal.input_range);
                 self.incomplete.entry(key).or_default().push(traversal.id);
             }
             None => {
@@ -71,17 +71,20 @@ impl<'gram> TraversalCompletionMap<'gram> {
 }
 
 struct Parser<'gram> {
-    grammar: Rc<GrammarMatching<'gram>>,
-    completion_map: TraversalCompletionMap<'gram>,
+    grammar: Rc<ParseGrammar<'gram>>,
+    completion_map: CompletionMap<'gram>,
     nullable_map: NullTraversalMap<'gram>,
     traversal_tree: TraversalTree<'gram>,
     traversal_queue: VecDeque<TraversalId>,
     traversal_processed: HashSet<TraversalId>,
 }
 
+// TODO NEXT: seems like Parser should be immutable?
+// maybe input offset can include like input number, and use that for input reliant maps?
+
 impl<'gram> Parser<'gram> {
     pub fn new(
-        grammar: Rc<GrammarMatching<'gram>>,
+        grammar: Rc<ParseGrammar<'gram>>,
         input: &'gram str,
         starting_term: &'gram Term,
     ) -> Self {
@@ -91,7 +94,7 @@ impl<'gram> Parser<'gram> {
         let traversal_processed = HashSet::<TraversalId>::default();
         let traversal_tree = TraversalTree::default();
 
-        let mut parse_iter = Self {
+        let mut parser = Self {
             grammar,
             completion_map: Default::default(),
             nullable_map: NullTraversalMap::new(),
@@ -100,11 +103,11 @@ impl<'gram> Parser<'gram> {
             traversal_processed,
         };
 
-        parse_iter.find_null_traversals();
+        parser.find_null_traversals();
         let input = InputRange::new(input);
-        parse_iter.init_queue(&input, starting_term);
+        parser.init_queue(&input, starting_term);
 
-        parse_iter
+        parser
     }
     fn clear_input_deps(&mut self) {
         self.traversal_queue.clear();
@@ -237,7 +240,7 @@ impl<'gram> Iterator for Parser<'gram> {
 
 fn parse_tree<'gram>(
     tree: &TraversalTree<'gram>,
-    grammar: &GrammarMatching<'gram>,
+    grammar: &ParseGrammar<'gram>,
     traversal_id: TraversalId,
 ) -> ParseTree<'gram> {
     let production = {
@@ -267,7 +270,7 @@ pub fn parse<'gram>(
         .starting_term()
         .expect("Grammar must have one production to parse");
 
-    let grammar = GrammarMatching::new(grammar);
+    let grammar = ParseGrammar::new(grammar);
     let grammar = Rc::new(grammar);
 
     Parser::new(grammar, input, starting_term)
@@ -467,7 +470,7 @@ mod tests {
         for parse in parse(&grammar, input) {
             println!("{parse}");
         }
-        panic!();
+        todo!();
 
         let parses = parse(&grammar, input);
         assert_eq!(parses.count(), 2);

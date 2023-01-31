@@ -108,6 +108,9 @@ impl<'gram> TraversalTree<'gram> {
     pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'gram>> {
         TraversalMatchIter::new(id, self)
     }
+    pub fn clear_prediction_roots(&mut self) {
+        self.tree_roots.clear()
+    }
     fn predict_is_starting(
         arena: &mut TraversalArena<'gram>,
         tree_roots: &mut TreeRootMap,

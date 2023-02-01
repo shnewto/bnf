@@ -19,9 +19,9 @@ pub fn parse<'gram>(
     let grammar = ParseGrammar::new(grammar);
 
     let mut traversal_tree = TraversalTree::default();
+    let mut checked_terms = HashSet::new();
     let mut nullable_map = NullableTermMap::new();
     let nullable_map_empty = NullableTermMap::new();
-    let mut checked_terms = HashSet::new();
 
     for starting_term in grammar.productions_iter().map(|prod| prod.lhs) {
         // only check starting terms once
@@ -38,9 +38,12 @@ pub fn parse<'gram>(
             &grammar,
             starting_term,
             &nullable_map_empty,
-        ) {
+        )
+        // TODO: how to make nullability parsing lazy?
+        .take(1)
+        {
             println!("{starting_term} is nullable by {parse:?}");
-            nullable_map.entry(starting_term).or_default().push(parse);
+            nullable_map.entry(starting_term).or_default().insert(parse);
         }
 
         // clear traversal prediction roots to reuse between parses
@@ -52,7 +55,7 @@ pub fn parse<'gram>(
     ParseTreeIter::new(traversal_tree, input, grammar, starting_term, nullable_map)
 }
 
-type NullableTermMap<'gram> = HashMap<&'gram crate::Term, Vec<TraversalId>>;
+type NullableTermMap<'gram> = HashMap<&'gram crate::Term, HashSet<TraversalId>>;
 
 #[derive(Debug, Default)]
 struct TraversalQueue {
@@ -116,7 +119,7 @@ fn earley<'gram>(
     grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     while let Some(traversal_id) = queue.pop_front() {
-        // println!("{grammar:#?}");
+        println!("{grammar:#?}");
         println!("{:#?}", traversal_tree.get(traversal_id));
 
         match traversal_tree.get_matching(traversal_id) {
@@ -317,8 +320,8 @@ impl<'gram> CompletionKey<'gram> {
 
 #[derive(Debug, Default)]
 pub(crate) struct CompletionMap<'gram> {
-    incomplete: HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
-    complete: HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+    incomplete: HashMap<CompletionKey<'gram>, HashSet<TraversalId>>,
+    complete: HashMap<CompletionKey<'gram>, HashSet<TraversalId>>,
 }
 
 impl<'gram> CompletionMap<'gram> {
@@ -345,12 +348,12 @@ impl<'gram> CompletionMap<'gram> {
             }
             Some(unmatched @ Term::Nonterminal(_)) => {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
-                self.incomplete.entry(key).or_default().push(traversal.id);
+                self.incomplete.entry(key).or_default().insert(traversal.id);
             }
             None => {
                 // TODO: is this necessary?
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
-                // self.complete.entry(key).or_default().push(traversal.id);
+                // self.complete.entry(key).or_default().insert(traversal.id);
             }
         }
     }

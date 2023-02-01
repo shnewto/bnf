@@ -69,10 +69,8 @@ fn init_traversal_queue<'gram>(
     starting_term: &'gram Term,
     input: &InputRange<'gram>,
 ) {
-    println!("init queue: {input:?}, {starting_term}");
     for starting_prod in grammar.get_productions_by_lhs(starting_term) {
         let traversal = traversal_tree.predict_starting(starting_prod, &input);
-        println!("predicted starting {:?}", traversal);
         queue.push_back(traversal.id);
     }
 }
@@ -84,8 +82,11 @@ fn earley<'gram>(
     grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     while let Some(traversal_id) = queue.pop_front() {
-        println!("{grammar:#?}");
-        println!("{:#?}", traversal_tree.get(traversal_id));
+        tracing::event!(
+            tracing::Level::TRACE,
+            "earley queue pop: {:#?}",
+            traversal_tree.get(traversal_id)
+        );
 
         match traversal_tree.get_matching(traversal_id) {
             Some(nonterminal @ Term::Nonterminal(_)) => {
@@ -100,23 +101,19 @@ fn earley<'gram>(
 
                 for production in grammar.get_productions_by_lhs(nonterminal) {
                     let predicted = traversal_tree.predict(production, &input_range);
-                    println!("predicted {:?}", predicted);
+                    tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
                     queue.push_back(predicted.id);
                 }
 
                 for completed in completions.get_complete(nonterminal, &input_range) {
                     let term_match = TermMatch::Nonterminal(completed);
                     let prior_completed = traversal_tree.match_term(traversal_id, term_match);
-                    println!("prior_completed {:?}", prior_completed);
+                    tracing::event!(
+                        tracing::Level::TRACE,
+                        "prior_completed: {prior_completed:#?}"
+                    );
                     queue.push_back(prior_completed.id);
                 }
-
-                // for null_match in nullable_map.get(nonterminal).into_iter().flatten() {
-                //     let term_match = TermMatch::Nonterminal(*null_match);
-                //     let null_completed = traversal_tree.match_term(traversal_id, term_match);
-                //     println!("null_completed {:?}", null_completed);
-                //     queue.push_back(null_completed.id);
-                // }
             }
             Some(Term::Terminal(term)) => {
                 let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
@@ -124,7 +121,7 @@ fn earley<'gram>(
                 if traversal.input_range.next().starts_with(term) {
                     let term_match = TermMatch::Terminal(term);
                     let scanned = traversal_tree.match_term(traversal_id, term_match);
-                    println!("scanned {:?}", scanned);
+                    tracing::event!(tracing::Level::TRACE, "scanned: {scanned:#?}");
                     queue.push_back(scanned.id);
                 }
             }
@@ -142,7 +139,7 @@ fn earley<'gram>(
                     let term_match = TermMatch::Nonterminal(traversal_id);
                     let completed = traversal_tree.match_term(incomplete_traversal_id, term_match);
 
-                    println!("completed {:?}", completed);
+                    tracing::event!(tracing::Level::TRACE, "completed: {completed:#?}");
                     queue.push_back(completed.id);
                 }
 
@@ -202,57 +199,12 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
         } = self;
 
         earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
-            let tree = parse_tree(&traversal_tree, &grammar, traversal_id);
-            println!("ParseTree\n{tree}");
-            tree
+            let parse_tree = parse_tree(&traversal_tree, &grammar, traversal_id);
+            tracing::event!(tracing::Level::TRACE, "{parse_tree}");
+            parse_tree
         })
     }
 }
-
-#[derive(Debug)]
-struct ParseIter<'gram, 'p> {
-    traversal_tree: &'p mut TraversalTree<'gram>,
-    grammar: &'p ParseGrammar<'gram>,
-    queue: TraversalQueue,
-    completions: CompletionMap<'gram>,
-}
-
-impl<'gram, 'p> ParseIter<'gram, 'p> {
-    pub fn new(
-        traversal_tree: &'p mut TraversalTree<'gram>,
-        input: &'gram str,
-        grammar: &'p ParseGrammar<'gram>,
-        starting_term: &'gram Term,
-    ) -> Self {
-        let input = InputRange::new(input);
-        let mut queue = TraversalQueue::default();
-
-        init_traversal_queue(traversal_tree, &mut queue, grammar, starting_term, &input);
-
-        Self {
-            traversal_tree,
-            grammar,
-            queue,
-            completions: Default::default(),
-        }
-    }
-}
-
-impl<'gram, 'p> Iterator for ParseIter<'gram, 'p> {
-    type Item = TraversalId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let Self {
-            queue,
-            completions,
-            grammar,
-            traversal_tree,
-        } = self;
-
-        earley(queue, traversal_tree, completions, grammar)
-    }
-}
-
 /// Key used for "incomplete" [`Traversal`]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CompletionKey<'gram> {

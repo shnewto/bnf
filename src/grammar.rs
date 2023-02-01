@@ -826,8 +826,7 @@ mod tests {
     }
 
     #[test]
-    fn wip() {
-        crate::tracing::init_subscriber();
+    fn branching_and_overlapping_parses() {
         let bnf = "
         <and> ::= <and> ' AND ' <terminal>
                 | <and> ' ' <terminal>
@@ -835,10 +834,6 @@ mod tests {
         <terminal> ::= 'AND'
         ";
         let input = "AND AND AND AND AND";
-
-        for p in bnf.parse::<Grammar>().unwrap().parse_input(input) {
-            println!("{p}");
-        }
 
         // 1. 'AND' <and> 'AND' <and> 'AND'
         // 2. 'AND' <and> 'AND' 'AND' 'AND'

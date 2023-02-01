@@ -63,6 +63,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
             .flatten()
             .map(|prod_id| self.get_production_by_id(*prod_id))
     }
+    #[cfg(test)]
     pub fn productions_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
         self.productions.iter()
     }

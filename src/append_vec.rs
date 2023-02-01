@@ -59,6 +59,7 @@ where
     pub fn get(&self, id: I) -> Option<&T> {
         self.vec.get::<usize>(id.into())
     }
+    #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.vec.iter()
     }

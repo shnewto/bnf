@@ -826,7 +826,7 @@ mod tests {
     }
 
     #[test]
-    fn branching_and_overlapping_parses() {
+    fn branching_and_overlapping_parse_trees() {
         let bnf = "
         <and> ::= <and> ' AND ' <terminal>
                 | <and> ' ' <terminal>

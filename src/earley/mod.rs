@@ -200,7 +200,7 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
 
         earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
             let parse_tree = parse_tree(&traversal_tree, &grammar, traversal_id);
-            tracing::event!(tracing::Level::TRACE, "{parse_tree}");
+            tracing::event!(tracing::Level::INFO, "\n{parse_tree}");
             parse_tree
         })
     }

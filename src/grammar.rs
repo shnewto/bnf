@@ -273,15 +273,18 @@ impl Grammar {
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         loop {
-            // If we only have 64KB left, we've hit our tolerable threshold for recursion
-            const STACK_RED_ZONE: usize = 64 * 1024;
+            #[cfg(feature = "stacker")]
+            {
+                // If we only have 64KB left, we've hit our tolerable threshold for recursion
+                const STACK_RED_ZONE: usize = 64 * 1024;
 
-            if let Some(remaining) = stacker::remaining_stack() {
-                if remaining < STACK_RED_ZONE {
-                    return Err(Error::RecursionLimit(format!(
-                        "Limit for recursion reached processing <{}>!",
-                        ident
-                    )));
+                if let Some(remaining) = stacker::remaining_stack() {
+                    if remaining < STACK_RED_ZONE {
+                        return Err(Error::RecursionLimit(format!(
+                            "Limit for recursion reached processing <{}>!",
+                            ident
+                        )));
+                    }
                 }
             }
 
@@ -615,6 +618,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "stacker")]
     #[test]
     fn recursion_limit() {
         let grammar: Result<Grammar, _> = "<nonterm> ::= <nonterm>".parse();

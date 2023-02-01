@@ -105,7 +105,6 @@ fn init_traversal_queue<'gram>(
         let traversal = traversal_tree.predict_starting(starting_prod, &input);
         println!("predicted starting {:?}", traversal);
         queue.push_back(traversal.id);
-        // self.traversal_processed.insert(traversal.id);
     }
 }
 
@@ -117,6 +116,7 @@ fn earley<'gram>(
     grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     while let Some(traversal_id) = queue.pop_front() {
+        // println!("{grammar:#?}");
         println!("{:#?}", traversal_tree.get(traversal_id));
 
         match traversal_tree.get_matching(traversal_id) {
@@ -129,18 +129,26 @@ fn earley<'gram>(
                 completions.insert(traversal, lhs);
 
                 let input_range = traversal.input_range.clone();
+
                 for production in grammar.get_productions_by_lhs(nonterminal) {
                     let predicted = traversal_tree.predict(production, &input_range);
                     println!("predicted {:?}", predicted);
                     queue.push_back(predicted.id);
                 }
 
-                for null_match in nullable_map.get(nonterminal).into_iter().flatten() {
-                    let term_match = TermMatch::Nonterminal(*null_match);
-                    let null_completed = traversal_tree.match_term(traversal_id, term_match);
-                    println!("null_completed {:?}", null_completed);
-                    queue.push_back(null_completed.id);
-                }
+                // for completed in completions.get_complete(nonterminal, &input_range) {
+                //     let term_match = TermMatch::Nonterminal(completed);
+                //     let prior_completed = traversal_tree.match_term(traversal_id, term_match);
+                //     println!("prior_completed {:?}", prior_completed);
+                //     queue.push_back(prior_completed.id);
+                // }
+
+                // for null_match in nullable_map.get(nonterminal).into_iter().flatten() {
+                //     let term_match = TermMatch::Nonterminal(*null_match);
+                //     let null_completed = traversal_tree.match_term(traversal_id, term_match);
+                //     println!("null_completed {:?}", null_completed);
+                //     queue.push_back(null_completed.id);
+                // }
             }
             Some(Term::Terminal(term)) => {
                 let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
@@ -156,18 +164,21 @@ fn earley<'gram>(
                 let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
 
                 let traversal = traversal_tree.get(traversal_id);
-                let is_starting_traversal = traversal.is_starting;
-
+                let is_full_traversal =
+                    traversal.is_starting && traversal.input_range.is_complete();
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
+
+                // completions.insert(traversal, lhs);
 
                 for incomplete_traversal_id in completions.get_incomplete(lhs, traversal) {
                     let term_match = TermMatch::Nonterminal(traversal_id);
                     let completed = traversal_tree.match_term(incomplete_traversal_id, term_match);
+
                     println!("completed {:?}", completed);
                     queue.push_back(completed.id);
                 }
 
-                if is_starting_traversal {
+                if is_full_traversal {
                     return Some(traversal_id);
                 }
             }
@@ -226,8 +237,11 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
             traversal_tree,
         } = self;
 
-        earley(queue, traversal_tree, completions, nullable_map, grammar)
-            .map(|traversal_id| parse_tree(&traversal_tree, &grammar, traversal_id))
+        earley(queue, traversal_tree, completions, nullable_map, grammar).map(|traversal_id| {
+            let tree = parse_tree(&traversal_tree, &grammar, traversal_id);
+            println!("ParseTree\n{tree}");
+            tree
+        })
     }
 }
 
@@ -316,6 +330,14 @@ impl<'gram> CompletionMap<'gram> {
         let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
     }
+    pub fn get_complete(
+        &'_ self,
+        term: &'gram Term,
+        input_range: &InputRange<'gram>,
+    ) -> impl Iterator<Item = TraversalId> + '_ {
+        let key = CompletionKey::new_total(term, &input_range);
+        self.complete.get(&key).into_iter().flatten().cloned()
+    }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {
         match traversal.next_unmatched() {
             Some(Term::Terminal(_)) => {
@@ -327,7 +349,7 @@ impl<'gram> CompletionMap<'gram> {
             }
             None => {
                 // TODO: is this necessary?
-                // let key = TermCompletionKey::new_start(lhs, &traversal.input_range);
+                let key = CompletionKey::new_start(lhs, &traversal.input_range);
                 // self.complete.entry(key).or_default().push(traversal.id);
             }
         }
@@ -543,13 +565,9 @@ mod tests {
 
         let input = "";
 
-        for parse in parse(&grammar, input).take(100) {
-            println!("{parse}");
-        }
-        todo!();
-
-        let parses = parse(&grammar, input);
-        assert_eq!(parses.count(), 2);
+        let parse_count = 100;
+        let parses = parse(&grammar, input).take(parse_count);
+        assert_eq!(parses.count(), parse_count);
     }
 
     #[test]
@@ -646,7 +664,7 @@ mod tests {
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
     #[test]
-    fn empty_noop() {
+    fn empty_noop_infinite() {
         let grammar: Grammar = "
         <a> ::= '' | <b>
         <b> ::= <a>"
@@ -655,8 +673,9 @@ mod tests {
 
         let input = "";
 
-        let parses = parse(&grammar, input);
-        assert_eq!(parses.count(), 2);
+        let parse_count = 100;
+        let parses = parse(&grammar, input).take(parse_count);
+        assert_eq!(parses.count(), parse_count);
     }
 
     // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)

@@ -123,6 +123,7 @@ impl<'gram> TraversalTree<'gram> {
             production_id,
             input_start: input_range.offset.total_len(),
         };
+        println!("{traversal_root_key:?}");
 
         let traversal_root = tree_roots.entry(traversal_root_key).or_insert_with(|| {
             let traversal = arena.push_with_id(|id| Traversal {

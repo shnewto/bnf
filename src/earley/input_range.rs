@@ -46,6 +46,9 @@ impl<'gram> InputRange<'gram> {
             offset: InputRangeOffset { start, len },
         }
     }
+    pub fn is_complete(&self) -> bool {
+        self.offset.start == 0 && self.offset.len == self.input.len()
+    }
 }
 
 /// A clear view of [`InputRange`], in the format "InputRange(before | current | after)"

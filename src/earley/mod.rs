@@ -18,44 +18,10 @@ pub fn parse<'gram>(
 
     let grammar = ParseGrammar::new(grammar);
 
-    let mut traversal_tree = TraversalTree::default();
-    let mut checked_terms = HashSet::new();
-    let mut nullable_map = NullableTermMap::new();
-    let nullable_map_empty = NullableTermMap::new();
+    let traversal_tree = TraversalTree::default();
 
-    for starting_term in grammar.productions_iter().map(|prod| prod.lhs) {
-        // only check starting terms once
-        if !checked_terms.insert(starting_term) {
-            continue;
-        }
-
-        let null_input = "";
-
-        // ParseIter which creates new traversal tree, completion map, queue, etc.
-        for parse in ParseIter::new(
-            &mut traversal_tree,
-            null_input,
-            &grammar,
-            starting_term,
-            &nullable_map_empty,
-        )
-        // TODO: how to make nullability parsing lazy?
-        .take(1)
-        {
-            println!("{starting_term} is nullable by {parse:?}");
-            nullable_map.entry(starting_term).or_default().insert(parse);
-        }
-
-        // clear traversal prediction roots to reuse between parses
-        traversal_tree.clear_prediction_roots();
-    }
-
-    println!("nullable_map: {nullable_map:#?}");
-
-    ParseTreeIter::new(traversal_tree, input, grammar, starting_term, nullable_map)
+    ParseTreeIter::new(traversal_tree, input, grammar, starting_term)
 }
-
-type NullableTermMap<'gram> = HashMap<&'gram crate::Term, HashSet<TraversalId>>;
 
 #[derive(Debug, Default)]
 struct TraversalQueue {
@@ -115,7 +81,6 @@ fn earley<'gram>(
     queue: &mut TraversalQueue,
     traversal_tree: &mut TraversalTree<'gram>,
     completions: &mut CompletionMap<'gram>,
-    nullable_map: &NullableTermMap<'gram>,
     grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     while let Some(traversal_id) = queue.pop_front() {
@@ -195,7 +160,6 @@ fn earley<'gram>(
 struct ParseTreeIter<'gram> {
     traversal_tree: TraversalTree<'gram>,
     grammar: ParseGrammar<'gram>,
-    nullable_map: NullableTermMap<'gram>,
     queue: TraversalQueue,
     completions: CompletionMap<'gram>,
 }
@@ -206,7 +170,6 @@ impl<'gram> ParseTreeIter<'gram> {
         input: &'gram str,
         grammar: ParseGrammar<'gram>,
         starting_term: &'gram Term,
-        nullable_map: NullableTermMap<'gram>,
     ) -> Self {
         let input = InputRange::new(input);
         let mut queue = TraversalQueue::default();
@@ -222,7 +185,6 @@ impl<'gram> ParseTreeIter<'gram> {
         Self {
             traversal_tree,
             grammar,
-            nullable_map,
             queue,
             completions: Default::default(),
         }
@@ -236,11 +198,10 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
             queue,
             completions,
             grammar,
-            nullable_map,
             traversal_tree,
         } = self;
 
-        earley(queue, traversal_tree, completions, nullable_map, grammar).map(|traversal_id| {
+        earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
             let tree = parse_tree(&traversal_tree, &grammar, traversal_id);
             println!("ParseTree\n{tree}");
             tree
@@ -252,7 +213,6 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
 struct ParseIter<'gram, 'p> {
     traversal_tree: &'p mut TraversalTree<'gram>,
     grammar: &'p ParseGrammar<'gram>,
-    nullable_map: &'p NullableTermMap<'gram>,
     queue: TraversalQueue,
     completions: CompletionMap<'gram>,
 }
@@ -263,7 +223,6 @@ impl<'gram, 'p> ParseIter<'gram, 'p> {
         input: &'gram str,
         grammar: &'p ParseGrammar<'gram>,
         starting_term: &'gram Term,
-        nullable_map: &'p NullableTermMap<'gram>,
     ) -> Self {
         let input = InputRange::new(input);
         let mut queue = TraversalQueue::default();
@@ -273,7 +232,6 @@ impl<'gram, 'p> ParseIter<'gram, 'p> {
         Self {
             traversal_tree,
             grammar,
-            nullable_map,
             queue,
             completions: Default::default(),
         }
@@ -288,11 +246,10 @@ impl<'gram, 'p> Iterator for ParseIter<'gram, 'p> {
             queue,
             completions,
             grammar,
-            nullable_map,
             traversal_tree,
         } = self;
 
-        earley(queue, traversal_tree, completions, nullable_map, grammar)
+        earley(queue, traversal_tree, completions, grammar)
     }
 }
 
@@ -351,7 +308,6 @@ impl<'gram> CompletionMap<'gram> {
                 self.incomplete.entry(key).or_default().insert(traversal.id);
             }
             None => {
-                // TODO: is this necessary?
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
                 self.complete.entry(key).or_default().insert(traversal.id);
             }

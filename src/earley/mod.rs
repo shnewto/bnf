@@ -139,12 +139,12 @@ fn earley<'gram>(
                     queue.push_back(predicted.id);
                 }
 
-                // for completed in completions.get_complete(nonterminal, &input_range) {
-                //     let term_match = TermMatch::Nonterminal(completed);
-                //     let prior_completed = traversal_tree.match_term(traversal_id, term_match);
-                //     println!("prior_completed {:?}", prior_completed);
-                //     queue.push_back(prior_completed.id);
-                // }
+                for completed in completions.get_complete(nonterminal, &input_range) {
+                    let term_match = TermMatch::Nonterminal(completed);
+                    let prior_completed = traversal_tree.match_term(traversal_id, term_match);
+                    println!("prior_completed {:?}", prior_completed);
+                    queue.push_back(prior_completed.id);
+                }
 
                 // for null_match in nullable_map.get(nonterminal).into_iter().flatten() {
                 //     let term_match = TermMatch::Nonterminal(*null_match);
@@ -171,7 +171,7 @@ fn earley<'gram>(
                     traversal.is_starting && traversal.input_range.is_complete();
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
 
-                // completions.insert(traversal, lhs);
+                completions.insert(traversal, lhs);
 
                 for incomplete_traversal_id in completions.get_incomplete(lhs, traversal) {
                     let term_match = TermMatch::Nonterminal(traversal_id);
@@ -353,7 +353,7 @@ impl<'gram> CompletionMap<'gram> {
             None => {
                 // TODO: is this necessary?
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
-                // self.complete.entry(key).or_default().insert(traversal.id);
+                self.complete.entry(key).or_default().insert(traversal.id);
             }
         }
     }

@@ -12,17 +12,10 @@ pub fn parse<'gram>(
     grammar: &'gram crate::Grammar,
     input: &'gram str,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
-    let starting_term = grammar
-        .starting_term()
-        .expect("Grammar must have one production to parse");
-
-    let grammar = ParseGrammar::new(grammar);
-
-    let traversal_tree = TraversalTree::default();
-
-    ParseTreeIter::new(traversal_tree, input, grammar, starting_term)
+    ParseTreeIter::new(grammar, input)
 }
 
+/// A queue of [`TraversalId`] for processing, with repetitions ignored.
 #[derive(Debug, Default)]
 struct TraversalQueue {
     processed: HashSet<TraversalId>,
@@ -38,8 +31,22 @@ impl TraversalQueue {
             self.queue.push_back(id);
         }
     }
+    /// Add starting traversals to back of queue
+    pub fn push_back_starting<'gram>(
+        &mut self,
+        traversal_tree: &mut TraversalTree<'gram>,
+        grammar: &ParseGrammar<'gram>,
+        starting_term: &'gram Term,
+        input: &InputRange<'gram>,
+    ) {
+        for starting_prod in grammar.get_productions_by_lhs(starting_term) {
+            let traversal = traversal_tree.predict_starting(starting_prod, &input);
+            self.push_back(traversal.id);
+        }
+    }
 }
 
+/// Create a [ParseTree] starting at the root [`TraversalId`].
 fn parse_tree<'gram>(
     traversal_tree: &TraversalTree<'gram>,
     grammar: &ParseGrammar<'gram>,
@@ -62,25 +69,15 @@ fn parse_tree<'gram>(
     ParseTree::new(production.lhs, rhs)
 }
 
-fn init_traversal_queue<'gram>(
-    traversal_tree: &mut TraversalTree<'gram>,
-    queue: &mut TraversalQueue,
-    grammar: &ParseGrammar<'gram>,
-    starting_term: &'gram Term,
-    input: &InputRange<'gram>,
-) {
-    for starting_prod in grammar.get_productions_by_lhs(starting_term) {
-        let traversal = traversal_tree.predict_starting(starting_prod, &input);
-        queue.push_back(traversal.id);
-    }
-}
-
+/// Pops [Traversal] from the provided queue, and follows
+/// the core [Earley parsing](https://en.wikipedia.org/wiki/Earley_parser) algorithm.
 fn earley<'gram>(
     queue: &mut TraversalQueue,
     traversal_tree: &mut TraversalTree<'gram>,
     completions: &mut CompletionMap<'gram>,
     grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
+    let _span = tracing::span!(tracing::Level::DEBUG, "earley").entered();
     while let Some(traversal_id) = queue.pop_front() {
         tracing::event!(
             tracing::Level::TRACE,
@@ -90,7 +87,7 @@ fn earley<'gram>(
 
         match traversal_tree.get_matching(traversal_id) {
             Some(nonterminal @ Term::Nonterminal(_)) => {
-                let _span = tracing::span!(tracing::Level::TRACE, "Predict").entered();
+                let _span = tracing::span!(tracing::Level::DEBUG, "Predict").entered();
 
                 let traversal = traversal_tree.get(traversal_id);
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
@@ -116,7 +113,7 @@ fn earley<'gram>(
                 }
             }
             Some(Term::Terminal(term)) => {
-                let _span = tracing::span!(tracing::Level::TRACE, "Scan").entered();
+                let _span = tracing::span!(tracing::Level::DEBUG, "Scan").entered();
                 let traversal = traversal_tree.get(traversal_id);
                 if traversal.input_range.next().starts_with(term) {
                     let term_match = TermMatch::Terminal(term);
@@ -126,7 +123,7 @@ fn earley<'gram>(
                 }
             }
             None => {
-                let _span = tracing::span!(tracing::Level::TRACE, "Complete").entered();
+                let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
 
                 let traversal = traversal_tree.get(traversal_id);
                 let is_full_traversal =
@@ -162,28 +159,25 @@ struct ParseTreeIter<'gram> {
 }
 
 impl<'gram> ParseTreeIter<'gram> {
-    pub fn new(
-        mut traversal_tree: TraversalTree<'gram>,
-        input: &'gram str,
-        grammar: ParseGrammar<'gram>,
-        starting_term: &'gram Term,
-    ) -> Self {
-        let input = InputRange::new(input);
-        let mut queue = TraversalQueue::default();
+    pub fn new(grammar: &'gram crate::Grammar, input: &'gram str) -> Self {
+        let starting_term = grammar
+            .starting_term()
+            .expect("Grammar must have one production to parse");
 
-        init_traversal_queue(
-            &mut traversal_tree,
-            &mut queue,
-            &grammar,
-            starting_term,
-            &input,
-        );
+        let grammar = ParseGrammar::new(grammar);
+
+        let input = InputRange::new(input);
+        let mut traversal_tree = TraversalTree::default();
+        let mut queue = TraversalQueue::default();
+        let completions = CompletionMap::default();
+
+        queue.push_back_starting(&mut traversal_tree, &grammar, starting_term, &input);
 
         Self {
             traversal_tree,
             grammar,
             queue,
-            completions: Default::default(),
+            completions,
         }
     }
 }
@@ -199,13 +193,14 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
         } = self;
 
         earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
+            let _span = tracing::span!(tracing::Level::DEBUG, "next_parse_tree").entered();
             let parse_tree = parse_tree(&traversal_tree, &grammar, traversal_id);
-            tracing::event!(tracing::Level::INFO, "\n{parse_tree}");
+            tracing::event!(tracing::Level::TRACE, "\n{parse_tree}");
             parse_tree
         })
     }
 }
-/// Key used for "incomplete" [`Traversal`]
+/// Key used for "incomplete" [`Traversal`] in [CompletionMap]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CompletionKey<'gram> {
     term: &'gram Term,
@@ -239,6 +234,7 @@ impl<'gram> CompletionMap<'gram> {
         term: &'gram Term,
         complete_traversal: &Traversal<'gram>,
     ) -> impl Iterator<Item = TraversalId> + '_ {
+        let _span = tracing::span!(tracing::Level::DEBUG, "get_incomplete").entered();
         let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
     }
@@ -247,10 +243,12 @@ impl<'gram> CompletionMap<'gram> {
         term: &'gram Term,
         input_range: &InputRange<'gram>,
     ) -> impl Iterator<Item = TraversalId> + '_ {
+        let _span = tracing::span!(tracing::Level::DEBUG, "get_complete").entered();
         let key = CompletionKey::new_total(term, &input_range);
         self.complete.get(&key).into_iter().flatten().cloned()
     }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {
+        let _span = tracing::span!(tracing::Level::DEBUG, "insert").entered();
         match traversal.next_unmatched() {
             Some(Term::Terminal(_)) => {
                 // do nothing, because terminals are irrelevant to completion

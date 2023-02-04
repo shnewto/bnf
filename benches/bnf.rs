@@ -6,11 +6,12 @@ use rand::seq::SliceRandom;
 fn init_tracing() -> impl Drop {
     use tracing_flame::FlameLayer;
     use tracing_subscriber::{fmt, prelude::*};
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
     let fmt_layer = fmt::Layer::default();
-
     let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
 
     tracing_subscriber::registry()
+        .with(filter_layer)
         .with(fmt_layer)
         .with(flame_layer)
         .init();
@@ -25,19 +26,19 @@ fn examples(c: &mut Criterion) {
     let _tracing = init_tracing();
 
     #[cfg(feature = "tracing")]
-    let _span = tracing::span!(tracing::Level::TRACE, "BENCH ITER").entered();
+    let _span = tracing::span!(tracing::Level::DEBUG, "BENCH ITER").entered();
 
-    c.bench_function("parse postal", |b| {
-        let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
-        b.iter(|| input.parse::<Grammar>().unwrap());
-    });
+    // c.bench_function("parse postal", |b| {
+    //     let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
+    //     b.iter(|| input.parse::<Grammar>().unwrap());
+    // });
 
-    c.bench_function("generate DNA", |b| {
-        let input = "<dna> ::= <base> | <base> <dna>
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-        let grammar: Grammar = input.parse().unwrap();
-        b.iter(|| grammar.generate().unwrap());
-    });
+    // c.bench_function("generate DNA", |b| {
+    //     let input = "<dna> ::= <base> | <base> <dna>
+    //         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    //     let grammar: Grammar = input.parse().unwrap();
+    //     b.iter(|| grammar.generate().unwrap());
+    // });
 
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= \"+\" | \"-\" | \"*\" | \"/\"
@@ -66,7 +67,7 @@ fn examples(c: &mut Criterion) {
 
     let input = "";
     let mut group = c.benchmark_group("parse infinite nullable grammar");
-    for parse_count in (0usize..=1000).step_by(100) {
+    for parse_count in (0usize..=100).step_by(25) {
         group.throughput(criterion::Throughput::Elements(parse_count as u64));
         group.bench_with_input(
             criterion::BenchmarkId::from_parameter(parse_count),

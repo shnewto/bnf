@@ -114,9 +114,11 @@ impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
 
 /// A tree of [Traversal], with [TermMatch] used for edges.
 /// Earley "predictions" start a tree root, and each scan/complete creates child nodes. e.g.
+/// ```txt
 /// <start> ::= • <a>        (this is the root of the prediction tree)
 /// ├── <start> ::= <a=1> •  (this is a child traversal created by matching <a>)
 /// └── <start> ::= <a=2> •  (this is a different child traversal created by a different match with <a>)
+/// ```
 #[derive(Debug, Default)]
 pub(crate) struct TraversalTree<'gram> {
     arena: TraversalArena<'gram>,
@@ -264,7 +266,7 @@ mod tests {
         grammar: &'a Grammar,
         input: &'static str,
     ) -> (ParseGrammar<'a>, InputRange<'static>, TraversalTree<'a>) {
-        let matching = ParseGrammar::new(&grammar);
+        let matching = ParseGrammar::new(grammar);
         let input = InputRange::new(input);
         let tree = TraversalTree::default();
 

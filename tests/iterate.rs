@@ -32,14 +32,12 @@ fn iterate_grammar() {
 
         assert!(
             left_hand_terms.contains(&&expected_nonterminal),
-            "{} was not in left hand terms",
-            expected_nonterminal
+            "{expected_nonterminal} was not in left hand terms"
         );
 
         assert!(
             right_hand_terms.contains(&&expected_nonterminal),
-            "{} was not in right hand terms",
-            expected_nonterminal
+            "{expected_nonterminal} was not in right hand terms"
         );
     }
 
@@ -55,8 +53,7 @@ fn iterate_grammar() {
 
         assert!(
             only_right_terms.any(|e| e == &expected_terminal),
-            "{} was not in left hand terms",
-            expected_terminal
+            "{expected_terminal} was not in left hand terms"
         );
     }
 }
@@ -96,7 +93,6 @@ fn mutably_iterate_grammar() {
 
     assert!(
         are_all_terminals_z,
-        "all terminals in {} were not \"Z\"",
-        dna_grammar
+        "all terminals in {dna_grammar} were not \"Z\""
     );
 }

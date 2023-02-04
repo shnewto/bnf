@@ -52,7 +52,7 @@ impl<'gram> ParseTree<'gram> {
 
         for matched in &self.rhs {
             match matched {
-                ParseTreeNode::Terminal(terminal) => write!(f, " \"{}\"", terminal)?,
+                ParseTreeNode::Terminal(terminal) => write!(f, " \"{terminal}\"")?,
                 ParseTreeNode::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
             }
         }
@@ -72,7 +72,7 @@ impl<'gram> ParseTree<'gram> {
             match child {
                 ParseTreeNode::Terminal(terminal) => {
                     Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
-                    writeln!(f, "\"{}\"", terminal)?;
+                    writeln!(f, "\"{terminal}\"")?;
                 }
                 ParseTreeNode::Nonterminal(nonterminal) => {
                     nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
@@ -106,7 +106,7 @@ impl<'gram> ParseTree<'gram> {
             } else {
                 LAST_GRANDCHILD_PREFIX
             };
-            write!(f, "{}", prefix)?;
+            write!(f, "{prefix}")?;
         }
 
         Ok(())
@@ -286,8 +286,7 @@ impl Grammar {
                 if let Some(remaining) = stacker::remaining_stack() {
                     if remaining < STACK_RED_ZONE {
                         return Err(Error::RecursionLimit(format!(
-                            "Limit for recursion reached processing <{}>!",
-                            ident
+                            "Limit for recursion reached processing <{ident}>!",
                         )));
                     }
                 }
@@ -376,8 +375,7 @@ impl Grammar {
                 Term::Nonterminal(ref nt) => start_rule = nt.clone(),
                 Term::Terminal(_) => {
                     return Err(Error::GenerateError(format!(
-                        "Termainal type cannot define a production in '{}'!",
-                        term
+                        "Termainal type cannot define a production in '{term}'!"
                     )));
                 }
             },
@@ -481,7 +479,7 @@ mod tests {
         let from_str: Result<Grammar, _> = to_string.parse();
         match from_str {
             Ok(from_prod) => TestResult::from_bool(from_prod == gram),
-            _ => TestResult::error(format!("{} to string and back should be safe", gram)),
+            _ => TestResult::error(format!("{gram} to string and back should be safe")),
         }
     }
 
@@ -607,19 +605,19 @@ mod tests {
     #[test]
     fn parse_error() {
         let grammar: Result<Grammar, _> = "<almost_grammar> ::= <test".parse();
-        assert!(grammar.is_err(), "{:?} should be error", grammar);
+        assert!(grammar.is_err(), "{grammar:?} should be error");
     }
 
     #[test]
     fn parse_error_on_incomplete() {
         let result: Result<Grammar, _> = "".parse();
-        assert!(result.is_err(), "{:?} should be err", result);
+        assert!(result.is_err(), "{result:?} should be err");
         match result {
             Err(e) => match e {
                 Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {:?}", e),
+                e => panic!("should should be Error::ParseError: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::ParseError: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {s}"),
         }
     }
 
@@ -627,31 +625,31 @@ mod tests {
     #[test]
     fn recursion_limit() {
         let grammar: Result<Grammar, _> = "<nonterm> ::= <nonterm>".parse();
-        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        assert!(grammar.is_ok(), "{grammar:?} should be ok");
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_err(), "{:?} should be err", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be err");
         match sentence {
             Err(e) => match e {
                 Error::RecursionLimit(_) => (),
-                e => panic!("should should be Error::RecursionLimit: {:?}", e),
+                e => panic!("should should be Error::RecursionLimit: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::RecursionLimit: {}", s),
+            Ok(s) => panic!("should should be Error::RecursionLimit: {s}"),
         }
     }
 
     #[test]
     fn lhs_not_found() {
         let grammar: Result<Grammar, _> = "<start> ::= <not-used>".parse();
-        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        assert!(grammar.is_ok(), "{grammar:?} should be ok");
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_ok(), "{:?} should be ok", sentence);
+        assert!(sentence.is_ok(), "{sentence:?} should be ok");
         assert_eq!(sentence.unwrap(), String::from("<not-used>"));
     }
 
     #[test]
     fn lhs_is_terminal_parse() {
         let grammar: Result<Grammar, _> = "\"wrong place\" ::= <not-used>".parse();
-        assert!(grammar.is_err(), "{:?} should be error", grammar);
+        assert!(grammar.is_err(), "{grammar:?} should be error");
     }
 
     #[test]
@@ -662,14 +660,14 @@ mod tests {
         let production = Production::from_parts(lhs, vec![expression]);
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
     fn no_productions() {
         let grammar = Grammar::from_parts(vec![]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
@@ -678,7 +676,7 @@ mod tests {
         let production = Production::from_parts(lhs, vec![]);
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
@@ -855,7 +853,7 @@ mod tests {
 
         let input = "GATTACA";
         let parsed = grammar.parse_input(input).next().unwrap();
-        let formatted = format!("{}", parsed);
+        let formatted = format!("{parsed}");
         let expected = "
 <dna> ::= <base> <dna>
 ├── <base> ::= \"G\"
@@ -889,7 +887,7 @@ mod tests {
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();
-        let format = format!("{}", grammar);
+        let format = format!("{grammar}");
         assert_eq!(
             format,
             "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"

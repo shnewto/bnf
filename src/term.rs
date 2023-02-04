@@ -60,12 +60,12 @@ impl fmt::Display for Term {
         match *self {
             Term::Terminal(ref s) => {
                 if s.contains('"') {
-                    write!(f, "'{}'", s)
+                    write!(f, "'{s}'")
                 } else {
-                    write!(f, "\"{}\"", s)
+                    write!(f, "\"{s}\"")
                 }
             }
-            Term::Nonterminal(ref s) => write!(f, "<{}>", s),
+            Term::Nonterminal(ref s) => write!(f, "<{s}>"),
         }
     }
 }
@@ -97,7 +97,7 @@ mod tests {
         let from_str = Term::from_str(&to_string);
         match from_str {
             Ok(from_term) => TestResult::from_bool(from_term == term),
-            _ => TestResult::error(format!("{} to string and back should be safe", term)),
+            _ => TestResult::error(format!("{term} to string and back should be safe")),
         }
     }
 
@@ -129,13 +129,13 @@ mod tests {
     #[test]
     fn parse_incomplete() {
         let result = Term::from_str("");
-        assert!(result.is_err(), "{:?} should be err", result);
+        assert!(result.is_err(), "{result:?} should be err");
         match result {
             Err(e) => match e {
                 Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {:?}", e),
+                e => panic!("should should be Error::ParseError: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::ParseError: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {s}"),
         }
     }
 
@@ -153,7 +153,7 @@ mod tests {
         let some_space = String::from(" some space ");
         assert_eq!(
             Ok(Term::Nonterminal(some_space.clone())),
-            Term::from_str(&format!("<{}>", some_space))
+            Term::from_str(&format!("<{some_space}>"))
         );
     }
 
@@ -162,7 +162,7 @@ mod tests {
         let some_space = String::from(" some space ");
         assert_eq!(
             Ok(Term::Terminal(some_space.clone())),
-            Term::from_str(&format!("\"{}\"", some_space))
+            Term::from_str(&format!("\"{some_space}\""))
         );
     }
 

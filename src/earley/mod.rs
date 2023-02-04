@@ -40,7 +40,7 @@ impl TraversalQueue {
         input: &InputRange<'gram>,
     ) {
         for starting_prod in grammar.get_productions_by_lhs(starting_term) {
-            let traversal = traversal_tree.predict_starting(starting_prod, &input);
+            let traversal = traversal_tree.predict_starting(starting_prod, input);
             self.push_back(traversal.id);
         }
     }
@@ -194,7 +194,7 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
 
         earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
             let _span = tracing::span!(tracing::Level::DEBUG, "next_parse_tree").entered();
-            let parse_tree = parse_tree(&traversal_tree, &grammar, traversal_id);
+            let parse_tree = parse_tree(traversal_tree, grammar, traversal_id);
             tracing::event!(tracing::Level::TRACE, "\n{parse_tree}");
             parse_tree
         })
@@ -244,7 +244,7 @@ impl<'gram> CompletionMap<'gram> {
         input_range: &InputRange<'gram>,
     ) -> impl Iterator<Item = TraversalId> + '_ {
         let _span = tracing::span!(tracing::Level::DEBUG, "get_complete").entered();
-        let key = CompletionKey::new_total(term, &input_range);
+        let key = CompletionKey::new_total(term, input_range);
         self.complete.get(&key).into_iter().flatten().cloned()
     }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {

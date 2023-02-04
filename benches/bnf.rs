@@ -23,22 +23,22 @@ fn init_tracing() -> impl Drop {
 fn init_tracing() {}
 
 fn examples(c: &mut Criterion) {
-    let _tracing = init_tracing();
+    init_tracing();
 
     #[cfg(feature = "tracing")]
-    let _span = tracing::span!(tracing::Level::DEBUG, "BENCH ITER").entered();
+    let _span = tracing::span!(tracing::Level::DEBUG, "BENCH EXAMPLES").entered();
 
-    // c.bench_function("parse postal", |b| {
-    //     let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
-    //     b.iter(|| input.parse::<Grammar>().unwrap());
-    // });
+    c.bench_function("parse postal", |b| {
+        let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
+        b.iter(|| input.parse::<Grammar>().unwrap());
+    });
 
-    // c.bench_function("generate DNA", |b| {
-    //     let input = "<dna> ::= <base> | <base> <dna>
-    //         <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
-    //     let grammar: Grammar = input.parse().unwrap();
-    //     b.iter(|| grammar.generate().unwrap());
-    // });
+    c.bench_function("generate DNA", |b| {
+        let input = "<dna> ::= <base> | <base> <dna>
+            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+        let grammar: Grammar = input.parse().unwrap();
+        b.iter(|| grammar.generate().unwrap());
+    });
 
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= \"+\" | \"-\" | \"*\" | \"/\"

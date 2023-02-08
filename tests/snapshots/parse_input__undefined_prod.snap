@@ -1,0 +1,8 @@
+---
+source: tests/parse_input.rs
+expression: parses.next().unwrap()
+---
+<start> ::= <a>
+└── <a> ::= "a"
+    └── "a"
+

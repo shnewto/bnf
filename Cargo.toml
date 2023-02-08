@@ -33,6 +33,9 @@ features = ["derive"]
 [dependencies.serde_json]
 version = "1.0.61"
 
+[dev-dependencies]
+insta = { version = "1.26.0", default-features = false }
+
 [dev-dependencies.quickcheck]
 version = "1.0.2"
 

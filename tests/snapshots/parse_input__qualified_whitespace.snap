@@ -1,0 +1,16 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<terms> ::= <terms> <ws> <term>
+├── <terms> ::= <term>
+│   └── <term> ::= <qualified>
+│       └── <qualified> ::= "QUALIFIER:" <qual-term>
+│           ├── "QUALIFIER:"
+│           └── <qual-term> ::= "qualified"
+│               └── "qualified"
+├── <ws> ::= " "
+│   └── " "
+└── <term> ::= "unqualified"
+    └── "unqualified"
+

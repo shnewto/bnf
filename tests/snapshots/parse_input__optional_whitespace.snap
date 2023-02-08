@@ -1,0 +1,20 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<balanced> ::= <left> <balanced> <right>
+├── <left> ::= <opt-ws> "(" <opt-ws>
+│   ├── <opt-ws> ::= ""
+│   │   └── ""
+│   ├── "("
+│   └── <opt-ws> ::= ""
+│       └── ""
+├── <balanced> ::= ""
+│   └── ""
+└── <right> ::= <opt-ws> ")" <opt-ws>
+    ├── <opt-ws> ::= ""
+    │   └── ""
+    ├── ")"
+    └── <opt-ws> ::= ""
+        └── ""
+

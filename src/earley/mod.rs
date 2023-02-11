@@ -5,7 +5,7 @@ mod traversal;
 use crate::{tracing, ParseTree, ParseTreeNode, Term};
 use grammar::{ParseGrammar, Production};
 use input_range::InputRange;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
 pub fn parse<'gram>(
@@ -224,8 +224,8 @@ impl<'gram> CompletionKey<'gram> {
 
 #[derive(Debug, Default)]
 pub(crate) struct CompletionMap<'gram> {
-    incomplete: HashMap<CompletionKey<'gram>, HashSet<TraversalId>>,
-    complete: HashMap<CompletionKey<'gram>, HashSet<TraversalId>>,
+    incomplete: HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
+    complete: HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
 }
 
 impl<'gram> CompletionMap<'gram> {

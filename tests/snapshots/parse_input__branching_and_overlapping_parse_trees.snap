@@ -31,22 +31,6 @@ expression: "parses.join(\"\\n\")"
     └── "AND"
 
 <and> ::= <and> " " <terminal>
-├── <and> ::= <and> " AND " <terminal>
-│   ├── <and> ::= <and> " " <terminal>
-│   │   ├── <and> ::= <terminal>
-│   │   │   └── <terminal> ::= "AND"
-│   │   │       └── "AND"
-│   │   ├── " "
-│   │   └── <terminal> ::= "AND"
-│   │       └── "AND"
-│   ├── " AND "
-│   └── <terminal> ::= "AND"
-│       └── "AND"
-├── " "
-└── <terminal> ::= "AND"
-    └── "AND"
-
-<and> ::= <and> " " <terminal>
 ├── <and> ::= <and> " " <terminal>
 │   ├── <and> ::= <and> " AND " <terminal>
 │   │   ├── <and> ::= <terminal>
@@ -56,6 +40,22 @@ expression: "parses.join(\"\\n\")"
 │   │   └── <terminal> ::= "AND"
 │   │       └── "AND"
 │   ├── " "
+│   └── <terminal> ::= "AND"
+│       └── "AND"
+├── " "
+└── <terminal> ::= "AND"
+    └── "AND"
+
+<and> ::= <and> " " <terminal>
+├── <and> ::= <and> " AND " <terminal>
+│   ├── <and> ::= <and> " " <terminal>
+│   │   ├── <and> ::= <terminal>
+│   │   │   └── <terminal> ::= "AND"
+│   │   │       └── "AND"
+│   │   ├── " "
+│   │   └── <terminal> ::= "AND"
+│   │       └── "AND"
+│   ├── " AND "
 │   └── <terminal> ::= "AND"
 │       └── "AND"
 ├── " "

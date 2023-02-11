@@ -1,0 +1,39 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<sum> ::= <sum> <add> <product>
+├── <sum> ::= <product>
+│   └── <product> ::= <factor>
+│       └── <factor> ::= <number>
+│           └── <number> ::= <digit>
+│               └── <digit> ::= "1"
+│                   └── "1"
+├── <add> ::= "+"
+│   └── "+"
+└── <product> ::= <factor>
+    └── <factor> ::= "(" <sum> ")"
+        ├── "("
+        ├── <sum> ::= <sum> <add> <product>
+        │   ├── <sum> ::= <product>
+        │   │   └── <product> ::= <product> <mult> <factor>
+        │   │       ├── <product> ::= <factor>
+        │   │       │   └── <factor> ::= <number>
+        │   │       │       └── <number> ::= <digit>
+        │   │       │           └── <digit> ::= "2"
+        │   │       │               └── "2"
+        │   │       ├── <mult> ::= "*"
+        │   │       │   └── "*"
+        │   │       └── <factor> ::= <number>
+        │   │           └── <number> ::= <digit>
+        │   │               └── <digit> ::= "3"
+        │   │                   └── "3"
+        │   ├── <add> ::= "-"
+        │   │   └── "-"
+        │   └── <product> ::= <factor>
+        │       └── <factor> ::= <number>
+        │           └── <number> ::= <digit>
+        │               └── <digit> ::= "4"
+        │                   └── "4"
+        └── ")"
+

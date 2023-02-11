@@ -52,7 +52,7 @@ impl<'gram> ParseTree<'gram> {
 
         for matched in &self.rhs {
             match matched {
-                ParseTreeNode::Terminal(terminal) => write!(f, " \"{}\"", terminal)?,
+                ParseTreeNode::Terminal(terminal) => write!(f, " \"{terminal}\"")?,
                 ParseTreeNode::Nonterminal(parse_tree) => write!(f, " {}", parse_tree.lhs)?,
             }
         }
@@ -72,7 +72,7 @@ impl<'gram> ParseTree<'gram> {
             match child {
                 ParseTreeNode::Terminal(terminal) => {
                     Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
-                    writeln!(f, "\"{}\"", terminal)?;
+                    writeln!(f, "\"{terminal}\"")?;
                 }
                 ParseTreeNode::Nonterminal(nonterminal) => {
                     nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
@@ -106,7 +106,7 @@ impl<'gram> ParseTree<'gram> {
             } else {
                 LAST_GRANDCHILD_PREFIX
             };
-            write!(f, "{}", prefix)?;
+            write!(f, "{prefix}")?;
         }
 
         Ok(())
@@ -254,6 +254,11 @@ impl Grammar {
         crate::earley::parse(self, input)
     }
 
+    /// Get the starting term
+    pub(crate) fn starting_term(&self) -> Option<&Term> {
+        self.productions_iter().next().map(|prod| &prod.lhs)
+    }
+
     fn eval_terminal(
         &self,
         term: &Term,
@@ -281,8 +286,7 @@ impl Grammar {
                 if let Some(remaining) = stacker::remaining_stack() {
                     if remaining < STACK_RED_ZONE {
                         return Err(Error::RecursionLimit(format!(
-                            "Limit for recursion reached processing <{}>!",
-                            ident
+                            "Limit for recursion reached processing <{ident}>!",
                         )));
                     }
                 }
@@ -371,8 +375,7 @@ impl Grammar {
                 Term::Nonterminal(ref nt) => start_rule = nt.clone(),
                 Term::Terminal(_) => {
                     return Err(Error::GenerateError(format!(
-                        "Termainal type cannot define a production in '{}'!",
-                        term
+                        "Termainal type cannot define a production in '{term}'!"
                     )));
                 }
             },
@@ -476,7 +479,7 @@ mod tests {
         let from_str: Result<Grammar, _> = to_string.parse();
         match from_str {
             Ok(from_prod) => TestResult::from_bool(from_prod == gram),
-            _ => TestResult::error(format!("{} to string and back should be safe", gram)),
+            _ => TestResult::error(format!("{gram} to string and back should be safe")),
         }
     }
 
@@ -602,19 +605,19 @@ mod tests {
     #[test]
     fn parse_error() {
         let grammar: Result<Grammar, _> = "<almost_grammar> ::= <test".parse();
-        assert!(grammar.is_err(), "{:?} should be error", grammar);
+        assert!(grammar.is_err(), "{grammar:?} should be error");
     }
 
     #[test]
     fn parse_error_on_incomplete() {
         let result: Result<Grammar, _> = "".parse();
-        assert!(result.is_err(), "{:?} should be err", result);
+        assert!(result.is_err(), "{result:?} should be err");
         match result {
             Err(e) => match e {
                 Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {:?}", e),
+                e => panic!("should should be Error::ParseError: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::ParseError: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {s}"),
         }
     }
 
@@ -622,31 +625,31 @@ mod tests {
     #[test]
     fn recursion_limit() {
         let grammar: Result<Grammar, _> = "<nonterm> ::= <nonterm>".parse();
-        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        assert!(grammar.is_ok(), "{grammar:?} should be ok");
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_err(), "{:?} should be err", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be err");
         match sentence {
             Err(e) => match e {
                 Error::RecursionLimit(_) => (),
-                e => panic!("should should be Error::RecursionLimit: {:?}", e),
+                e => panic!("should should be Error::RecursionLimit: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::RecursionLimit: {}", s),
+            Ok(s) => panic!("should should be Error::RecursionLimit: {s}"),
         }
     }
 
     #[test]
     fn lhs_not_found() {
         let grammar: Result<Grammar, _> = "<start> ::= <not-used>".parse();
-        assert!(grammar.is_ok(), "{:?} should be ok", grammar);
+        assert!(grammar.is_ok(), "{grammar:?} should be ok");
         let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_ok(), "{:?} should be ok", sentence);
+        assert!(sentence.is_ok(), "{sentence:?} should be ok");
         assert_eq!(sentence.unwrap(), String::from("<not-used>"));
     }
 
     #[test]
     fn lhs_is_terminal_parse() {
         let grammar: Result<Grammar, _> = "\"wrong place\" ::= <not-used>".parse();
-        assert!(grammar.is_err(), "{:?} should be error", grammar);
+        assert!(grammar.is_err(), "{grammar:?} should be error");
     }
 
     #[test]
@@ -657,14 +660,14 @@ mod tests {
         let production = Production::from_parts(lhs, vec![expression]);
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
     fn no_productions() {
         let grammar = Grammar::from_parts(vec![]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
@@ -673,57 +676,7 @@ mod tests {
         let production = Production::from_parts(lhs, vec![]);
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
-        assert!(sentence.is_err(), "{:?} should be error", sentence);
-    }
-
-    #[test]
-    fn parse_dna() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
-            .parse()
-            .unwrap();
-
-        let input = "GATTACA";
-
-        let mut parses = grammar.parse_input(input);
-        assert!(matches!(parses.next(), Some(_)));
-    }
-
-    #[test]
-    fn format_parse_tree() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
-            .parse()
-            .unwrap();
-
-        let input = "GATTACA";
-        let parsed = grammar.parse_input(input).next().unwrap();
-        let formatted = format!("{}", parsed);
-        let expected = "
-<dna> ::= <base> <dna>
-├── <base> ::= \"G\"
-│   └── \"G\"
-└── <dna> ::= <base> <dna>
-    ├── <base> ::= \"A\"
-    │   └── \"A\"
-    └── <dna> ::= <base> <dna>
-        ├── <base> ::= \"T\"
-        │   └── \"T\"
-        └── <dna> ::= <base> <dna>
-            ├── <base> ::= \"T\"
-            │   └── \"T\"
-            └── <dna> ::= <base> <dna>
-                ├── <base> ::= \"A\"
-                │   └── \"A\"
-                └── <dna> ::= <base> <dna>
-                    ├── <base> ::= \"C\"
-                    │   └── \"C\"
-                    └── <dna> ::= <base>
-                        └── <base> ::= \"A\"
-                            └── \"A\"\n"
-            .trim_start();
-
-        assert_eq!(formatted, expected);
+        assert!(sentence.is_err(), "{sentence:?} should be error");
     }
 
     #[test]
@@ -732,7 +685,7 @@ mod tests {
         <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
             .parse()
             .unwrap();
-        let format = format!("{}", grammar);
+        let format = format!("{grammar}");
         assert_eq!(
             format,
             "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
@@ -771,101 +724,5 @@ mod tests {
         *rhs_iterated = ParseTreeNode::Terminal("Z");
 
         assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
-    }
-
-    #[test]
-    fn mermaid_dna_parse_tree() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
-            .parse()
-            .unwrap();
-
-        let input = "GATTACA";
-        let parsed = grammar.parse_input(input).next().unwrap();
-        let mermaid = parsed.mermaid().to_string();
-        let expected = "
-flowchart TD
-0[\"dna\"] --> 1[\"base\"]
-1[\"base\"] --> 2[\"G\"]
-0[\"dna\"] --> 3[\"dna\"]
-3[\"dna\"] --> 4[\"base\"]
-4[\"base\"] --> 5[\"A\"]
-3[\"dna\"] --> 6[\"dna\"]
-6[\"dna\"] --> 7[\"base\"]
-7[\"base\"] --> 8[\"T\"]
-6[\"dna\"] --> 9[\"dna\"]
-9[\"dna\"] --> 10[\"base\"]
-10[\"base\"] --> 11[\"T\"]
-9[\"dna\"] --> 12[\"dna\"]
-12[\"dna\"] --> 13[\"base\"]
-13[\"base\"] --> 14[\"A\"]
-12[\"dna\"] --> 15[\"dna\"]
-15[\"dna\"] --> 16[\"base\"]
-16[\"base\"] --> 17[\"C\"]
-15[\"dna\"] --> 18[\"dna\"]
-18[\"dna\"] --> 19[\"base\"]
-19[\"base\"] --> 20[\"A\"]\n"
-            .trim_start();
-
-        assert_eq!(mermaid, expected);
-    }
-
-    #[test]
-    fn mermaid_math_parse_tree() {
-        let grammar: Grammar = "<sum> ::= <sum> <add> <product>
-            <sum> ::= <product>
-            <product> ::= <product> <mult> <factor>
-            <product> ::= <factor>
-            <add> ::= \"+\" | \"-\"
-            <mult> ::= \"*\" | \"/\"
-            <factor> ::= \"(\" <sum> \")\"
-            <factor> ::= <number>
-            <number> ::= <digit> <number>
-            <number> ::= <digit>
-            <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
-        ".parse().unwrap();
-
-        let input = "1+(2*3-4)";
-
-        let parsed = grammar.parse_input(input).next().unwrap();
-        let mermaid = parsed.mermaid().to_string();
-        let expected = "
-flowchart TD
-0[\"sum\"] --> 1[\"sum\"]
-1[\"sum\"] --> 2[\"product\"]
-2[\"product\"] --> 3[\"factor\"]
-3[\"factor\"] --> 4[\"number\"]
-4[\"number\"] --> 5[\"digit\"]
-5[\"digit\"] --> 6[\"1\"]
-0[\"sum\"] --> 7[\"add\"]
-7[\"add\"] --> 8[\"+\"]
-0[\"sum\"] --> 9[\"product\"]
-9[\"product\"] --> 10[\"factor\"]
-10[\"factor\"] --> 11[\"(\"]
-10[\"factor\"] --> 12[\"sum\"]
-12[\"sum\"] --> 13[\"sum\"]
-13[\"sum\"] --> 14[\"product\"]
-14[\"product\"] --> 15[\"product\"]
-15[\"product\"] --> 16[\"factor\"]
-16[\"factor\"] --> 17[\"number\"]
-17[\"number\"] --> 18[\"digit\"]
-18[\"digit\"] --> 19[\"2\"]
-14[\"product\"] --> 20[\"mult\"]
-20[\"mult\"] --> 21[\"*\"]
-14[\"product\"] --> 22[\"factor\"]
-22[\"factor\"] --> 23[\"number\"]
-23[\"number\"] --> 24[\"digit\"]
-24[\"digit\"] --> 25[\"3\"]
-12[\"sum\"] --> 26[\"add\"]
-26[\"add\"] --> 27[\"-\"]
-12[\"sum\"] --> 28[\"product\"]
-28[\"product\"] --> 29[\"factor\"]
-29[\"factor\"] --> 30[\"number\"]
-30[\"number\"] --> 31[\"digit\"]
-31[\"digit\"] --> 32[\"4\"]
-10[\"factor\"] --> 33[\")\"]\n"
-            .trim_start();
-
-        assert_eq!(mermaid, expected);
     }
 }

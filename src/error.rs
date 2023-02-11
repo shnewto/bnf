@@ -19,7 +19,7 @@ impl fmt::Display for Error {
         match *self {
             Error::ParseError(ref s)
             | Error::GenerateError(ref s)
-            | Error::RecursionLimit(ref s) => write!(f, "{}", s),
+            | Error::RecursionLimit(ref s) => write!(f, "{s}"),
         }
     }
 }
@@ -32,13 +32,13 @@ impl error::Error for Error {
 
 impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
     fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
-        Error::ParseError(format!("Parsing error: {:?}", err))
+        Error::ParseError(format!("Parsing error: {err:?}"))
     }
 }
 
 impl From<Err<VerboseError<&str>>> for Error {
     fn from(err: Err<VerboseError<&str>>) -> Self {
-        Error::ParseError(format!("Parsing error: {:?}", err))
+        Error::ParseError(format!("Parsing error: {err:?}"))
     }
 }
 
@@ -76,13 +76,12 @@ mod tests {
 
         assert!(
             bnf_error.is_err(),
-            "production result should be error {:?}",
-            bnf_error
+            "production result should be error {bnf_error:?}"
         );
 
         match bnf_error.unwrap_err() {
             Error::ParseError(_) => (),
-            e => panic!("production error should be error parsing: {:?}", e),
+            e => panic!("production error should be error parsing: {e:?}"),
         }
     }
 
@@ -98,12 +97,11 @@ mod tests {
 
         assert!(
             bnf_error.is_err(),
-            "production result should be error {:?}",
-            bnf_error
+            "production result should be error {bnf_error:?}"
         );
         match bnf_error.unwrap_err() {
             Error::ParseError(_) => (),
-            e => panic!("production error should be parse error: {:?}", e),
+            e => panic!("production error should be parse error: {e:?}"),
         }
     }
 
@@ -112,7 +110,7 @@ mod tests {
         let bnf_error = Error::RecursionLimit(String::from("reucrsion limit reached!"));
         match bnf_error {
             Error::RecursionLimit(_) => (),
-            e => panic!("should match on reursion limit: {:?}", e),
+            e => panic!("should match on reursion limit: {e:?}"),
         }
     }
 
@@ -121,7 +119,7 @@ mod tests {
         let bnf_error = Error::GenerateError(String::from("error generating!"));
         match bnf_error {
             Error::GenerateError(_) => (),
-            e => panic!("should match on generate error: {:?}", e),
+            e => panic!("should match on generate error: {e:?}"),
         }
     }
 

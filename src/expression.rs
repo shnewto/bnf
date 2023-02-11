@@ -78,7 +78,7 @@ impl fmt::Display for Expression {
             .collect::<Vec<_>>()
             .join(" ");
 
-        write!(f, "{}", display)
+        write!(f, "{display}")
     }
 }
 
@@ -158,7 +158,7 @@ mod tests {
         let from_str: Result<Expression, _> = to_string.parse();
         match from_str {
             Ok(from_expr) => TestResult::from_bool(from_expr == expr),
-            _ => TestResult::error(format!("{} to string and back should be safe", expr)),
+            _ => TestResult::error(format!("{expr} to string and back should be safe")),
         }
     }
 
@@ -201,7 +201,7 @@ mod tests {
 
         // check all terms are there
         for term in dna_expression.terms_iter() {
-            assert!(terms.contains(term), "{} was not in terms", term);
+            assert!(terms.contains(term), "{term} was not in terms");
         }
     }
 
@@ -274,25 +274,25 @@ mod tests {
     #[test]
     fn parse_error() {
         let expression = Expression::from_str("<base> <dna");
-        assert!(expression.is_err(), "{:?} should be error", expression);
+        assert!(expression.is_err(), "{expression:?} should be error");
 
         let error = expression.unwrap_err();
         match error {
             Error::ParseError(_) => (),
-            _ => panic!("{} should be should be error", error),
+            _ => panic!("{error} should be should be error"),
         }
     }
 
     #[test]
     fn parse_incomplete() {
         let result = Expression::from_str("");
-        assert!(result.is_err(), "{:?} should be err", result);
+        assert!(result.is_err(), "{result:?} should be err");
         match result {
             Err(e) => match e {
                 Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {:?}", e),
+                e => panic!("should should be Error::ParseError: {e:?}"),
             },
-            Ok(s) => panic!("should should be Error::ParseError: {}", s),
+            Ok(s) => panic!("should should be Error::ParseError: {s}"),
         }
     }
 

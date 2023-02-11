@@ -1,0 +1,9 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<start> ::= "hi" <empty>
+├── "hi"
+└── <empty> ::= ""
+    └── ""
+

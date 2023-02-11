@@ -1,0 +1,26 @@
+---
+source: tests/parse_input.rs
+expression: "mermaid.join(\"\\n\")"
+---
+flowchart TD
+0["dna"] --> 1["base"]
+1["base"] --> 2["G"]
+0["dna"] --> 3["dna"]
+3["dna"] --> 4["base"]
+4["base"] --> 5["A"]
+3["dna"] --> 6["dna"]
+6["dna"] --> 7["base"]
+7["base"] --> 8["T"]
+6["dna"] --> 9["dna"]
+9["dna"] --> 10["base"]
+10["base"] --> 11["T"]
+9["dna"] --> 12["dna"]
+12["dna"] --> 13["base"]
+13["base"] --> 14["A"]
+12["dna"] --> 15["dna"]
+15["dna"] --> 16["base"]
+16["base"] --> 17["C"]
+15["dna"] --> 18["dna"]
+18["dna"] --> 19["base"]
+19["base"] --> 20["A"]
+

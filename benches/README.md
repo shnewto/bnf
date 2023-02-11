@@ -40,8 +40,8 @@ These benchmarks are not run during continuous integration testing. But if a dev
 
 #### Tracing
 
-BNF has an optional "tracing" feature which will provide tracing spans during parsing.
+BNF has an optional "tracing" feature which will provide tracing spans during benchmarking.
 
 The benchmarks are enabled to write these tracing spans to `tracing.folded`. This data can then be parsed to provide a flamegraph.
 
-> RUST_LOG=TRACE cargo criterion --features "tracing" && cat tracing.folded | inferno-flamegraph > flamegraph.svg
+> RUST_LOG=DEBUG cargo criterion --features "tracing" && cat tracing.folded | inferno-flamegraph > flamegraph.svg

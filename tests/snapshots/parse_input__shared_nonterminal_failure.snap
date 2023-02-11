@@ -1,0 +1,12 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<start> ::= <longsuccess>
+└── <longsuccess> ::= <long2>
+    └── <long2> ::= <long3>
+        └── <long3> ::= <long4>
+            └── <long4> ::= <char>
+                └── <char> ::= "a"
+                    └── "a"
+

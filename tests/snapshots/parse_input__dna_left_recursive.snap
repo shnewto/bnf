@@ -1,0 +1,26 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<dna> ::= <dna> <base>
+├── <dna> ::= <dna> <base>
+│   ├── <dna> ::= <dna> <base>
+│   │   ├── <dna> ::= <dna> <base>
+│   │   │   ├── <dna> ::= <dna> <base>
+│   │   │   │   ├── <dna> ::= <dna> <base>
+│   │   │   │   │   ├── <dna> ::= <base>
+│   │   │   │   │   │   └── <base> ::= "G"
+│   │   │   │   │   │       └── "G"
+│   │   │   │   │   └── <base> ::= "A"
+│   │   │   │   │       └── "A"
+│   │   │   │   └── <base> ::= "T"
+│   │   │   │       └── "T"
+│   │   │   └── <base> ::= "T"
+│   │   │       └── "T"
+│   │   └── <base> ::= "A"
+│   │       └── "A"
+│   └── <base> ::= "C"
+│       └── "C"
+└── <base> ::= "A"
+    └── "A"
+

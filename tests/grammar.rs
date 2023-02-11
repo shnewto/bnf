@@ -16,7 +16,7 @@ impl Arbitrary for Meta {
     fn arbitrary(_: &mut Gen) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
         let grammar: Result<Grammar, _> = BNF_FOR_BNF.parse();
-        assert!(grammar.is_ok(), "{:?} should be Ok", grammar);
+        assert!(grammar.is_ok(), "{grammar:?} should be Ok");
 
         // generate a random valid grammar from the above
         let seed: [u8; 32] = [0; 32];
@@ -33,7 +33,7 @@ impl Arbitrary for Meta {
                             "<if-recursion-limit-reached> ::= \"parse shouldn't fail\"",
                         ),
                     },
-                    _ => panic!("Unexpected state {:?} -- seed {:?}", e, seed),
+                    _ => panic!("Unexpected state {e:?} -- seed {seed:?}"),
                 }
             }
             Ok(s) => Meta { bnf: s },

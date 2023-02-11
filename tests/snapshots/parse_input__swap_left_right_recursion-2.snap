@@ -1,0 +1,29 @@
+---
+source: tests/parse_input.rs
+expression: "parses.join(\"\\n\")"
+---
+<conjunction> ::= <conjunction> <ws> <predicate>
+├── <conjunction> ::= <predicate>
+│   └── <predicate> ::= <string_null_one>
+│       └── <string_null_one> ::= <string_null_two>
+│           └── <string_null_two> ::= <string_null_three>
+│               └── <string_null_three> ::= <string>
+│                   └── <string> ::= <char_null> <string>
+│                       ├── <char_null> ::= <char>
+│                       │   └── <char> ::= "a"
+│                       │       └── "a"
+│                       └── <string> ::= <char_null>
+│                           └── <char_null> ::= <char>
+│                               └── <char> ::= "a"
+│                                   └── "a"
+├── <ws> ::= " "
+│   └── " "
+└── <predicate> ::= <string_null_one>
+    └── <string_null_one> ::= <string_null_two>
+        └── <string_null_two> ::= <string_null_three>
+            └── <string_null_three> ::= <string>
+                └── <string> ::= <char_null>
+                    └── <char_null> ::= <char>
+                        └── <char> ::= "a"
+                            └── "a"
+

@@ -117,8 +117,8 @@ fn empty() {
 
     let input = "";
 
-    let parses = grammar.parse_input(input);
-    assert_eq!(parses.count(), 1);
+    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
@@ -362,32 +362,31 @@ fn swap_left_right_recursion() {
         <whitespace> ::= ' '
         <ws> ::= ' ' | ' ' <ws>
         ";
-    assert!(left_recursive
+    let parses: Vec<_> = left_recursive
         .parse::<Grammar>()
         .unwrap()
         .parse_input(input)
-        .next()
-        .is_some());
+        .map(|a| a.to_string())
+        .collect();
+    assert_snapshot!(parses.join("\n"));
 
     let right_recursive = left_recursive.replace(
         // rewrite production from left- to right- recursive
         "<string> ::= <char_null> | <string> <char_null>",
         "<string> ::= <char_null> | <char_null> <string>",
     );
-    assert!(
-        right_recursive
-            .parse::<Grammar>()
-            .unwrap()
-            .parse_input(input)
-            .next()
-            .is_some(),
-        "right-recursive grammar failed to parse: {input}"
-    );
+    let parses: Vec<_> = right_recursive
+        .parse::<Grammar>()
+        .unwrap()
+        .parse_input(input)
+        .map(|a| a.to_string())
+        .collect();
+    assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn shared_nullable_nonterminal() {
-    let fails: &str = "
+    let grammar: &str = "
         <disjunction> ::= <predicate> | <disjunction> <or> <predicate>
         <predicate> ::= <char_null_one> | <special-string> '.'
 
@@ -406,51 +405,13 @@ fn shared_nullable_nonterminal() {
 
     let input = "a or a";
 
-    let passes_1 = fails.replace(
-        // skip nullable production <char_null_two>
-        "<char_null_one> ::= <char_null_two>",
-        "<char_null_one> ::= <char_null_three>",
-    );
-    assert!(passes_1
+    let parses: Vec<_> = grammar
         .parse::<Grammar>()
         .unwrap()
         .parse_input(input)
-        .next()
-        .is_some());
-
-    let passes_2 = fails.replace(
-        // replace <whitespace> with its terminal ' '
-        "<ws> ::= <whitespace> | ' ' <ws>",
-        "<ws> ::= ' ' | ' ' <ws>",
-    );
-    assert!(passes_2
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .next()
-        .is_some());
-
-    let passes_3 = fails.replace(
-        // again, replace <whitespace> with its terminal ' '
-        "<special-char> ::= <char> | <whitespace>",
-        "<special-char> ::= <char> | ' '",
-    );
-    assert!(passes_3
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .next()
-        .is_some());
-
-    assert!(
-        fails
-            .parse::<Grammar>()
-            .unwrap()
-            .parse_input(input)
-            .next()
-            .is_some(),
-        "all grammars except last one parsed: {input}"
-    );
+        .map(|a| a.to_string())
+        .collect();
+    assert_snapshot!(parses.join("\n"));
 }
 
 #[test]

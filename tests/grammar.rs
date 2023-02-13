@@ -13,13 +13,23 @@ struct Meta {
 const BNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.bnf");
 
 impl Arbitrary for Meta {
-    fn arbitrary(_: &mut Gen) -> Meta {
+    fn arbitrary(gen: &mut Gen) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
         let grammar: Result<Grammar, _> = BNF_FOR_BNF.parse();
         assert!(grammar.is_ok(), "{grammar:?} should be Ok");
 
         // generate a random valid grammar from the above
-        let seed: [u8; 32] = [0; 32];
+        // using an arbitrary seed
+        let seed: [u8; 32] = {
+            let mut seed = [0u8; 32];
+
+            for byte in seed.iter_mut() {
+                *byte = Arbitrary::arbitrary(gen);
+            }
+
+            seed
+        };
+
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let sentence = grammar.unwrap().generate_seeded(&mut rng);
 

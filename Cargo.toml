@@ -8,6 +8,7 @@ authors = ["@shnewto", "@CrockAgile", "@androm3da", "@sremedios", "@prbs23", "@z
 description = "A library for parsing Backus–Naur form context-free grammars"
 readme = "README.md"
 keywords = ["bnf", "earley", "parser"]
+exclude = [".github", "tests", "benches", "*.snap", "*.bnf"]
 
 homepage = "https://github.com/shnewto/bnf"
 repository = "https://github.com/shnewto/bnf"

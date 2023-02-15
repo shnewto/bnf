@@ -333,14 +333,14 @@ mod tests {
 
     #[test]
     fn iterate_terms() {
-        let expression: Expression = "<b> \"a\" <b>".parse().unwrap();
+        let expression: Expression = "<b> 'A' <b>".parse().unwrap();
         let terms = expression.terms_iter().cloned().collect::<Vec<_>>();
         assert_eq!(terms, expression.terms);
     }
 
     #[test]
     fn mutate_iterable_terms() {
-        let mut expression: Expression = "\"END\"".parse().unwrap();
+        let mut expression: Expression = "'END'".parse().unwrap();
         let new_term = Term::Terminal("X".to_string());
         for term in expression.terms_iter_mut() {
             *term = new_term.clone();

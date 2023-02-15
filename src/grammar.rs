@@ -117,7 +117,7 @@ impl<'gram> ParseTree<'gram> {
     /// ```
     /// # use bnf::Grammar;
     /// let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-    /// <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+    /// <base> ::= 'A' | 'C' | 'G' | 'T'"
     /// .parse()
     /// .unwrap();
     ///
@@ -337,7 +337,7 @@ impl Grammar {
     ///
     /// let input =
     ///     "<dna> ::= <base> | <base> <dna>
-    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     <base> ::= 'A' | 'C' | 'G' | 'T'";
     /// let grammar: Grammar = input.parse().unwrap();
     /// let seed: [u8; 32] = [0; 32];
     /// let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -398,7 +398,7 @@ impl Grammar {
     ///
     /// let input =
     ///     "<dna> ::= <base> | <base> <dna>
-    ///     <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    ///     <base> ::= 'A' | 'C' | 'G' | 'T'";
     /// let grammar: Grammar = input.parse().unwrap();
     /// let sentence = grammar.generate();
     /// # let sentence_clone = sentence.clone();
@@ -682,7 +682,7 @@ mod tests {
     #[test]
     fn format_grammar() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
             .parse()
             .unwrap();
         let format = format!("{grammar}");
@@ -695,7 +695,7 @@ mod tests {
     #[test]
     fn iterate_parse_tree() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
             .parse()
             .unwrap();
 
@@ -711,7 +711,7 @@ mod tests {
     #[test]
     fn iterate_mut_parse_tree() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
             .parse()
             .unwrap();
 

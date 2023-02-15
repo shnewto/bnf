@@ -255,7 +255,7 @@ mod tests {
 
     fn dna_grammar() -> Grammar {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+            <base> ::= 'A' | 'C' | 'G' | 'T'"
             .parse()
             .unwrap();
 

@@ -35,15 +35,17 @@ fn examples(c: &mut Criterion) {
 
     c.bench_function("generate DNA", |b| {
         let input = "<dna> ::= <base> | <base> <dna>
-            <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+            <base> ::= 'A' | 'C' | 'G' | 'T'";
         let grammar: Grammar = input.parse().unwrap();
         b.iter(|| grammar.generate().unwrap());
     });
 
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
-            <op> ::= \"+\" | \"-\" | \"*\" | \"/\"
-            <number> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
-        ".parse().unwrap();
+            <op> ::= '+' | '-' | '*' | '/'
+            <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+    .parse()
+    .unwrap();
 
     // use pseudo random for consistent metrics
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);

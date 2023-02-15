@@ -19,7 +19,7 @@ fn undefined_prod() {
 #[test]
 fn dna_left_recursive() {
     let grammar: Grammar = "<dna> ::= <base> | <dna> <base>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
         .parse()
         .unwrap();
 
@@ -32,7 +32,7 @@ fn dna_left_recursive() {
 #[test]
 fn dna_right_recursive() {
     let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
         .parse()
         .unwrap();
 
@@ -45,8 +45,8 @@ fn dna_right_recursive() {
 #[test]
 fn ambiguous() {
     let grammar: Grammar = "<start> ::= <a> | <b>
-        <a> ::= \"END\"
-        <b> ::= \"END\""
+        <a> ::= 'END'
+        <b> ::= 'END'"
         .parse()
         .unwrap();
 
@@ -100,8 +100,8 @@ fn empty_left_recursive() {
 
 #[test]
 fn complete_empty() {
-    let grammar: Grammar = "<start> ::= \"hi\" <empty>
-        <empty> ::= \"\""
+    let grammar: Grammar = "<start> ::= 'hi' <empty>
+        <empty> ::= ''"
         .parse()
         .unwrap();
 
@@ -113,7 +113,7 @@ fn complete_empty() {
 
 #[test]
 fn empty() {
-    let grammar: Grammar = "<start> ::= \"\"".parse().unwrap();
+    let grammar: Grammar = "<start> ::= ''".parse().unwrap();
 
     let input = "";
 
@@ -296,14 +296,16 @@ fn math() {
             <sum> ::= <product>
             <product> ::= <product> <mult> <factor>
             <product> ::= <factor>
-            <add> ::= \"+\" | \"-\"
-            <mult> ::= \"*\" | \"/\"
-            <factor> ::= \"(\" <sum> \")\"
+            <add> ::= '+' | '-'
+            <mult> ::= '*' | '/'
+            <factor> ::= '(' <sum> ')'
             <factor> ::= <number>
             <number> ::= <digit> <number>
             <number> ::= <digit>
-            <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
-        ".parse().unwrap();
+            <digit> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+    .parse()
+    .unwrap();
 
     let input = "1+(2*3-4)";
 
@@ -314,7 +316,7 @@ fn math() {
 #[test]
 fn parse_dna() {
     let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
         .parse()
         .unwrap();
 
@@ -441,7 +443,7 @@ fn branching_and_overlapping_parse_trees() {
 #[test]
 fn format_parse_tree() {
     let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
         .parse()
         .unwrap();
 
@@ -453,7 +455,7 @@ fn format_parse_tree() {
 #[test]
 fn mermaid_dna_parse_tree() {
     let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\""
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
         .parse()
         .unwrap();
 
@@ -472,14 +474,16 @@ fn mermaid_math_parse_tree() {
             <sum> ::= <product>
             <product> ::= <product> <mult> <factor>
             <product> ::= <factor>
-            <add> ::= \"+\" | \"-\"
-            <mult> ::= \"*\" | \"/\"
-            <factor> ::= \"(\" <sum> \")\"
+            <add> ::= '+' | '-'
+            <mult> ::= '*' | '/'
+            <factor> ::= '(' <sum> ')'
             <factor> ::= <number>
             <number> ::= <digit> <number>
             <number> ::= <digit>
-            <digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"
-        ".parse().unwrap();
+            <digit> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+    .parse()
+    .unwrap();
 
     let input = "1+(2*3-4)";
 

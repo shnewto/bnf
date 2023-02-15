@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn parse_error() {
-        let result = Production::from_str("<base> ::= \"A\" | \"C\" | \"G\" |");
+        let result = Production::from_str("<base> ::= 'A' | 'C' | 'G' |");
         assert!(
             result.is_err(),
             "production result should be error {result:?}"
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn parse_semicolon_separated() {
-        let result = Production::from_str("<base> ::= \"A\" ; \"C\" ; \"G\" ; \"T\"");
+        let result = Production::from_str("<base> ::= 'A' ; 'C' ; 'G' ; 'T'");
         assert!(result.is_err(), "{result:?} should be error");
 
         let production = result.unwrap_err();

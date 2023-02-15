@@ -4,7 +4,7 @@ use bnf::{Grammar, Term};
 fn iterate_grammar() {
     let dna_productions = "
         <dna> ::= <base> | <base> <dna>
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+        <base> ::= 'A' | 'C' | 'G' | 'T'";
 
     let dna_grammar: Grammar = dna_productions.parse().unwrap();
 
@@ -62,7 +62,7 @@ fn iterate_grammar() {
 fn mutably_iterate_grammar() {
     let dna_productions = "
         <dna> ::= <dna> | <base> <dna>;
-        <base> ::= \"A\" | \"C\" | \"G\" | \"T\";";
+        <base> ::= 'A' | 'C' | 'G' | 'T';";
 
     let mut dna_grammar: Grammar = dna_productions.parse().unwrap();
 

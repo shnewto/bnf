@@ -128,14 +128,14 @@ let input =
         <name-part> ::= <personal-part> <last-name> <opt-suffix-part> <EOL>
                         | <personal-part> <name-part>
 
-    <personal-part> ::= <initial> \".\" | <first-name>
+    <personal-part> ::= <initial> '.' | <first-name>
 
     <street-address> ::= <house-num> <street-name> <opt-apt-num> <EOL>
 
-        <zip-part> ::= <town-name> \",\" <state-code> <ZIP-code> <EOL>
+        <zip-part> ::= <town-name> ',' <state-code> <ZIP-code> <EOL>
 
-    <opt-suffix-part> ::= \"Sr.\" | \"Jr.\" | <roman-numeral> | \"\"
-        <opt-apt-num> ::= <apt-num> | \"\"";
+    <opt-suffix-part> ::= 'Sr.' | 'Jr.' | <roman-numeral> | ''
+        <opt-apt-num> ::= <apt-num> | ''";
 
 let grammar: Result<Grammar, _> = input.parse();
 match grammar {
@@ -150,7 +150,7 @@ use bnf::Grammar;
 
 let input =
     "<dna> ::= <base> | <base> <dna>
-    <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    <base> ::= 'A' | 'C' | 'G' | 'T'";
 let grammar: Grammar = input.parse().unwrap();
 let sentence = grammar.generate();
 match sentence {
@@ -165,7 +165,7 @@ use bnf::Grammar;
 
 let input =
     "<dna> ::= <base> | <base> <dna>
-    <base> ::= \"A\" | \"C\" | \"G\" | \"T\"";
+    <base> ::= 'A' | 'C' | 'G' | 'T'";
 let grammar: Grammar = input.parse().unwrap();
 
 let sentence = "GATTACA";

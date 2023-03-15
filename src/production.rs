@@ -48,12 +48,12 @@ impl Production {
     }
 
     /// Get iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter(&self) -> impl Iterator<Item = &Expression> {
+    pub fn rhs_iter(&self) -> impl Iterator<Item=&Expression> {
         crate::slice_iter::SliceIter { slice: &self.rhs }
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
+    pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item=&mut Expression> {
         crate::slice_iter::SliceIterMut {
             slice: &mut self.rhs,
         }
@@ -67,6 +67,12 @@ impl Production {
     /// If the production is empty of `Expression`s
     pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
+    }
+
+    /// If the production _can_ terminate,
+    /// i.e. contains an expression of all terminals
+    pub fn has_terminating_expression(&self) -> bool {
+        self.rhs.iter().find(|e| e.terminates()).is_some()
     }
 }
 
@@ -187,7 +193,7 @@ mod tests {
         assert_eq!(
             production
                 .rhs_iter()
-                .find(|&expression| *expression == two_more,),
+                .find(|&expression| *expression == two_more),
             None
         );
     }
@@ -304,5 +310,41 @@ mod tests {
         }
 
         assert_eq!(production.rhs_iter().next().unwrap(), &new_expr);
+    }
+
+    #[test]
+    fn does_have_terminating_expression() {
+        let mut production: Production = "<S> ::= 'T'".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), true);
+
+        production = "<S> ::= 'T' | <NT>".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), true);
+
+        production = "<S> ::= <NT> | 'T'".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), true);
+
+        production = "<S> ::= <NT1> | 'T' | <NT2>".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), true);
+
+        production = "<S> ::= 'T1' | <NT> | 'T2'".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), true);
+    }
+
+    #[test]
+    fn does_not_have_terminating_expression() {
+        let mut production: Production = "<S> ::= <NT>".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), false);
+
+        production = "<S> ::= 'T' <NT>".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), false);
+
+        production = "<S> ::= <NT> 'T'".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), false);
+
+        production = "<S> ::= <NT1> 'T' | <NT2>".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), false);
+
+        production = "<S> ::= <NT1> | <NT> 'T2'".parse().unwrap();
+        assert_eq!(production.has_terminating_expression(), false);
     }
 }

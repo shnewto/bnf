@@ -422,9 +422,12 @@ impl Grammar {
         self.generate_seeded_callback(&mut rng, f)
     }
 
-    pub fn terminates(&self) -> bool {
+    /// Determine if the starting rule of the grammar can take us to a terminal state, i.e. all
+    /// Term::Terminal types. Used as a check before generation, to tell if we can safely attempt
+    /// to generate sentences without risking infinite loops
+    pub(crate) fn terminates(&self) -> bool {
         if self.starting_term().is_none() {
-            // if there are no rules, there's nothing to do so... it does terminate.
+            // if there are no rules, there's nothing to do so... it terminates
             return true;
         }
 
@@ -454,6 +457,7 @@ impl Grammar {
         terminating_rules.into_iter().any(|t| t == *starting_term)
     }
 
+    /// collect Production LHSs that can get us to a terminating state, i.e. all Term::Terminals
     fn collect_terminating_rules(&self, terminating_rules: &Vec<Term>) -> Vec<Term> {
         let mut res: Vec<Term> = terminating_rules.clone();
 

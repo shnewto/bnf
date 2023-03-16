@@ -72,7 +72,7 @@ impl Production {
     /// If the production _can_ terminate,
     /// i.e. contains an expression of all terminals or every non-terminal in an
     /// expression exists in the (optional) list of 'terminating rules'
-    pub fn has_terminating_expression(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
+    pub(crate) fn has_terminating_expression(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
         self.rhs.iter().any(|e| e.terminates(terminating_rules))
     }
 }

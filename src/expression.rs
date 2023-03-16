@@ -70,7 +70,7 @@ impl Expression {
 
     /// Determine if this expression terminates or not, i.e contains all terminal elements or every
     /// non-terminal element in the expression exists in the (optional) list of 'terminating rules'
-    pub fn terminates(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
+    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
         if !self.terms.iter().any(|t| matches!(t, Term::Nonterminal(_))) {
             return true;
         }

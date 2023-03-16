@@ -57,21 +57,41 @@ impl Expression {
     }
 
     /// Get iterator of `Term`s within `Expression`
-    pub fn terms_iter(&self) -> impl Iterator<Item=&Term> {
+    pub fn terms_iter(&self) -> impl Iterator<Item = &Term> {
         crate::slice_iter::SliceIter { slice: &self.terms }
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
-    pub fn terms_iter_mut(&mut self) -> impl Iterator<Item=&mut Term> {
+    pub fn terms_iter_mut(&mut self) -> impl Iterator<Item = &mut Term> {
         crate::slice_iter::SliceIterMut {
             slice: &mut self.terms,
         }
     }
 
-    /// Determine if this expression terminates, or is "terminating", i.e contains all terminal
-    /// elements (terminates == true) or not (terminates == false)
-    pub fn terminates(&self) -> bool {
-        self.terms.iter().find(|t| if let Term::Nonterminal(_) = t { true } else { false }).is_none()
+    /// Determine if this expression terminates or not, i.e contains all terminal elements or every
+    /// non-terminal element in the expression exists in the (optional) list of 'terminating rules'
+    pub fn terminates(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
+        if !self.terms.iter().any(|t| matches!(t, Term::Nonterminal(_))) {
+            return true;
+        }
+
+        if terminating_rules.is_none() {
+            return false;
+        }
+
+        let nonterms: Vec<Term> = self
+            .terms
+            .clone()
+            .into_iter()
+            .filter(|t| matches!(t, Term::Nonterminal(_)))
+            .collect();
+        for nt in nonterms {
+            if !terminating_rules.unwrap().iter().any(|r| *r == nt) {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -356,37 +376,97 @@ mod tests {
 
     #[test]
     fn does_not_terminate() {
-        let mut expression: Expression = "<a> <b> <c>".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        let mut expression: Expression;
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert_eq!(expression.terminates(None), false);
 
         expression = "'a' <b> <c>".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
 
         expression = "<a> 'b' <c>".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
 
         expression = "<a> <b> 'c'".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
 
         expression = "'a' 'b' <c>".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
 
         expression = "'a' <b> 'c'".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
 
         expression = "<a> 'b' 'c'".parse().unwrap();
-        assert_eq!(expression.terminates(), false);
+        assert_eq!(expression.terminates(None), false);
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![
+                Term::from_str("<b>").unwrap(),
+                Term::from_str("<1>").unwrap(),
+                Term::from_str("<2>").unwrap(),
+            ])),
+            false
+        );
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![
+                Term::from_str("<c>").unwrap(),
+                Term::from_str("<b>").unwrap(),
+                Term::from_str("<1>").unwrap(),
+            ])),
+            false
+        );
     }
 
     #[test]
     fn does_terminate() {
         let mut expression: Expression = "'a' 'b' 'c'".parse().unwrap();
-        assert_eq!(expression.terminates(), true);
+        assert_eq!(expression.terminates(None), true);
 
         expression = "'a' 'b'".parse().unwrap();
-        assert_eq!(expression.terminates(), true);
+        assert_eq!(expression.terminates(None), true);
 
         expression = "'a'".parse().unwrap();
-        assert_eq!(expression.terminates(), true);
+        assert_eq!(expression.terminates(None), true);
+
+        let mut expression: Expression = "'a' 'b' <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![Term::from_str("<c>").unwrap()])),
+            true
+        );
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![
+                Term::from_str("<c>").unwrap(),
+                Term::from_str("<b>").unwrap(),
+            ])),
+            true
+        );
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![
+                Term::from_str("<c>").unwrap(),
+                Term::from_str("<b>").unwrap(),
+                Term::from_str("<1>").unwrap(),
+                Term::from_str("<2>").unwrap(),
+            ])),
+            true
+        );
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert_eq!(
+            expression.terminates(Some(&vec![
+                Term::from_str("<c>").unwrap(),
+                Term::from_str("<b>").unwrap(),
+                Term::from_str("<1>").unwrap(),
+                Term::from_str("<2>").unwrap(),
+                Term::from_str("<a>").unwrap(),
+            ],)),
+            true
+        );
     }
 }

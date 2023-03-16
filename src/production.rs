@@ -316,91 +316,76 @@ mod tests {
     #[test]
     fn does_have_terminating_expression() {
         let mut production: Production = "<S> ::= 'T'".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), true);
+        assert!(production.has_terminating_expression(None));
 
         production = "<S> ::= 'T' | <NT>".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), true);
+        assert!(production.has_terminating_expression(None));
 
         production = "<S> ::= <NT> | 'T'".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), true);
+        assert!(production.has_terminating_expression(None));
 
         production = "<S> ::= <NT1> | 'T' | <NT2>".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), true);
+        assert!(production.has_terminating_expression(None));
 
         production = "<S> ::= 'T1' | <NT> | 'T2'".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), true);
+        assert!(production.has_terminating_expression(None));
 
         production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
-        assert_eq!(
-            production.has_terminating_expression(Some(&vec![
-                Term::from_str("<NT1>").unwrap(),
-                Term::from_str("<NT2>").unwrap(),
-                Term::from_str("<NTa>").unwrap(),
-                Term::from_str("<NTb>").unwrap(),
-            ])),
-            true
-        );
+        assert!(production.has_terminating_expression(Some(&vec![
+            Term::from_str("<NT1>").unwrap(),
+            Term::from_str("<NT2>").unwrap(),
+            Term::from_str("<NTa>").unwrap(),
+            Term::from_str("<NTb>").unwrap(),
+        ])));
 
         production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
-        assert_eq!(
-            production.has_terminating_expression(Some(&vec![
-                Term::from_str("<NTa>").unwrap(),
-                Term::from_str("<NT4>").unwrap(),
-                Term::from_str("<NTc>").unwrap(),
-                Term::from_str("<NTb>").unwrap(),
-            ])),
-            true
-        );
+        assert!(production.has_terminating_expression(Some(&vec![
+            Term::from_str("<NTa>").unwrap(),
+            Term::from_str("<NT4>").unwrap(),
+            Term::from_str("<NTc>").unwrap(),
+            Term::from_str("<NTb>").unwrap(),
+        ])));
     }
 
     #[test]
     fn does_not_have_terminating_expression() {
         let mut production: Production = "<S> ::= <NT>".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), false);
+        assert!(!production.has_terminating_expression(None));
 
         production = "<S> ::= 'T' <NT>".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), false);
+        assert!(!production.has_terminating_expression(None));
 
         production = "<S> ::= <NT> 'T'".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), false);
+        assert!(!production.has_terminating_expression(None));
 
         production = "<S> ::= <NT1> 'T' | <NT2>".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), false);
+        assert!(!production.has_terminating_expression(None));
 
         production = "<S> ::= <NT1> | <NT> 'T2'".parse().unwrap();
-        assert_eq!(production.has_terminating_expression(None), false);
+        assert!(!production.has_terminating_expression(None));
 
         production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
-        assert_eq!(
-            production.has_terminating_expression(Some(&vec![
-                Term::from_str("<NT1>").unwrap(),
-                Term::from_str("<NTa>").unwrap(),
-                Term::from_str("<NTb>").unwrap(),
-                Term::from_str("<NTc>").unwrap(),
-            ])),
-            false
-        );
+        assert!(!production.has_terminating_expression(Some(&vec![
+            Term::from_str("<NT1>").unwrap(),
+            Term::from_str("<NTa>").unwrap(),
+            Term::from_str("<NTb>").unwrap(),
+            Term::from_str("<NTc>").unwrap(),
+        ])));
 
         production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
-        assert_eq!(
-            production.has_terminating_expression(Some(&vec![
-                Term::from_str("<NT2>").unwrap(),
-                Term::from_str("<NTa>").unwrap(),
-                Term::from_str("<NTb>").unwrap(),
-                Term::from_str("<NTc>").unwrap(),
-            ])),
-            false
-        );
+        assert!(!production.has_terminating_expression(Some(&vec![
+            Term::from_str("<NT2>").unwrap(),
+            Term::from_str("<NTa>").unwrap(),
+            Term::from_str("<NTb>").unwrap(),
+            Term::from_str("<NTc>").unwrap(),
+        ])));
 
         production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
-        assert_eq!(
-            production.has_terminating_expression(Some(&vec![
-                Term::from_str("<NTa>").unwrap(),
-                Term::from_str("<NTb>").unwrap(),
-                Term::from_str("<NTc>").unwrap(),
-                Term::from_str("<NTd>").unwrap(),
-            ])),
-            false
-        );
+        assert!(!production.has_terminating_expression(Some(&vec![
+            Term::from_str("<NTa>").unwrap(),
+            Term::from_str("<NTb>").unwrap(),
+            Term::from_str("<NTc>").unwrap(),
+            Term::from_str("<NTd>").unwrap(),
+        ])));
     }
 }

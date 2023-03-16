@@ -750,7 +750,7 @@ mod tests {
         let mut grammar: Grammar;
 
         grammar = "<nonterm> ::= <nonterm>".parse().unwrap();
-        assert_eq!(grammar.terminates(), false);
+        assert!(!grammar.terminates());
 
         grammar = "
         <A> ::= <X> | <A> <X>
@@ -759,7 +759,7 @@ mod tests {
         <Z> ::= 'terminating state!'"
             .parse()
             .unwrap();
-        assert_eq!(grammar.terminates(), false);
+        assert!(!grammar.terminates());
 
         grammar = "
         <not-a-good-first-state-lhs> ::= <not-a-good-first-state-rhs>
@@ -769,14 +769,14 @@ mod tests {
         <Z> ::= 'terminating state!'"
             .parse()
             .unwrap();
-        assert_eq!(grammar.terminates(), false);
+        assert!(!grammar.terminates());
     }
 
     #[test]
     fn does_terminate() {
         let mut grammar: Grammar;
         grammar = "<nonterm> ::= 'term'".parse().unwrap();
-        assert_eq!(grammar.terminates(), true);
+        assert!(grammar.terminates());
 
         grammar = "
         <A> ::= <B> | <A> <B>
@@ -807,6 +807,6 @@ mod tests {
         <Z> ::= 'terminating state!'"
             .parse()
             .unwrap();
-        assert_eq!(grammar.terminates(), true);
+        assert!(grammar.terminates());
     }
 }

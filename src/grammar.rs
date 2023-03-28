@@ -450,7 +450,7 @@ impl Grammar {
             is_progress = false;
 
             for prod in self.productions_iter() {
-                let marked = terminating_rules.iter().any(|r| *r == &prod.lhs);
+                let marked = terminating_rules.contains(&&prod.lhs);
 
                 // if already marked, then no need to reprocess
                 if marked {

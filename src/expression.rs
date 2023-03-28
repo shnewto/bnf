@@ -84,7 +84,7 @@ impl Expression {
             .filter(|t| matches!(t, Term::Nonterminal(_)));
 
         for nt in nonterms {
-            if !terminating_rules.iter().any(|r| *r == nt) {
+            if !terminating_rules.contains(&nt) {
                 return false;
             }
         }

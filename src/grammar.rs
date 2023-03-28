@@ -423,22 +423,20 @@ impl Grammar {
     }
 
     /// Determine if the starting rule of the grammar can take us to a terminal state, i.e. all
-    /// Term::Terminal types. Used as a check before generation, to tell if we can safely attempt
+    /// [`Term::Terminal`] types. Used as a check before generation, to tell if we can safely attempt
     /// to generate sentences without risking infinite loops
     pub(crate) fn terminates(&self) -> bool {
-        if self.starting_term().is_none() {
+        let Some(starting_term) = self.starting_term() else {
             // if there are no rules, there's nothing to do so... it terminates
             return true;
-        }
+        };
 
-        let starting_term: &Term = self.starting_term().unwrap();
-
-        let mut terminating_rules: Vec<Term> = vec![];
+        let mut terminating_rules: Vec<&Term> = vec![];
 
         // collect 'every non-terminal that produces a sequences of terminals'
         for p in self.productions.iter() {
             if p.has_terminating_expression(None) {
-                terminating_rules.push(p.lhs.clone())
+                terminating_rules.push(&p.lhs);
             }
         }
 
@@ -446,31 +444,36 @@ impl Grammar {
             return false;
         }
 
-        // 'recursively mark every non-terminal that can produce a sequence of marked elements'
-        terminating_rules = self.collect_terminating_rules(&terminating_rules);
+        let mut is_progress = true;
 
-        // not strictly necessary
-        terminating_rules.sort();
-        terminating_rules.dedup();
+        while is_progress {
+            is_progress = false;
 
-        // 'check whether the initial non-terminal is marked'
-        terminating_rules.into_iter().any(|t| t == *starting_term)
-    }
+            for prod in self.productions_iter() {
+                let marked = terminating_rules.iter().any(|r| *r == &prod.lhs);
 
-    /// collect Production LHSs that can get us to a terminating state, i.e. all Term::Terminals
-    fn collect_terminating_rules(&self, terminating_rules: &Vec<Term>) -> Vec<Term> {
-        let mut res: Vec<Term> = terminating_rules.clone();
+                // if already marked, then no need to reprocess
+                if marked {
+                    continue;
+                }
 
-        for prod in self.productions.iter() {
-            let terminates = prod.has_terminating_expression(Some(terminating_rules));
-            let unmarked = !terminating_rules.iter().any(|r| *r == prod.lhs);
-            if terminates && unmarked {
-                res.push(prod.lhs.clone());
-                res.extend(self.collect_terminating_rules(&res));
+                let terminates = prod.has_terminating_expression(Some(&terminating_rules));
+
+                if terminates {
+                    // only care if the starting term terminates, so can return early
+                    if &prod.lhs == starting_term {
+                        return true;
+                    }
+
+                    terminating_rules.push(&prod.lhs);
+                    is_progress = true;
+                }
             }
         }
 
-        res
+        terminating_rules
+            .into_iter()
+            .any(|term| term == starting_term)
     }
 }
 

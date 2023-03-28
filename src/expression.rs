@@ -70,7 +70,7 @@ impl Expression {
 
     /// Determine if this expression terminates or not, i.e contains all terminal elements or every
     /// non-terminal element in the expression exists in the (optional) list of 'terminating rules'
-    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<Term>>) -> bool {
+    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<&Term>>) -> bool {
         if !self.terms.iter().any(|t| matches!(t, Term::Nonterminal(_))) {
             return true;
         }
@@ -84,7 +84,7 @@ impl Expression {
             .filter(|t| matches!(t, Term::Nonterminal(_)));
 
         for nt in nonterms {
-            if !terminating_rules.iter().any(|r| r == nt) {
+            if !terminating_rules.iter().any(|r| *r == nt) {
                 return false;
             }
         }
@@ -399,16 +399,16 @@ mod tests {
 
         expression = "'a' <b> <c>".parse().unwrap();
         assert!(!expression.terminates(Some(&vec![
-            Term::from_str("<b>").unwrap(),
-            Term::from_str("<1>").unwrap(),
-            Term::from_str("<2>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
         ])));
 
         expression = "<a> <b> <c>".parse().unwrap();
         assert!(!expression.terminates(Some(&vec![
-            Term::from_str("<c>").unwrap(),
-            Term::from_str("<b>").unwrap(),
-            Term::from_str("<1>").unwrap(),
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
         ])));
     }
 
@@ -424,29 +424,29 @@ mod tests {
         assert!(expression.terminates(None));
 
         let mut expression: Expression = "'a' 'b' <c>".parse().unwrap();
-        assert!(expression.terminates(Some(&vec![Term::from_str("<c>").unwrap()])));
+        assert!(expression.terminates(Some(&vec![&Term::from_str("<c>").unwrap()])));
 
         expression = "'a' <b> <c>".parse().unwrap();
         assert!(expression.terminates(Some(&vec![
-            Term::from_str("<c>").unwrap(),
-            Term::from_str("<b>").unwrap(),
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
         ])));
 
         expression = "'a' <b> <c>".parse().unwrap();
         assert!(expression.terminates(Some(&vec![
-            Term::from_str("<c>").unwrap(),
-            Term::from_str("<b>").unwrap(),
-            Term::from_str("<1>").unwrap(),
-            Term::from_str("<2>").unwrap(),
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
         ])));
 
         expression = "<a> <b> <c>".parse().unwrap();
         assert!(expression.terminates(Some(&vec![
-            Term::from_str("<c>").unwrap(),
-            Term::from_str("<b>").unwrap(),
-            Term::from_str("<1>").unwrap(),
-            Term::from_str("<2>").unwrap(),
-            Term::from_str("<a>").unwrap(),
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
+            &Term::from_str("<a>").unwrap(),
         ],)));
     }
 }

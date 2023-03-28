@@ -75,18 +75,16 @@ impl Expression {
             return true;
         }
 
-        if terminating_rules.is_none() {
+        let Some(terminating_rules) = terminating_rules else {
             return false;
-        }
+        };
 
-        let nonterms: Vec<Term> = self
-            .terms
-            .clone()
-            .into_iter()
-            .filter(|t| matches!(t, Term::Nonterminal(_)))
-            .collect();
+        let nonterms = self
+            .terms_iter()
+            .filter(|t| matches!(t, Term::Nonterminal(_)));
+
         for nt in nonterms {
-            if !terminating_rules.unwrap().iter().any(|r| *r == nt) {
+            if !terminating_rules.iter().any(|r| r == nt) {
                 return false;
             }
         }

@@ -1,4 +1,3 @@
-use bnf::Error;
 use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use rand::{rngs::StdRng, SeedableRng};
@@ -35,16 +34,7 @@ impl Arbitrary for Meta {
 
         match sentence {
             Err(e) => {
-                match e {
-                    // shouldn't cause parsing to fail if random generation
-                    // recurses too far
-                    Error::RecursionLimit(_) => Meta {
-                        bnf: String::from(
-                            "<if-recursion-limit-reached> ::= \"parse shouldn't fail\"",
-                        ),
-                    },
-                    _ => panic!("Unexpected state {e:?} -- seed {seed:?}"),
-                }
+                panic!("Unexpected state {e:?} -- seed {seed:?}")
             }
             Ok(s) => Meta { bnf: s },
         }

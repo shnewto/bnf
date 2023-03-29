@@ -68,6 +68,16 @@ impl Production {
     pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }
+
+    /// If the production _can_ terminate,
+    /// i.e. contains an expression of all terminals or every non-terminal in an
+    /// expression exists in the (optional) list of 'terminating rules'
+    pub(crate) fn has_terminating_expression(
+        &self,
+        terminating_rules: Option<&Vec<&Term>>,
+    ) -> bool {
+        self.rhs.iter().any(|e| e.terminates(terminating_rules))
+    }
 }
 
 impl Default for Production {
@@ -187,7 +197,7 @@ mod tests {
         assert_eq!(
             production
                 .rhs_iter()
-                .find(|&expression| *expression == two_more,),
+                .find(|&expression| *expression == two_more),
             None
         );
     }
@@ -304,5 +314,81 @@ mod tests {
         }
 
         assert_eq!(production.rhs_iter().next().unwrap(), &new_expr);
+    }
+
+    #[test]
+    fn does_have_terminating_expression() {
+        let mut production: Production = "<S> ::= 'T'".parse().unwrap();
+        assert!(production.has_terminating_expression(None));
+
+        production = "<S> ::= 'T' | <NT>".parse().unwrap();
+        assert!(production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT> | 'T'".parse().unwrap();
+        assert!(production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT1> | 'T' | <NT2>".parse().unwrap();
+        assert!(production.has_terminating_expression(None));
+
+        production = "<S> ::= 'T1' | <NT> | 'T2'".parse().unwrap();
+        assert!(production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
+        assert!(production.has_terminating_expression(Some(&vec![
+            &Term::from_str("<NT1>").unwrap(),
+            &Term::from_str("<NT2>").unwrap(),
+            &Term::from_str("<NTa>").unwrap(),
+            &Term::from_str("<NTb>").unwrap(),
+        ])));
+
+        production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
+        assert!(production.has_terminating_expression(Some(&vec![
+            &Term::from_str("<NTa>").unwrap(),
+            &Term::from_str("<NT4>").unwrap(),
+            &Term::from_str("<NTc>").unwrap(),
+            &Term::from_str("<NTb>").unwrap(),
+        ])));
+    }
+
+    #[test]
+    fn does_not_have_terminating_expression() {
+        let mut production: Production = "<S> ::= <NT>".parse().unwrap();
+        assert!(!production.has_terminating_expression(None));
+
+        production = "<S> ::= 'T' <NT>".parse().unwrap();
+        assert!(!production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT> 'T'".parse().unwrap();
+        assert!(!production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT1> 'T' | <NT2>".parse().unwrap();
+        assert!(!production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT1> | <NT> 'T2'".parse().unwrap();
+        assert!(!production.has_terminating_expression(None));
+
+        production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
+        assert!(!production.has_terminating_expression(Some(&vec![
+            &Term::from_str("<NT1>").unwrap(),
+            &Term::from_str("<NTa>").unwrap(),
+            &Term::from_str("<NTb>").unwrap(),
+            &Term::from_str("<NTc>").unwrap(),
+        ])));
+
+        production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
+        assert!(!production.has_terminating_expression(Some(&vec![
+            &Term::from_str("<NT2>").unwrap(),
+            &Term::from_str("<NTa>").unwrap(),
+            &Term::from_str("<NTb>").unwrap(),
+            &Term::from_str("<NTc>").unwrap(),
+        ])));
+
+        production = "<S> ::= <NT1> <NT2> | <NT3> | <NT4>".parse().unwrap();
+        assert!(!production.has_terminating_expression(Some(&vec![
+            &Term::from_str("<NTa>").unwrap(),
+            &Term::from_str("<NTb>").unwrap(),
+            &Term::from_str("<NTc>").unwrap(),
+            &Term::from_str("<NTd>").unwrap(),
+        ])));
     }
 }

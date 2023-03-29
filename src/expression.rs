@@ -67,6 +67,30 @@ impl Expression {
             slice: &mut self.terms,
         }
     }
+
+    /// Determine if this expression terminates or not, i.e contains all terminal elements or every
+    /// non-terminal element in the expression exists in the (optional) list of 'terminating rules'
+    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<&Term>>) -> bool {
+        if !self.terms.iter().any(|t| matches!(t, Term::Nonterminal(_))) {
+            return true;
+        }
+
+        let Some(terminating_rules) = terminating_rules else {
+            return false;
+        };
+
+        let nonterms = self
+            .terms_iter()
+            .filter(|t| matches!(t, Term::Nonterminal(_)));
+
+        for nt in nonterms {
+            if !terminating_rules.contains(&nt) {
+                return false;
+            }
+        }
+
+        true
+    }
 }
 
 impl fmt::Display for Expression {
@@ -253,7 +277,7 @@ mod tests {
         assert_eq!(
             dna_expression
                 .terms_iter()
-                .find(|&term| *term == nonexistent,),
+                .find(|&term| *term == nonexistent),
             None
         );
         // no term should have been removed
@@ -346,5 +370,83 @@ mod tests {
             *term = new_term.clone();
         }
         assert_eq!(expression.terms, vec![new_term])
+    }
+
+    #[test]
+    fn does_not_terminate() {
+        let mut expression: Expression;
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "<a> 'b' <c>".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "<a> <b> 'c'".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "'a' 'b' <c>".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "'a' <b> 'c'".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "<a> 'b' 'c'".parse().unwrap();
+        assert!(!expression.terminates(None));
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert!(!expression.terminates(Some(&vec![
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
+        ])));
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert!(!expression.terminates(Some(&vec![
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+        ])));
+    }
+
+    #[test]
+    fn does_terminate() {
+        let mut expression: Expression = "'a' 'b' 'c'".parse().unwrap();
+        assert!(expression.terminates(None));
+
+        expression = "'a' 'b'".parse().unwrap();
+        assert!(expression.terminates(None));
+
+        expression = "'a'".parse().unwrap();
+        assert!(expression.terminates(None));
+
+        let mut expression: Expression = "'a' 'b' <c>".parse().unwrap();
+        assert!(expression.terminates(Some(&vec![&Term::from_str("<c>").unwrap()])));
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert!(expression.terminates(Some(&vec![
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+        ])));
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert!(expression.terminates(Some(&vec![
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
+        ])));
+
+        expression = "<a> <b> <c>".parse().unwrap();
+        assert!(expression.terminates(Some(&vec![
+            &Term::from_str("<c>").unwrap(),
+            &Term::from_str("<b>").unwrap(),
+            &Term::from_str("<1>").unwrap(),
+            &Term::from_str("<2>").unwrap(),
+            &Term::from_str("<a>").unwrap(),
+        ],)));
     }
 }

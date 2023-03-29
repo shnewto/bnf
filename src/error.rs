@@ -11,15 +11,12 @@ use nom::{
 pub enum Error {
     ParseError(String),
     GenerateError(String),
-    RecursionLimit(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::ParseError(ref s)
-            | Error::GenerateError(ref s)
-            | Error::RecursionLimit(ref s) => write!(f, "{s}"),
+            Error::ParseError(ref s) | Error::GenerateError(ref s) => write!(f, "{s}"),
         }
     }
 }
@@ -106,15 +103,6 @@ mod tests {
     }
 
     #[test]
-    fn uses_error_recursion_limit() {
-        let bnf_error = Error::RecursionLimit(String::from("reucrsion limit reached!"));
-        match bnf_error {
-            Error::RecursionLimit(_) => (),
-            e => panic!("should match on reursion limit: {e:?}"),
-        }
-    }
-
-    #[test]
     fn uses_error_generate() {
         let bnf_error = Error::GenerateError(String::from("error generating!"));
         match bnf_error {
@@ -127,16 +115,11 @@ mod tests {
     fn test_error_display() {
         let parse_error = Error::ParseError(String::from("parsing error!"));
         let generate_error = Error::GenerateError(String::from("error generating!"));
-        let recursion_error = Error::RecursionLimit(String::from("recursion limit reached!"));
 
         assert_eq!(parse_error.to_string(), String::from("parsing error!"));
         assert_eq!(
             generate_error.to_string(),
             String::from("error generating!")
-        );
-        assert_eq!(
-            recursion_error.to_string(),
-            String::from("recursion limit reached!")
         );
     }
 

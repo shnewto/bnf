@@ -9,7 +9,7 @@ use std::ops;
 use std::str::FromStr;
 
 /// A Term can represent a Terminal or Nonterminal node
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Term {
     /// A term which cannot be expanded further via productions
     Terminal(String),

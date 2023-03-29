@@ -278,20 +278,6 @@ impl Grammar {
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         loop {
-            #[cfg(feature = "stacker")]
-            {
-                // If we only have 64KB left, we've hit our tolerable threshold for recursion
-                const STACK_RED_ZONE: usize = 64 * 1024;
-
-                if let Some(remaining) = stacker::remaining_stack() {
-                    if remaining < STACK_RED_ZONE {
-                        return Err(Error::RecursionLimit(format!(
-                            "Limit for recursion reached processing <{ident}>!",
-                        )));
-                    }
-                }
-            }
-
             let nonterm = Term::Nonterminal(ident.to_string());
             let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
@@ -370,12 +356,19 @@ impl Grammar {
         let start_rule: String;
         let first_production = self.productions_iter().next();
 
+        if !self.terminates() {
+            return Err(Error::GenerateError(
+                "Can't generate, first rule in grammar doesn't lead to a terminal state"
+                    .to_string(),
+            ));
+        }
+
         match first_production {
             Some(term) => match term.lhs {
                 Term::Nonterminal(ref nt) => start_rule = nt.clone(),
                 Term::Terminal(_) => {
                     return Err(Error::GenerateError(format!(
-                        "Termainal type cannot define a production in '{term}'!"
+                        "Terminal type cannot define a production in '{term}'!"
                     )));
                 }
             },
@@ -427,6 +420,60 @@ impl Grammar {
         thread_rng().fill(&mut seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         self.generate_seeded_callback(&mut rng, f)
+    }
+
+    /// Determine if the starting rule of the grammar can take us to a terminal state, i.e. all
+    /// [`Term::Terminal`] types. Used as a check before generation, to tell if we can safely attempt
+    /// to generate sentences without risking infinite loops
+    pub(crate) fn terminates(&self) -> bool {
+        let Some(starting_term) = self.starting_term() else {
+            // if there are no rules, there's nothing to do so... it terminates
+            return true;
+        };
+
+        let mut terminating_rules: Vec<&Term> = vec![];
+
+        // collect 'every non-terminal that produces a sequences of terminals'
+        for p in self.productions.iter() {
+            if p.has_terminating_expression(None) {
+                terminating_rules.push(&p.lhs);
+            }
+        }
+
+        if terminating_rules.is_empty() {
+            return false;
+        }
+
+        let mut is_progress = true;
+
+        while is_progress {
+            is_progress = false;
+
+            for prod in self.productions_iter() {
+                let marked = terminating_rules.contains(&&prod.lhs);
+
+                // if already marked, then no need to reprocess
+                if marked {
+                    continue;
+                }
+
+                let terminates = prod.has_terminating_expression(Some(&terminating_rules));
+
+                if terminates {
+                    // only care if the starting term terminates, so can return early
+                    if &prod.lhs == starting_term {
+                        return true;
+                    }
+
+                    terminating_rules.push(&prod.lhs);
+                    is_progress = true;
+                }
+            }
+        }
+
+        terminating_rules
+            .into_iter()
+            .any(|term| term == starting_term)
     }
 }
 
@@ -621,31 +668,6 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "stacker")]
-    #[test]
-    fn recursion_limit() {
-        let grammar: Result<Grammar, _> = "<nonterm> ::= <nonterm>".parse();
-        assert!(grammar.is_ok(), "{grammar:?} should be ok");
-        let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_err(), "{sentence:?} should be err");
-        match sentence {
-            Err(e) => match e {
-                Error::RecursionLimit(_) => (),
-                e => panic!("should should be Error::RecursionLimit: {e:?}"),
-            },
-            Ok(s) => panic!("should should be Error::RecursionLimit: {s}"),
-        }
-    }
-
-    #[test]
-    fn lhs_not_found() {
-        let grammar: Result<Grammar, _> = "<start> ::= <not-used>".parse();
-        assert!(grammar.is_ok(), "{grammar:?} should be ok");
-        let sentence = grammar.unwrap().generate();
-        assert!(sentence.is_ok(), "{sentence:?} should be ok");
-        assert_eq!(sentence.unwrap(), String::from("<not-used>"));
-    }
-
     #[test]
     fn lhs_is_terminal_parse() {
         let grammar: Result<Grammar, _> = "\"wrong place\" ::= <not-used>".parse();
@@ -724,5 +746,70 @@ mod tests {
         *rhs_iterated = ParseTreeNode::Terminal("Z");
 
         assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
+    }
+
+    #[test]
+    fn does_not_terminate() {
+        let mut grammar: Grammar;
+
+        grammar = "<nonterm> ::= <nonterm>".parse().unwrap();
+        assert!(!grammar.terminates());
+
+        grammar = "
+        <A> ::= <X> | <A> <X>
+        <X> ::= <Y> | <X> <Y>
+        <Y> ::= <Y> <Z>
+        <Z> ::= 'terminating state!'"
+            .parse()
+            .unwrap();
+        assert!(!grammar.terminates());
+
+        grammar = "
+        <not-a-good-first-state-lhs> ::= <not-a-good-first-state-rhs>
+        <A> ::= <X> | <A> <X>
+        <X> ::= <Y> | <X> <Y>
+        <Y> ::= <Z> | <Y> <Z>
+        <Z> ::= 'terminating state!'"
+            .parse()
+            .unwrap();
+        assert!(!grammar.terminates());
+    }
+
+    #[test]
+    fn does_terminate() {
+        let mut grammar: Grammar;
+        grammar = "<nonterm> ::= 'term'".parse().unwrap();
+        assert!(grammar.terminates());
+
+        grammar = "
+        <A> ::= <B> | <A> <B>
+        <B> ::= <C> | <B> <C>
+        <C> ::= <D> | <C> <D>
+        <D> ::= <E> | <D> <E>
+        <E> ::= <F> | <E> <F>
+        <F> ::= <G> | <F> <G>
+        <G> ::= <H> | <G> <H>
+        <H> ::= <I> | <H> <I>
+        <I> ::= <J> | <I> <J>
+        <J> ::= <K> | <J> <K>
+        <K> ::= <L> | <K> <L>
+        <L> ::= <M> | <L> <M>
+        <M> ::= <N> | <M> <N>
+        <N> ::= <O> | <N> <O>
+        <O> ::= <P> | <O> <P>
+        <P> ::= <Q> | <P> <Q>
+        <Q> ::= <R> | <Q> <R>
+        <R> ::= <S> | <R> <S>
+        <S> ::= <T> | <S> <T>
+        <T> ::= <U> | <T> <U>
+        <U> ::= <V> | <U> <V>
+        <V> ::= <W> | <V> <W>
+        <W> ::= <X> | <W> <X>
+        <X> ::= <Y> | <X> <Y>
+        <Y> ::= <Z> | <Y> <Z>
+        <Z> ::= 'terminating state!'"
+            .parse()
+            .unwrap();
+        assert!(grammar.terminates());
     }
 }

@@ -102,8 +102,10 @@ jobs:
           --verbose --all-features --workspace --timeout 120 \
           --out Lcov --output-dir ./coverage
       - name: Upload to Coveralls
-        uses: coverallsapp/github-action@v1
-  
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
   clippy:
     needs: [format]
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 # bnf
 
-[![.github/workflows/ci.yml](https://github.com/shnewto/bnf/workflows/.github/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shnewto/bnf/actions)
+[![.github/workflows/ci.yml](https://github.com/shnewto/bnf/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shnewto/bnf/actions)
 [![coveralls](https://coveralls.io/repos/github/shnewto/bnf/badge.svg?branch=main)](https://coveralls.io/github/shnewto/bnf?branch=main)
 [![Crates.io Version](https://img.shields.io/crates/v/bnf.svg)](https://crates.io/crates/bnf)
 [![Crates.io](https://img.shields.io/crates/d/bnf.svg)](https://crates.io/crates/bnf)

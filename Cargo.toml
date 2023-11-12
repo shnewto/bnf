@@ -1,5 +1,6 @@
 [package]
 name = "bnf"
+# don't manually edit this version unless you're sure you want to circumvent the process documented in RELEASE.md
 version = "0.5.0"
 edition = "2021"
 authors = ["@shnewto", "@CrockAgile"]

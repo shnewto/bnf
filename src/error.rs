@@ -69,14 +69,7 @@ mod tests {
             _ => panic!("gets_error_error should result in IResult::Err"),
         }
 
-        let bnf_error: Result<String, Error> = Err(Error::from(nom_error));
-
-        assert!(
-            bnf_error.is_err(),
-            "production result should be error {bnf_error:?}"
-        );
-
-        match bnf_error.unwrap_err() {
+        match Error::from(nom_error) {
             Error::ParseError(_) => (),
             e => panic!("production error should be error parsing: {e:?}"),
         }
@@ -90,13 +83,7 @@ mod tests {
             _ => panic!("gets_error_error should result in IResult::Err"),
         };
 
-        let bnf_error: Result<String, Error> = Err(Error::from(nom_error));
-
-        assert!(
-            bnf_error.is_err(),
-            "production result should be error {bnf_error:?}"
-        );
-        match bnf_error.unwrap_err() {
+        match Error::from(nom_error) {
             Error::ParseError(_) => (),
             e => panic!("production error should be parse error: {e:?}"),
         }

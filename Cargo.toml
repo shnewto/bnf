@@ -34,6 +34,7 @@ features = ["derive"]
 version = "1.0.61"
 
 [dev-dependencies]
+divan = "0.1.2"
 insta = { version = "1.26.0", default-features = false }
 
 [dev-dependencies.quickcheck]
@@ -50,6 +51,10 @@ tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]
 
 [[bench]]
 name = "bnf"
+harness = false
+
+[[bench]]
+name = "divan"
 harness = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

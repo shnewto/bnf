@@ -31,15 +31,13 @@ fn init_tracing() {}
 mod examples {
     #[divan::bench]
     fn parse_postal(bencher: divan::Bencher) {
-        bencher
-            .with_inputs(|| {
-                let input =
-                    std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");
-                input
-            })
-            .bench_refs(|input| {
-                input.parse::<bnf::Grammar>().unwrap();
-            });
+        let input = divan::black_box(include_str!(
+            "../tests/fixtures/postal_address.terminated.input.bnf"
+        ));
+
+        bencher.bench(|| {
+            input.parse::<bnf::Grammar>().unwrap();
+        });
     }
 
     #[divan::bench]
@@ -85,21 +83,21 @@ mod examples {
 
     #[divan::bench]
     fn parse_infinite_nullable_grammar(bencher: divan::Bencher) {
+        use rand::Rng;
+
         let infinite_grammar: bnf::Grammar = "
                 <a> ::= '' | <b>
                 <b> ::= <a>"
             .parse()
             .unwrap();
+
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+
         bencher
-            .with_inputs(|| {
-                use rand::Rng;
-                let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
-                let parse_count: usize = rng.gen_range(1..100);
-                parse_count
-            })
-            .input_counter(|parse_count| divan::counter::ItemsCount::new(*parse_count))
-            .bench_values(|parse_count| {
+            .with_inputs(|| rng.gen_range(1..100))
+            .count_inputs_as::<divan::counter::ItemsCount>()
+            .bench_local_values(|parse_count| {
                 let _: Vec<_> = infinite_grammar.parse_input("").take(parse_count).collect();
-            })
+            });
     }
 }

@@ -78,7 +78,7 @@ mod examples {
             let input = random_walks.next().unwrap();
             polish_calc_grammar
                 .parse_input(&input)
-                .for_each(|v| _ = divan::black_box(v));
+                .for_each(divan::black_box_drop);
         });
     }
 
@@ -101,7 +101,7 @@ mod examples {
                 infinite_grammar
                     .parse_input("")
                     .take(parse_count)
-                    .for_each(|v| _ = divan::black_box(v));
+                    .for_each(divan::black_box_drop);
             });
     }
 }

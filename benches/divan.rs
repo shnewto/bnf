@@ -76,7 +76,7 @@ mod examples {
 
         bencher.bench_local(|| {
             let input = random_walks.next().unwrap();
-            let _: Vec<_> = polish_calc_grammar.parse_input(&input).collect();
+            polish_calc_grammar.parse_input(&input).for_each(|v| _ = divan::black_box(v));
         });
     }
 

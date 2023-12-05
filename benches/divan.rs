@@ -96,7 +96,7 @@ mod examples {
             .with_inputs(|| rng.gen_range(1..100))
             .count_inputs_as::<divan::counter::ItemsCount>()
             .bench_local_values(|parse_count| {
-                let _: Vec<_> = infinite_grammar.parse_input("").take(parse_count).collect();
+            infinite_grammar.parse_input("").take(parse_count).for_each(|v| _ = divan::black_box(v));
             });
     }
 }

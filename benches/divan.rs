@@ -64,21 +64,20 @@ mod examples {
         .unwrap();
 
         // use pseudo random for consistent metrics
+        use rand::seq::SliceRandom;
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
         let random_walk_count = 100usize;
-        let random_walks: Vec<_> = (0..random_walk_count)
+        let mut random_walks: Vec<_> = (0..random_walk_count)
             .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
             .collect();
 
-        bencher
-            .with_inputs(|| {
-                let mut rng = rng.clone();
-                use rand::seq::SliceRandom;
-                random_walks.choose(&mut rng).unwrap()
-            })
-            .bench_refs(|input| {
-                let _: Vec<_> = polish_calc_grammar.parse_input(input).collect();
-            });
+        random_walks.shuffle(&mut rng);
+        let mut random_walks = divan::black_box(random_walks.into_iter());
+
+        bencher.bench_local(|| {
+            let input = random_walks.next().unwrap();
+            let _: Vec<_> = polish_calc_grammar.parse_input(&input).collect();
+        });
     }
 
     #[divan::bench]

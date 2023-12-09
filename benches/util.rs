@@ -1,4 +1,3 @@
-
 #[cfg(feature = "tracing")]
 pub fn init_tracing() -> impl Drop {
     use tracing_flame::FlameLayer;

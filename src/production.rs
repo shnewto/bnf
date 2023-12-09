@@ -246,7 +246,7 @@ mod tests {
     fn parse_error() {
         let result = Production::from_str("<base> ::= 'A' | 'C' | 'G' |");
         assert!(
-            matches!(result, Err(_)),
+            result.is_err(),
             "production result should be error {result:?}"
         );
 

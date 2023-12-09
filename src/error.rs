@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn gets_error_on_incomplete() {
-        let nom_result = give_error_kind("").map_err(|e| Error::from(e));
+        let nom_result = give_error_kind("").map_err(Error::from);
         assert!(matches!(nom_result, Result::Err(Error::ParseError(_))));
     }
 

@@ -1,35 +1,16 @@
+mod util;
+
 fn main() {
-    init_tracing();
+    let _tracing = util::init_tracing();
 
     #[cfg(feature = "tracing")]
     let _span = tracing::span!(tracing::Level::DEBUG, "BENCH EXAMPLES").entered();
 
-    // Run registered benchmarks.
     divan::main();
 }
 
-#[cfg(feature = "tracing")]
-fn init_tracing() -> impl Drop {
-    use tracing_flame::FlameLayer;
-    use tracing_subscriber::{fmt, prelude::*};
-    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
-    let fmt_layer = fmt::Layer::default();
-    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
-
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(fmt_layer)
-        .with(flame_layer)
-        .init();
-
-    _guard
-}
-
-#[cfg(not(feature = "tracing"))]
-fn init_tracing() {}
-
 mod examples {
-    #[divan::bench]
+    #[divan::bench(min_time = 5, max_time = 60)]
     fn parse_postal(bencher: divan::Bencher) {
         let input = divan::black_box(include_str!(
             "../tests/fixtures/postal_address.terminated.input.bnf"
@@ -40,7 +21,7 @@ mod examples {
         });
     }
 
-    #[divan::bench]
+    #[divan::bench(min_time = 5, max_time = 60)]
     fn generate_dna(bencher: divan::Bencher) {
         bencher
             .with_inputs(|| {
@@ -54,7 +35,7 @@ mod examples {
             });
     }
 
-    #[divan::bench]
+    #[divan::bench(min_time = 5, max_time = 60)]
     fn parse_polish_calculator(bencher: divan::Bencher) {
         let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
@@ -72,17 +53,19 @@ mod examples {
             .collect();
 
         random_walks.shuffle(&mut rng);
-        let mut random_walks = divan::black_box(random_walks.into_iter());
+        let random_walks = divan::black_box(random_walks);
+        let mut index = (0..random_walk_count).cycle();
 
         bencher.bench_local(|| {
-            let input = random_walks.next().unwrap();
+            let index = index.next().unwrap();
+            let input = &random_walks[index];
             polish_calc_grammar
-                .parse_input(&input)
+                .parse_input(input)
                 .for_each(divan::black_box_drop);
         });
     }
 
-    #[divan::bench]
+    #[divan::bench(min_time = 5, max_time = 60)]
     fn parse_infinite_nullable_grammar(bencher: divan::Bencher) {
         use rand::Rng;
 

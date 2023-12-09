@@ -50,7 +50,7 @@ unstable = []
 tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]
 
 [[bench]]
-name = "bnf"
+name = "criterion"
 harness = false
 
 [[bench]]

@@ -298,26 +298,19 @@ mod tests {
     #[test]
     fn parse_error() {
         let expression = Expression::from_str("<base> <dna");
-        assert!(expression.is_err(), "{expression:?} should be error");
-
-        let error = expression.unwrap_err();
-        match error {
-            Error::ParseError(_) => (),
-            _ => panic!("{error} should be should be error"),
-        }
+        assert!(
+            matches!(expression, Err(Error::ParseError(_))),
+            "{expression:?} should be error"
+        );
     }
 
     #[test]
     fn parse_incomplete() {
         let result = Expression::from_str("");
-        assert!(result.is_err(), "{result:?} should be err");
-        match result {
-            Err(e) => match e {
-                Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {e:?}"),
-            },
-            Ok(s) => panic!("should should be Error::ParseError: {s}"),
-        }
+        assert!(
+            matches!(result, Err(Error::ParseError(_))),
+            "{result:?} should be ParseError"
+        );
     }
 
     #[test]

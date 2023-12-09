@@ -1,5 +1,5 @@
 /// Generic Iterator wrapper of slice
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct SliceIter<'a, T> {
     pub(crate) slice: &'a [T],
 }
@@ -20,7 +20,7 @@ impl<'a, T> Iterator for SliceIter<'a, T> {
 }
 
 /// Generic Iterator wrapper of mutable slice
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct SliceIterMut<'a, T> {
     pub(crate) slice: &'a mut [T],
 }

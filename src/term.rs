@@ -120,23 +120,13 @@ mod tests {
         assert!(incomplete.is_err());
 
         let error = incomplete.unwrap_err();
-        match error {
-            Error::ParseError(ref s) => assert!(s.starts_with("Parsing error:")),
-            _ => panic!("Incomplete term should be parse error"),
-        }
+        assert!(matches!(error, Error::ParseError(s) if s.starts_with("Parsing error: ")));
     }
 
     #[test]
     fn parse_incomplete() {
         let result = Term::from_str("");
-        assert!(result.is_err(), "{result:?} should be err");
-        match result {
-            Err(e) => match e {
-                Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {e:?}"),
-            },
-            Ok(s) => panic!("should should be Error::ParseError: {s}"),
-        }
+        assert!(matches!(result, Err(Error::ParseError(_))));
     }
 
     #[test]

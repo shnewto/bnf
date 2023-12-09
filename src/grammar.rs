@@ -281,20 +281,16 @@ impl Grammar {
             let nonterm = Term::Nonterminal(ident.to_string());
             let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
 
-            let production = match find_lhs {
-                Some(p) => p,
-                None => return Ok(nonterm.to_string()),
+            let Some(production) = find_lhs else {
+                return Ok(nonterm.to_string());
             };
 
             let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
 
-            let expression = match expressions.choose(rng) {
-                Some(e) => e,
-                None => {
-                    return Err(Error::GenerateError(String::from(
-                        "Couldn't select random Expression!",
-                    )));
-                }
+            let Some(expression) = expressions.choose(rng) else {
+                return Err(Error::GenerateError(String::from(
+                    "Couldn't select random Expression!",
+                )));
             };
 
             let mut result = String::new();
@@ -658,14 +654,10 @@ mod tests {
     #[test]
     fn parse_error_on_incomplete() {
         let result: Result<Grammar, _> = "".parse();
-        assert!(result.is_err(), "{result:?} should be err");
-        match result {
-            Err(e) => match e {
-                Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {e:?}"),
-            },
-            Ok(s) => panic!("should should be Error::ParseError: {s}"),
-        }
+        assert!(
+            matches!(result, Err(Error::ParseError(_))),
+            "{result:?} should be ParseError"
+        );
     }
 
     #[test]

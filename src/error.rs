@@ -21,11 +21,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        "BNF error"
-    }
-}
+impl error::Error for Error {}
 
 impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
     fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
@@ -60,42 +56,19 @@ mod tests {
     #[test]
     fn gets_error_error() {
         let nom_result = give_error_kind("12340");
-        let nom_error;
-        match nom_result {
-            Result::Err(e) => match e {
-                Err::Error(_) => nom_error = e,
-                _ => panic!("gets_error_error should result in IResult::Err(Err::Error(e))"),
-            },
-            _ => panic!("gets_error_error should result in IResult::Err"),
-        }
-
-        match Error::from(nom_error) {
-            Error::ParseError(_) => (),
-            e => panic!("production error should be error parsing: {e:?}"),
-        }
+        assert!(matches!(nom_result, Result::Err(Err::Error(_))));
     }
 
     #[test]
     fn gets_error_on_incomplete() {
-        let nom_result = give_error_kind("");
-        let nom_error = match nom_result {
-            Result::Err(e) => e,
-            _ => panic!("gets_error_error should result in IResult::Err"),
-        };
-
-        match Error::from(nom_error) {
-            Error::ParseError(_) => (),
-            e => panic!("production error should be parse error: {e:?}"),
-        }
+        let nom_result = give_error_kind("").map_err(|e| Error::from(e));
+        assert!(matches!(nom_result, Result::Err(Error::ParseError(_))));
     }
 
     #[test]
     fn uses_error_generate() {
         let bnf_error = Error::GenerateError(String::from("error generating!"));
-        match bnf_error {
-            Error::GenerateError(_) => (),
-            e => panic!("should match on generate error: {e:?}"),
-        }
+        assert!(matches!(bnf_error, Error::GenerateError(_)));
     }
 
     #[test]
@@ -121,5 +94,12 @@ mod tests {
         let description = "anything";
         let verbose_kind = nom::error::VerboseErrorKind::Char('z');
         let _ = Error::from((description, verbose_kind));
+    }
+
+    #[test]
+    fn clone_error() {
+        let error = Error::ParseError(String::from("parsing error!"));
+        let clone = error.clone();
+        assert_eq!(error, clone);
     }
 }

@@ -135,11 +135,9 @@ mod tests {
 
     fn prop_to_string_and_back(prop: Production) -> TestResult {
         let to_string = prop.to_string();
-        let from_str = Production::from_str(&to_string);
-        match from_str {
-            Ok(from_prod) => TestResult::from_bool(from_prod == prop),
-            _ => TestResult::error(format!("{prop} to string and back should be safe")),
-        }
+        let from_str = Production::from_str(&to_string)
+            .expect("should be able to convert production to string and back");
+        TestResult::from_bool(from_str == prop)
     }
 
     #[test]
@@ -248,46 +246,45 @@ mod tests {
     fn parse_error() {
         let result = Production::from_str("<base> ::= 'A' | 'C' | 'G' |");
         assert!(
-            result.is_err(),
+            matches!(result, Err(_)),
             "production result should be error {result:?}"
         );
 
         let production = result.unwrap_err();
-        match production {
-            Error::ParseError(_) => (),
-            e => panic!("production error should be error: {e:?}"),
-        }
+        assert!(
+            matches!(production, Error::ParseError(_)),
+            "production error should be error: {production:?}"
+        );
     }
 
     #[test]
     fn parse_incomplete() {
         let result = Production::from_str("");
-        assert!(result.is_err(), "{result:?} should be err");
-        match result {
-            Err(e) => match e {
-                Error::ParseError(_) => (),
-                e => panic!("should should be Error::ParseError: {e:?}"),
-            },
-            Ok(s) => panic!("should should be Error::ParseError: {s}"),
-        }
+        assert!(
+            matches!(result, Err(Error::ParseError(_))),
+            "production result should be error {result:?}"
+        );
     }
 
     #[test]
     fn parse_semicolon_separated() {
         let result = Production::from_str("<base> ::= 'A' ; 'C' ; 'G' ; 'T'");
-        assert!(result.is_err(), "{result:?} should be error");
-
-        let production = result.unwrap_err();
-        match production {
-            Error::ParseError(_) => (),
-            e => panic!("invalid production should be parsing error: {e:?}"),
-        }
+        assert!(
+            matches!(result, Err(Error::ParseError(_))),
+            "production result should be error {result:?}"
+        );
     }
 
     #[test]
     fn default_production_empty() {
         let production = Production::default();
         assert!(production.is_empty());
+    }
+
+    #[test]
+    fn production_len() {
+        let production: Production = "<dna> ::= <base> | <dna> <base>".parse().unwrap();
+        assert_eq!(production.len(), 2);
     }
 
     #[test]

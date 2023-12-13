@@ -1,32 +1,11 @@
+mod util;
+
 use bnf::Grammar;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::seq::SliceRandom;
 
-#[cfg(feature = "tracing")]
-fn init_tracing() -> impl Drop {
-    use tracing_flame::FlameLayer;
-    use tracing_subscriber::{fmt, prelude::*};
-    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
-    let fmt_layer = fmt::Layer::default();
-    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
-
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(fmt_layer)
-        .with(flame_layer)
-        .init();
-
-    _guard
-}
-
-#[cfg(not(feature = "tracing"))]
-fn init_tracing() {}
-
 fn examples(c: &mut Criterion) {
-    init_tracing();
-
-    #[cfg(feature = "tracing")]
-    let _span = tracing::span!(tracing::Level::DEBUG, "BENCH EXAMPLES").entered();
+    let _tracing = util::init_tracing();
 
     c.bench_function("parse postal", |b| {
         let input = std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf");

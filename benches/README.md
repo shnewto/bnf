@@ -34,7 +34,7 @@ These benchmarks are not run during continuous integration testing. But if a dev
 
 #### Flamegraph
 
-> CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --bench bnf -- --bench
+> CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --bench divan -- --bench
 
 `sudo` may be required for `dtrace` on macOS
 

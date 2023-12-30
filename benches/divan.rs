@@ -1,5 +1,8 @@
 mod util;
 
+#[global_allocator]
+static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
+
 fn main() {
     let _tracing = util::init_tracing();
 

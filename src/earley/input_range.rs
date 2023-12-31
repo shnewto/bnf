@@ -5,7 +5,7 @@ pub(crate) struct InputRangeOffset {
 }
 
 impl InputRangeOffset {
-    pub fn total_len(&self) -> usize {
+    pub const fn total_len(&self) -> usize {
         self.start + self.len
     }
 }
@@ -18,7 +18,7 @@ pub(crate) struct InputRange<'gram> {
 }
 
 impl<'gram> InputRange<'gram> {
-    pub fn new(input: &'gram str) -> Self {
+    pub const fn new(input: &'gram str) -> Self {
         Self {
             input,
             offset: InputRangeOffset { start: 0, len: 0 },
@@ -28,7 +28,7 @@ impl<'gram> InputRange<'gram> {
         let next_idx = self.offset.start + self.offset.len;
         &self.input[next_idx..]
     }
-    pub fn after(&self) -> Self {
+    pub const fn after(&self) -> Self {
         Self {
             input: self.input,
             offset: InputRangeOffset {
@@ -46,7 +46,7 @@ impl<'gram> InputRange<'gram> {
             offset: InputRangeOffset { start, len },
         }
     }
-    pub fn is_complete(&self) -> bool {
+    pub const fn is_complete(&self) -> bool {
         self.offset.start == 0 && self.offset.len == self.input.len()
     }
 }

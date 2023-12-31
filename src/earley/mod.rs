@@ -46,7 +46,7 @@ impl TraversalQueue {
     }
 }
 
-/// Create a [ParseTree] starting at the root [`TraversalId`].
+/// Create a [`ParseTree`] starting at the root [`TraversalId`].
 fn parse_tree<'gram>(
     traversal_tree: &TraversalTree<'gram>,
     grammar: &ParseGrammar<'gram>,
@@ -200,7 +200,7 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
         })
     }
 }
-/// Key used for "incomplete" [`Traversal`] in [CompletionMap]
+/// Key used for "incomplete" [`Traversal`] in [`CompletionMap`]
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CompletionKey<'gram> {
     term: &'gram Term,

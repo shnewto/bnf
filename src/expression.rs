@@ -14,11 +14,13 @@ pub struct Expression {
 
 impl Expression {
     /// Construct a new `Expression`
+    #[must_use]
     pub fn new() -> Expression {
         Expression { terms: vec![] }
     }
 
     /// Construct an `Expression` from `Term`s
+    #[must_use]
     pub fn from_parts(v: Vec<Term>) -> Expression {
         Expression { terms: v }
     }

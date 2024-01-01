@@ -19,6 +19,7 @@ pub struct Production {
 
 impl Production {
     /// Construct a new `Production`
+    #[must_use]
     pub fn new() -> Production {
         Production {
             lhs: Term::Nonterminal(String::new()),
@@ -27,6 +28,7 @@ impl Production {
     }
 
     /// Construct an `Production` from `Expression`s
+    #[must_use]
     pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
     }
@@ -60,11 +62,13 @@ impl Production {
     }
 
     /// Get number of right hand side `Expression`s
+    #[must_use]
     pub fn len(&self) -> usize {
         self.rhs.len()
     }
 
     /// If the production is empty of `Expression`s
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }

@@ -15,6 +15,15 @@ repository = "https://github.com/shnewto/bnf"
 
 license = "MIT"
 
+[lints.clippy]
+all = "deny"
+suspicious = "deny"
+style = "deny"
+complexity = "deny"
+perf = "deny"
+must_use_candidate = "deny"
+doc_markdown = "deny"
+
 [dependencies]
 tracing = { version = "0.1.37", optional = true }
 tracing-subscriber = { version = "0.3.16", optional = true, features = ["env-filter"] }

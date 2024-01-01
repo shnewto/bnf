@@ -21,33 +21,33 @@ pub(crate) enum TermMatch<'gram> {
 #[derive(Debug)]
 pub(crate) struct Traversal<'gram> {
     pub id: TraversalId,
-    /// The unmatched "right hand side" [Term]s
+    /// The unmatched "right hand side" [`Term]s
     pub unmatched: &'gram [crate::Term],
     /// The input text available for parsing
     pub input_range: InputRange<'gram>,
-    /// Unique ID for the [Production] used to begin this [Traversal]
+    /// Unique ID for the [Production] used to begin this [`Traversal`]
     pub production_id: ProductionId,
-    /// Flag indicating that this [Traversal] began at the start of parsing,
+    /// Flag indicating that this [`Traversal`] began at the start of parsing,
     /// and if fully completed then qualifies as a successful parse.
     pub is_starting: bool,
-    /// Reference to the parent [Traversal] which started this one.
+    /// Reference to the parent [`Traversal`] which started this one.
     from: Option<TraversalEdge<'gram>>,
 }
 
 impl<'gram> Traversal<'gram> {
     pub fn next_unmatched(&self) -> Option<&'gram Term> {
-        self.unmatched.get(0)
+        self.unmatched.first()
     }
 }
 
-/// The edge which connects [Traversal]s in a [TraversalTree]
+/// The edge which connects [`Traversal`]s in a [`TraversalTree`]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct TraversalEdge<'gram> {
     pub term: TermMatch<'gram>,
     pub parent_id: TraversalId,
 }
 
-/// The root in a [TraversalTree].
+/// The root in a [`TraversalTree`].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct TraversalRoot {
     production_id: super::grammar::ProductionId,
@@ -58,12 +58,12 @@ type TraversalArena<'gram> = AppendOnlyVec<Traversal<'gram>, TraversalId>;
 type TreeRootMap = HashMap<TraversalRoot, TraversalId>;
 type TreeEdgeMap<'gram> = HashMap<TraversalEdge<'gram>, TraversalId>;
 
-/// Iterator of [TermMatch] which resulted in the [Traversal].
-/// Walks a [TraversalTree] from [TraversalRoot] along [TraversalEdge].
+/// Iterator of [`TermMatch`] which resulted in the [`Traversal`].
+/// Walks a [`TraversalTree`] from [`TraversalRoot`] along [`TraversalEdge`].
 ///
-/// Because [Traversal] only know their immediate parent, this iterator walks the [TraversalTree]
-/// in a silly way. Starting at the leaf, it walks up and up until finding the next desired [Traversal].
-/// This leads to wasted and repeated walking of [TraversalEdge]s. But in practice, this wasted tree
+/// Because [`Traversal`] only know their immediate parent, this iterator walks the [`TraversalTree`]
+/// in a silly way. Starting at the leaf, it walks up and up until finding the next desired [`Traversal`].
+/// This leads to wasted and repeated walking of [`TraversalEdge`]s. But in practice, this wasted tree
 /// walking seems preferable to alternatives.
 #[derive(Debug)]
 pub(crate) struct TraversalMatchIter<'gram, 'tree> {
@@ -112,7 +112,7 @@ impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
     }
 }
 
-/// A tree of [Traversal], with [TermMatch] used for edges.
+/// A tree of [`Traversal`], with [`TermMatch`] used for edges.
 /// Earley "predictions" start a tree root, and each scan/complete creates child nodes. e.g.
 /// ```txt
 /// <start> ::= • <a>        (this is the root of the prediction tree)
@@ -165,7 +165,7 @@ impl<'gram> TraversalTree<'gram> {
 
         *traversal_root
     }
-    /// Same as [TraversalTree::predict] but flagging the [Traversal] as a parsing starting point
+    /// Same as [`TraversalTree::predict`] but flagging the [`Traversal`] as a parsing starting point
     pub fn predict_starting(
         &mut self,
         production: &Production<'gram>,

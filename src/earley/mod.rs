@@ -208,13 +208,13 @@ pub(crate) struct CompletionKey<'gram> {
 }
 
 impl<'gram> CompletionKey<'gram> {
-    pub fn new_start(term: &'gram Term, input: &InputRange<'gram>) -> Self {
+    pub const fn new_start(term: &'gram Term, input: &InputRange<'gram>) -> Self {
         Self {
             term,
             input_start: input.offset.start,
         }
     }
-    pub fn new_total(term: &'gram Term, input: &InputRange<'gram>) -> Self {
+    pub const fn new_total(term: &'gram Term, input: &InputRange<'gram>) -> Self {
         Self {
             term,
             input_start: input.offset.total_len(),

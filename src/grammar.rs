@@ -127,7 +127,7 @@ impl<'gram> ParseTree<'gram> {
     /// println!("parse tree mermaid: {}", mermaid);
     /// ```
     #[must_use]
-    pub fn mermaid(&self) -> MermaidParseTree<'_> {
+    pub const fn mermaid(&self) -> MermaidParseTree<'_> {
         MermaidParseTree { parse_tree: self }
     }
 
@@ -212,7 +212,7 @@ pub struct Grammar {
 impl Grammar {
     /// Construct a new `Grammar`
     #[must_use]
-    pub fn new() -> Grammar {
+    pub const fn new() -> Grammar {
         Grammar {
             productions: vec![],
         }
@@ -220,7 +220,7 @@ impl Grammar {
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub fn from_parts(v: Vec<Production>) -> Grammar {
+    pub const fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
     }
 

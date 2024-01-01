@@ -35,7 +35,7 @@ pub(crate) struct Traversal<'gram> {
 }
 
 impl<'gram> Traversal<'gram> {
-    pub fn next_unmatched(&self) -> Option<&'gram Term> {
+    pub const fn next_unmatched(&self) -> Option<&'gram Term> {
         self.unmatched.first()
     }
 }

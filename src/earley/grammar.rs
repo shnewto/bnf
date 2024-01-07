@@ -13,7 +13,7 @@ pub(crate) struct Production<'gram> {
 }
 
 type ProdArena<'gram> = AppendOnlyVec<Production<'gram>, ProductionId>;
-type ProdTermMap<'gram> = std::collections::HashMap<&'gram crate::Term, Vec<ProductionId>>;
+type ProdTermMap<'gram> = crate::HashMap<&'gram crate::Term, Vec<ProductionId>>;
 
 /// Similar to [`crate::Grammar`], but using [`Production`] and tables useful for parsing.
 #[derive(Debug)]

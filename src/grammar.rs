@@ -539,24 +539,24 @@ mod tests {
 
     #[test]
     fn new_grammars() {
-        let lhs1: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs1: Expression = Expression::from_parts(vec![
+        let lhs1 = Term::Nonterminal(String::from("STRING A"));
+        let rhs1 = Expression::from_parts(vec![
             Term::Terminal(String::from("STRING B")),
             Term::Nonterminal(String::from("STRING C")),
         ]);
-        let p1: Production = Production::from_parts(lhs1, vec![rhs1]);
+        let p1 = Production::from_parts(lhs1, vec![rhs1]);
 
-        let lhs2: Term = Term::Nonterminal(String::from("STRING A"));
-        let rhs2: Expression = Expression::from_parts(vec![
+        let lhs2 = Term::Nonterminal(String::from("STRING A"));
+        let rhs2 = Expression::from_parts(vec![
             Term::Terminal(String::from("STRING B")),
             Term::Nonterminal(String::from("STRING C")),
         ]);
-        let p2: Production = Production::from_parts(lhs2, vec![rhs2]);
+        let p2 = Production::from_parts(lhs2, vec![rhs2]);
 
-        let mut g1: Grammar = Grammar::new();
+        let mut g1 = Grammar::new();
         g1.add_production(p1.clone());
         g1.add_production(p2.clone());
-        let g2: Grammar = Grammar::from_parts(vec![p1, p2]);
+        let g2 = Grammar::from_parts(vec![p1, p2]);
         assert_eq!(g1, g2);
     }
 
@@ -748,9 +748,7 @@ mod tests {
 
     #[test]
     fn does_not_terminate() {
-        let mut grammar: Grammar;
-
-        grammar = "<nonterm> ::= <nonterm>".parse().unwrap();
+        let mut grammar: Grammar = "<nonterm> ::= <nonterm>".parse().unwrap();
         assert!(!grammar.terminates());
 
         grammar = "

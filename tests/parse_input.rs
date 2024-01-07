@@ -350,7 +350,7 @@ fn shared_nonterminal_failure() {
 fn swap_left_right_recursion() {
     let input = "aa a";
 
-    let left_recursive: &str = "
+    let left_recursive = "
         <conjunction> ::= <conjunction> <ws> <predicate> | <predicate>
         <predicate> ::= <string_null_one> | <special-string> '.'
         <string_null_one> ::= <string_null_two>
@@ -388,7 +388,7 @@ fn swap_left_right_recursion() {
 
 #[test]
 fn shared_nullable_nonterminal() {
-    let grammar: &str = "
+    let grammar = "
         <disjunction> ::= <predicate> | <disjunction> <or> <predicate>
         <predicate> ::= <char_null_one> | <special-string> '.'
 

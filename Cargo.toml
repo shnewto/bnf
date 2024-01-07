@@ -40,6 +40,7 @@ tests_outside_test_module = "deny"
 todo = "deny"
 try_err = "deny"
 undocumented_unsafe_blocks = "deny"
+use_debug = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

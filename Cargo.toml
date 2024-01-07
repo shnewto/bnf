@@ -37,6 +37,7 @@ rc_mutex = "deny"
 redundant_type_annotations = "deny"
 string_to_string = "deny"
 tests_outside_test_module = "deny"
+todo = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

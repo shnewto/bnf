@@ -29,6 +29,7 @@ dbg_macro = "deny"
 exhaustive_structs = "deny"
 indexing_slicing = "deny"
 let_underscore_must_use = "deny"
+map_err_ignore = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

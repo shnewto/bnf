@@ -722,7 +722,7 @@ mod tests {
 
         let rhs_iterated = parse_tree.rhs_iter().next().unwrap();
 
-        assert_eq!(&parse_tree.rhs[0], rhs_iterated);
+        assert_eq!(parse_tree.rhs.first().unwrap(), rhs_iterated);
     }
 
     #[test]
@@ -740,7 +740,10 @@ mod tests {
 
         *rhs_iterated = ParseTreeNode::Terminal("Z");
 
-        assert_eq!(parse_tree.rhs[0], ParseTreeNode::Terminal("Z"));
+        assert_eq!(
+            parse_tree.rhs.first().unwrap(),
+            &ParseTreeNode::Terminal("Z")
+        );
     }
 
     #[test]

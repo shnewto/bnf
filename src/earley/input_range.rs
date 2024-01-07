@@ -26,7 +26,7 @@ impl<'gram> InputRange<'gram> {
     }
     pub fn next(&self) -> &'gram str {
         let next_idx = self.offset.start + self.offset.len;
-        &self.input[next_idx..]
+        self.input.get(next_idx..).unwrap_or("")
     }
     pub const fn after(&self) -> Self {
         Self {
@@ -56,9 +56,13 @@ impl<'gram> InputRange<'gram> {
 impl<'gram> std::fmt::Debug for InputRange<'gram> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let InputRangeOffset { start, len, .. } = self.offset;
-        let before = &self.input[..start];
-        let scanned = &self.input[start..][..len];
-        let after = &self.input[start..][len..];
+        let before = self.input.get(..start).unwrap_or("");
+        let scanned = self
+            .input
+            .get(start..)
+            .and_then(|s| s.get(..len))
+            .unwrap_or("");
+        let after = self.input.get(start + len..).unwrap_or("");
         write!(f, "InputRange(\"{before}|{scanned}|{after}\")",)
     }
 }

@@ -27,6 +27,7 @@ missing_const_for_fn = "deny"
 clone_on_ref_ptr = "deny"
 dbg_macro = "deny"
 exhaustive_structs = "deny"
+indexing_slicing = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

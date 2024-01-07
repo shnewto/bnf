@@ -75,7 +75,7 @@ fn recursive_nested_infinite() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn empty_first_nested() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn empty_noop_infinite() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)

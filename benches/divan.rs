@@ -61,7 +61,7 @@ mod examples {
 
         bencher.bench_local(|| {
             let index = index.next().unwrap();
-            let input = &random_walks[index];
+            let input = random_walks.get(index).unwrap();
             polish_calc_grammar
                 .parse_input(input)
                 .for_each(divan::black_box_drop);

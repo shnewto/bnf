@@ -288,7 +288,8 @@ mod tests {
 
             let expr_indexes: Vec<usize> = (0..expressions.len()).collect();
             let expr_choice_index = g.choose(&expr_indexes).unwrap();
-            let expr_choice: &mut crate::Expression = expressions[*expr_choice_index];
+            let expr_choice: &mut crate::Expression =
+                expressions.get_mut(*expr_choice_index).unwrap();
 
             let term_choice_indexes: Vec<usize> = (0..expr_choice.terms.len()).collect();
             let term_choice_index = g.choose(&term_choice_indexes).unwrap();

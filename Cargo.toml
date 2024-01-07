@@ -35,6 +35,7 @@ print_stdout = "deny"
 rc_buffer = "deny"
 rc_mutex = "deny"
 redundant_type_annotations = "deny"
+string_to_string = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

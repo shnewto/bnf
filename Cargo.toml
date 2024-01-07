@@ -32,6 +32,7 @@ let_underscore_must_use = "deny"
 map_err_ignore = "deny"
 print_stderr = "deny"
 print_stdout = "deny"
+rc_buffer = "deny"
 
 [dependencies]
 tracing = { version = "0.1.37", optional = true }

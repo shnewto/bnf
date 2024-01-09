@@ -3,7 +3,6 @@ use crate::{
     append_vec::{append_only_vec_id, AppendOnlyVec},
     tracing, Term,
 };
-use std::collections::HashMap;
 
 append_only_vec_id!(pub(crate) TraversalId);
 
@@ -55,8 +54,8 @@ struct TraversalRoot {
 }
 
 type TraversalArena<'gram> = AppendOnlyVec<Traversal<'gram>, TraversalId>;
-type TreeRootMap = HashMap<TraversalRoot, TraversalId>;
-type TreeEdgeMap<'gram> = HashMap<TraversalEdge<'gram>, TraversalId>;
+type TreeRootMap = crate::HashMap<TraversalRoot, TraversalId>;
+type TreeEdgeMap<'gram> = crate::HashMap<TraversalEdge<'gram>, TraversalId>;
 
 /// Iterator of [`TermMatch`] which resulted in the [`Traversal`].
 /// Walks a [`TraversalTree`] from [`TraversalRoot`] along [`TraversalEdge`].

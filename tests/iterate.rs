@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use bnf::{Grammar, Term};
 
 #[test]

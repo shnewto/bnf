@@ -195,13 +195,13 @@ mod tests {
 
     #[test]
     fn new_expressions() {
-        let t1: Term = Term::Terminal(String::from("terminal"));
-        let nt1: Term = Term::Nonterminal(String::from("nonterminal"));
-        let t2: Term = Term::Terminal(String::from("terminal"));
-        let nt2: Term = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = Term::Terminal(String::from("terminal"));
+        let nt1 = Term::Nonterminal(String::from("nonterminal"));
+        let t2 = Term::Terminal(String::from("terminal"));
+        let nt2 = Term::Nonterminal(String::from("nonterminal"));
 
-        let e1: Expression = Expression::from_parts(vec![nt1, t1]);
-        let mut e2: Expression = Expression::new();
+        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let mut e2 = Expression::new();
         e2.add_term(nt2);
         e2.add_term(t2);
 

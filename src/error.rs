@@ -86,14 +86,17 @@ mod tests {
     #[test]
     fn from_nom_verbose_error() {
         let error = nom::error::VerboseError { errors: vec![] };
-        let _ = Error::from(error);
+        assert!(matches!(Error::from(error), Error::ParseError(_)));
     }
 
     #[test]
     fn from_str_and_nom_verbose_error_kind() {
         let description = "anything";
         let verbose_kind = nom::error::VerboseErrorKind::Char('z');
-        let _ = Error::from((description, verbose_kind));
+        assert!(matches!(
+            Error::from((description, verbose_kind)),
+            Error::ParseError(_)
+        ));
     }
 
     #[test]

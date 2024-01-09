@@ -36,7 +36,8 @@ fn examples(c: &mut Criterion) {
     c.bench_function("parse polish calculator", |b| {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
-            let _: Vec<_> = polish_calc_grammar.parse_input(input).collect();
+            let parses: Vec<_> = polish_calc_grammar.parse_input(input).collect();
+            assert!(!parses.is_empty());
         })
     });
 
@@ -55,10 +56,11 @@ fn examples(c: &mut Criterion) {
             &parse_count,
             |b, &parse_count| {
                 b.iter(|| {
-                    let _: Vec<_> = infinite_grammar
+                    let parses: Vec<_> = infinite_grammar
                         .parse_input(input)
                         .take(parse_count)
                         .collect();
+                    assert_eq!(parses.len(), parse_count);
                 })
             },
         );

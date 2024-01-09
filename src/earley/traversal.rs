@@ -222,7 +222,10 @@ impl<'gram> TraversalTree<'gram> {
 
             let parent_id = parent.id;
             let production_id = parent.production_id;
-            let unmatched = &parent.unmatched[1..];
+            let unmatched = parent
+                .unmatched
+                .get(1..)
+                .expect("parent traversal has at least one unmatched term");
             let is_starting = parent.is_starting;
             let from = TraversalEdge { term, parent_id };
 
@@ -306,7 +309,7 @@ mod tests {
 
         let scanned = tree.match_term(prediction, term_match);
 
-        assert_eq!(scanned.unmatched, &production.rhs.terms[1..]);
+        assert_eq!(scanned.unmatched, production.rhs.terms.get(1..).unwrap());
     }
 
     #[test]

@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use bnf::Grammar;
 use insta::assert_snapshot;
 
@@ -75,7 +77,7 @@ fn recursive_nested_infinite() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 #[test]
@@ -215,7 +217,7 @@ fn empty_first_nested() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 #[test]
@@ -278,7 +280,7 @@ fn empty_noop_infinite() {
         .map(|a| a.to_string())
         .collect();
     assert_eq!(parses.len(), parse_count);
-    assert_snapshot!(parses[0..=3].join("\n"));
+    assert_snapshot!(parses.get(0..=3).unwrap().join("\n"));
 }
 
 // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/recogniser>)
@@ -350,7 +352,7 @@ fn shared_nonterminal_failure() {
 fn swap_left_right_recursion() {
     let input = "aa a";
 
-    let left_recursive: &str = "
+    let left_recursive = "
         <conjunction> ::= <conjunction> <ws> <predicate> | <predicate>
         <predicate> ::= <string_null_one> | <special-string> '.'
         <string_null_one> ::= <string_null_two>
@@ -388,7 +390,7 @@ fn swap_left_right_recursion() {
 
 #[test]
 fn shared_nullable_nonterminal() {
-    let grammar: &str = "
+    let grammar = "
         <disjunction> ::= <predicate> | <disjunction> <or> <predicate>
         <predicate> ::= <char_null_one> | <special-string> '.'
 

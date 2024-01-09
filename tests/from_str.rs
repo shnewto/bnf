@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 mod std_trait {
     use std::str::FromStr;
 

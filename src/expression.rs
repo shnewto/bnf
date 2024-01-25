@@ -60,14 +60,12 @@ impl Expression {
 
     /// Get iterator of `Term`s within `Expression`
     pub fn terms_iter(&self) -> impl Iterator<Item = &Term> {
-        crate::slice_iter::SliceIter { slice: &self.terms }
+        self.terms.iter()
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
     pub fn terms_iter_mut(&mut self) -> impl Iterator<Item = &mut Term> {
-        crate::slice_iter::SliceIterMut {
-            slice: &mut self.terms,
-        }
+        self.terms.iter_mut()
     }
 
     /// Determine if this expression terminates or not, i.e contains all terminal elements or every

@@ -133,14 +133,12 @@ impl<'gram> ParseTree<'gram> {
 
     /// Iterate the "right hand side" parse tree nodes
     pub fn rhs_iter(&self) -> impl Iterator<Item = &ParseTreeNode> {
-        crate::slice_iter::SliceIter { slice: &self.rhs }
+        self.rhs.iter()
     }
 
     /// Mutably iterate the "right hand side" parse tree nodes
     pub fn rhs_iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut ParseTreeNode<'gram>> {
-        crate::slice_iter::SliceIterMut {
-            slice: &mut self.rhs,
-        }
+        self.rhs.iter_mut()
     }
 }
 
@@ -240,16 +238,12 @@ impl Grammar {
 
     /// Get iterator of the `Grammar`'s `Production`s
     pub fn productions_iter(&self) -> impl Iterator<Item = &Production> {
-        crate::slice_iter::SliceIter {
-            slice: &self.productions,
-        }
+        self.productions.iter()
     }
 
     /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production> {
-        crate::slice_iter::SliceIterMut {
-            slice: &mut self.productions,
-        }
+        self.productions.iter_mut()
     }
 
     /// Parse input strings according to `Grammar`
@@ -470,9 +464,7 @@ impl Grammar {
             }
         }
 
-        terminating_rules
-            .into_iter()
-            .any(|term| term == starting_term)
+        terminating_rules.contains(&starting_term)
     }
 }
 

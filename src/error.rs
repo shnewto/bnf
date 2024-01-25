@@ -8,6 +8,7 @@ use nom::{
 };
 
 #[derive(PartialEq, Eq, Debug, Clone)]
+#[non_exhaustive]
 pub enum Error {
     ParseError(String),
     GenerateError(String),
@@ -15,7 +16,7 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Error::ParseError(ref s) | Error::GenerateError(ref s) => write!(f, "{s}"),
         }
     }

@@ -51,14 +51,12 @@ impl Production {
 
     /// Get iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter(&self) -> impl Iterator<Item = &Expression> {
-        crate::slice_iter::SliceIter { slice: &self.rhs }
+        self.rhs.iter()
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
     pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        crate::slice_iter::SliceIterMut {
-            slice: &mut self.rhs,
-        }
+        self.rhs.iter_mut()
     }
 
     /// Get number of right hand side `Expression`s

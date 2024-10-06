@@ -20,7 +20,7 @@ pub(crate) enum TermMatch<'gram> {
 #[derive(Debug)]
 pub(crate) struct Traversal<'gram> {
     pub id: TraversalId,
-    /// The unmatched "right hand side" [`Term]s
+    /// The unmatched "right hand side" [`Term`]s
     pub unmatched: &'gram [crate::Term],
     /// The input text available for parsing
     pub input_range: InputRange<'gram>,

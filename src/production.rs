@@ -20,7 +20,7 @@ pub struct Production {
 impl Production {
     /// Construct a new `Production`
     #[must_use]
-    pub fn new() -> Production {
+    pub const fn new() -> Production {
         Production {
             lhs: Term::Nonterminal(String::new()),
             rhs: vec![],
@@ -29,7 +29,7 @@ impl Production {
 
     /// Construct an `Production` from `Expression`s
     #[must_use]
-    pub fn from_parts(t: Term, e: Vec<Expression>) -> Production {
+    pub const fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
     }
 

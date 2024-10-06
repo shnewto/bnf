@@ -25,7 +25,7 @@ pub struct ParseTree<'gram> {
 }
 
 impl<'gram> ParseTree<'gram> {
-    pub(crate) fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
+    pub(crate) const fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
         Self { lhs, rhs }
     }
 }
@@ -247,7 +247,10 @@ impl Grammar {
     }
 
     /// Parse input strings according to `Grammar`
-    pub fn parse_input<'gram>(&'gram self, input: &'gram str) -> impl Iterator<Item = ParseTree> {
+    pub fn parse_input<'gram>(
+        &'gram self,
+        input: &'gram str,
+    ) -> impl Iterator<Item = ParseTree<'gram>> {
         crate::earley::parse(self, input)
     }
 

@@ -3,13 +3,16 @@
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A Term can represent a Terminal or Nonterminal node
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum Term {
     /// A term which cannot be expanded further via productions
     Terminal(String),

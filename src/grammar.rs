@@ -4,6 +4,8 @@ use crate::parsers;
 use crate::production::Production;
 use crate::term::Term;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
@@ -202,7 +204,8 @@ impl<'a> fmt::Display for MermaidParseTree<'a> {
 }
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Deserialize, Serialize, Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
 }

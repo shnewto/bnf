@@ -1,13 +1,16 @@
 use crate::error::Error;
 use crate::parsers;
 use crate::term::Term;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// An Expression is comprised of any number of Terms
-#[derive(Deserialize, Serialize, Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Expression {
     pub(crate) terms: Vec<Term>,
 }

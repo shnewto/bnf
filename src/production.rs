@@ -4,13 +4,16 @@ use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
 use crate::term::Term;
-use serde::{Deserialize, Serialize};
 use std::fmt;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use std::str::FromStr;
 
 /// A Production is comprised of any number of Expressions
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Production {
     /// The "left hand side" of the production, i.e. "lhs -> rhs ..."
     pub lhs: Term,

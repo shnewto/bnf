@@ -499,6 +499,61 @@ impl str::FromStr for Grammar {
     }
 }
 
+/// Construct a `Grammar` from a series of semicolon separated productions.
+/// ```
+/// bnf::grammar! {
+///   <dna> ::= <base> | <base> <dna>;
+///   <base> ::= 'A' | 'C' | 'G' | 'T';
+/// };
+/// ```
+#[macro_export]
+macro_rules! grammar {
+    // empty grammar
+    () => {
+        $crate::Grammar::new()
+    };
+    // start productions
+    (<$lhs:ident> ::= $($rest:tt)*) => {
+        {
+            let mut prods = vec![];
+            let mut exprs = vec![];
+            let mut terms = vec![];
+            $crate::grammar!(@rhs prods exprs terms $lhs $($rest)*);
+            $crate::Grammar::from_parts(prods)
+        }
+    };
+    // start a new production (after the first)
+    (@lhs $prods:ident $expr:ident $terms:ident <$lhs:ident> ::= $($rest:tt)*) => {
+        $terms = vec![];
+        $expr = vec![];
+        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+    };
+    // end of productions is a NOOP
+    (@lhs $prods:ident $exprs:ident $terms:ident) => { };
+    // munch rhs until semicolon
+    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident ; $($rest:tt)*) => {
+        $expr.push($crate::Expression::from_parts($terms));
+        $prods.push($crate::Production::from_parts($crate::term!(<$lhs>), $expr));
+        $crate::grammar!(@lhs $prods $expr $terms $($rest)*);
+    };
+    // if terminal add to expression
+    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident $t:literal $($rest:tt)*) => {
+        $terms.push($crate::term!($t));
+        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+    };
+    // if nonterminal add to expression
+    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident <$nt:ident> $($rest:tt)*) => {
+        $terms.push($crate::term!(<$nt>));
+        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+    };
+    // if | add expression to production, create new expression
+    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident | $($rest:tt)*) => {
+        $expr.push($crate::Expression::from_parts($terms));
+        $terms = vec![];
+        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -805,5 +860,36 @@ mod tests {
             .parse()
             .unwrap();
         assert!(grammar.terminates());
+    }
+    // <dna> ::= <base> | <base> <dna>;
+
+    #[test]
+    fn macro_construct() {
+        let grammar = crate::grammar! {
+            <dna> ::= <base> | <base> <dna> ;
+            <base> ::= 'A' | 'C' | 'G' | 'T' ;
+        };
+        let expected = Grammar::from_parts(vec![
+            Production::from_parts(
+                Term::Nonterminal(String::from("dna")),
+                vec![
+                    Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]),
+                    Expression::from_parts(vec![
+                        Term::Nonterminal(String::from("base")),
+                        Term::Nonterminal(String::from("dna")),
+                    ]),
+                ],
+            ),
+            Production::from_parts(
+                Term::Nonterminal(String::from("base")),
+                vec![
+                    Expression::from_parts(vec![Term::Terminal(String::from("A"))]),
+                    Expression::from_parts(vec![Term::Terminal(String::from("C"))]),
+                    Expression::from_parts(vec![Term::Terminal(String::from("G"))]),
+                    Expression::from_parts(vec![Term::Terminal(String::from("T"))]),
+                ],
+            ),
+        ]);
+        assert_eq!(grammar, expected);
     }
 }

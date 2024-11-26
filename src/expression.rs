@@ -1,3 +1,5 @@
+#![allow(clippy::vec_init_then_push)]
+
 use crate::error::Error;
 use crate::parsers;
 use crate::term::Term;
@@ -105,7 +107,7 @@ macro_rules! expression {
     // rule which matches <ident> followed by token tree
     (<$nt:ident> $($tt:tt)*) => {
         {
-            let mut vec = Vec::new();
+            let mut vec = vec![];
             $crate::expression!(vec; <$nt> $($tt)*);
             $crate::Expression::from_parts(vec)
         }
@@ -113,8 +115,8 @@ macro_rules! expression {
     // rule which matches literal followed by token tree
     ($t:literal $($tt:tt)*) => {
         {
-            let mut vec = Vec::new();
-            $crate::crate::expression!(vec; $t $($tt)*);
+            let mut vec = vec![];
+            $crate::expression!(vec; $t $($tt)*);
             $crate::Expression::from_parts(vec)
         }
     };

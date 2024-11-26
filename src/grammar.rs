@@ -1,3 +1,5 @@
+#![allow(clippy::vec_init_then_push)]
+
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;

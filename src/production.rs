@@ -1,4 +1,5 @@
 #![allow(clippy::should_implement_trait)]
+#![allow(clippy::vec_init_then_push)]
 
 use crate::error::Error;
 use crate::expression::Expression;
@@ -114,6 +115,45 @@ impl FromStr for Production {
             Result::Err(e) => Err(Error::from(e)),
         }
     }
+}
+
+/// Macro to create a `Production` from a right-hand side definition
+/// ```
+/// bnf::production!(<S> ::= 'T' <NT> | <NT> "AND");
+/// ```
+#[macro_export]
+macro_rules! production {
+    (<$lhs:ident> ::= $($rest:tt)*) => {
+        {
+            let mut expressions = vec![];
+            let mut terms = vec![];
+            $crate::production!(@rhs expressions terms $($rest)*);
+            expressions.push($crate::Expression::from_parts(terms));
+            $crate::Production::from_parts(
+                $crate::term!(<$lhs>),
+                expressions,
+            )
+        }
+    };
+    // munch rhs until empty
+    // if terminal, add to expression
+    (@rhs $expr:ident $terms:ident $t:literal $($rest:tt)*) => {
+        $terms.push($crate::term!($t));
+        $crate::production!(@rhs $expr $terms $($rest)*);
+    };
+    // if nonterminal, add to expression and keep munching
+    (@rhs $expr:ident $terms:ident <$nt:ident> $($rest:tt)*) => {
+        $terms.push($crate::term!(<$nt>));
+        $crate::production!(@rhs $expr $terms $($rest)*);
+    };
+    // if | add expression to production, and create new expression
+    (@rhs $expr:ident $terms:ident | $($rest:tt)*) => {
+        $expr.push($crate::Expression::from_parts($terms));
+        $terms = vec![];
+        $crate::production!(@rhs $expr $terms $($rest)*);
+    };
+    // base case
+    (@rhs $expr:ident $terms:ident) => {};
 }
 
 #[cfg(test)]
@@ -392,5 +432,26 @@ mod tests {
             &Term::from_str("<NTc>").unwrap(),
             &Term::from_str("<NTd>").unwrap(),
         ])));
+    }
+
+    #[test]
+    fn macro_builds_todo() {
+        let production = crate::production!(<S> ::= 'T' <NT> | <NT> "AND");
+
+        let expected = Production::from_parts(
+            Term::Nonterminal(String::from("S")),
+            vec![
+                Expression::from_parts(vec![
+                    Term::Terminal(String::from("T")),
+                    Term::Nonterminal(String::from("NT")),
+                ]),
+                Expression::from_parts(vec![
+                    Term::Nonterminal(String::from("NT")),
+                    Term::Terminal(String::from("AND")),
+                ]),
+            ],
+        );
+
+        assert_eq!(production, expected);
     }
 }

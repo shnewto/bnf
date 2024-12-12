@@ -1,3 +1,5 @@
+#![allow(clippy::vec_init_then_push)]
+
 use crate::error::Error;
 use crate::parsers;
 use crate::term::Term;
@@ -94,6 +96,42 @@ impl Expression {
 
         true
     }
+}
+
+/// Create an expression from a series of terms
+/// ```
+/// bnf::expression!(<a> "and" <b>);
+/// ```
+#[macro_export]
+macro_rules! expression {
+    // rule which matches <ident> followed by token tree
+    (<$nt:ident> $($tt:tt)*) => {
+        {
+            let mut vec = vec![];
+            $crate::expression!(vec; <$nt> $($tt)*);
+            $crate::Expression::from_parts(vec)
+        }
+    };
+    // rule which matches literal followed by token tree
+    ($t:literal $($tt:tt)*) => {
+        {
+            let mut vec = vec![];
+            $crate::expression!(vec; $t $($tt)*);
+            $crate::Expression::from_parts(vec)
+        }
+    };
+    // internal rule to handle vector accumulation
+    ($vec:ident; <$nt:ident> $($tt:tt)*) => {
+        $vec.push($crate::term!(<$nt>));
+        $crate::expression!($vec; $($tt)*);
+    };
+    // internal rule to handle vector accumulation
+    ($vec:ident; $t:literal $($tt:tt)*) => {
+        $vec.push($crate::term!($t));
+        $crate::expression!($vec; $($tt)*);
+    };
+    // case with vec but no more tt
+    ($vec:ident; ) => {};
 }
 
 impl fmt::Display for Expression {
@@ -444,5 +482,17 @@ mod tests {
             &Term::from_str("<2>").unwrap(),
             &Term::from_str("<a>").unwrap(),
         ],)));
+    }
+
+    #[test]
+    fn macro_builds() {
+        let expr = expression!(<a> "and" <b>);
+        let expected = Expression::from_parts(vec![
+            Term::Nonterminal(String::from("a")),
+            Term::Terminal(String::from("and")),
+            Term::Nonterminal(String::from("b")),
+        ]);
+
+        assert_eq!(expr, expected);
     }
 }

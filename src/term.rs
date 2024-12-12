@@ -20,6 +20,25 @@ pub enum Term {
     Nonterminal(String),
 }
 
+/// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
+/// ```
+/// bnf::term!("terminal");
+/// bnf::term!(<nonterminal>);
+/// ```
+#[macro_export]
+macro_rules! term {
+    (<$ident:ident>) => {
+        $crate::Term::Nonterminal(stringify!($ident).to_string())
+    };
+    ($ident:ident) => {
+        $crate::Term::Terminal(stringify!($ident).to_string())
+    };
+    // another case for string literal
+    ($ident:literal) => {
+        $crate::Term::Terminal($ident.to_string())
+    };
+}
+
 impl FromStr for Term {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -208,5 +227,17 @@ mod tests {
         assert_eq!(e1, e2);
         assert_eq!(e1, e3);
         assert_eq!(e1, e4);
+    }
+
+    #[test]
+    fn macro_terminal() {
+        let terminal = term!("terminal");
+        assert_eq!(Term::Terminal(String::from("terminal")), terminal);
+    }
+
+    #[test]
+    fn macro_nonterminal() {
+        let nonterminal = term!(<nonterminal>);
+        assert_eq!(Term::Nonterminal(String::from("nonterminal")), nonterminal);
     }
 }

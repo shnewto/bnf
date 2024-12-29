@@ -24,7 +24,7 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
-impl<'a> From<VerboseError<(&'a str, VerboseErrorKind)>> for Error {
+impl From<VerboseError<(&'_ str, VerboseErrorKind)>> for Error {
     fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
         Error::ParseError(format!("Parsing error: {err:?}"))
     }
@@ -36,7 +36,7 @@ impl From<Err<VerboseError<&str>>> for Error {
     }
 }
 
-impl<'a> From<(&'a str, VerboseErrorKind)> for Error {
+impl From<(&'_ str, VerboseErrorKind)> for Error {
     fn from(err: (&str, VerboseErrorKind)) -> Self {
         let string = format!("Parsing error: {:?}\n {:?}", err.1, err.0);
         Error::ParseError(string)

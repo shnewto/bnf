@@ -53,7 +53,7 @@ impl<'gram> InputRange<'gram> {
 
 /// A clear view of [`InputRange`], in the format "InputRange(before | current | after)"
 /// e.g., "[`InputRange`](["1", "+", "("] | ["2"] | ["*", "3", "-", "4", ")"])"
-impl<'gram> std::fmt::Debug for InputRange<'gram> {
+impl std::fmt::Debug for InputRange<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let InputRangeOffset { start, len, .. } = self.offset;
         let before = self.input.get(..start).unwrap_or("");

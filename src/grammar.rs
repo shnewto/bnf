@@ -146,7 +146,7 @@ impl<'gram> ParseTree<'gram> {
     }
 }
 
-impl<'gram> fmt::Display for ParseTree<'gram> {
+impl fmt::Display for ParseTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut depth_format_set = ParseTreeFormatSet::new();
         self.fmt(f, &mut depth_format_set, 0, true)
@@ -159,7 +159,7 @@ pub struct MermaidParseTree<'a> {
     parse_tree: &'a ParseTree<'a>,
 }
 
-impl<'a> MermaidParseTree<'a> {
+impl MermaidParseTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, count: &mut usize) -> fmt::Result {
         if *count == 0 {
             writeln!(f, "flowchart TD")?;
@@ -198,7 +198,7 @@ impl<'a> MermaidParseTree<'a> {
     }
 }
 
-impl<'a> fmt::Display for MermaidParseTree<'a> {
+impl fmt::Display for MermaidParseTree<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut count = 0usize;
         self.fmt(f, &mut count)

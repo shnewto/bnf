@@ -18,12 +18,12 @@ pub fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, nt) = delimited(
         complete::char('<'),
         take_until(">"),
-        terminated(complete::char('>'), complete::multispace0),
+        complete::char('>'),
     )(input)?;
 
     let (input, _) = preceded(
         complete::multispace0,
-        terminated(tag("::="), complete::multispace0),
+        tag("::="),
     )(input)?;
 
     Ok((input, Term::Nonterminal(nt.to_string())))
@@ -53,10 +53,7 @@ pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         terminated(complete::char('>'), complete::multispace0),
     ))(input)?;
 
-    let (input, _) = preceded(
-        complete::multispace0,
-        not(complete(terminated(tag("::="), complete::multispace0))),
-    )(input)?;
+    not(complete(tag("::=")))(input)?;
 
     Ok((input, Term::Nonterminal(nt.to_string())))
 }
@@ -79,26 +76,24 @@ pub fn expression_next(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
         terminated(complete::char('|'), complete::multispace0),
     )(input)?;
 
-    let (input, e) = recognize(peek(complete(expression)))(input)?;
+    let (input, _) = peek(complete(expression))(input)?;
 
-    Ok((input, e))
+    Ok((input, ""))
 }
 
 pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, _) = peek(term)(input)?;
 
     let (input, terms) = many1(complete(term))(input)?;
-    let (input, _) = preceded(
+    let (input, _) = delimited(
         complete::multispace0,
-        terminated(
-            alt((
-                recognize(peek(complete(eof))),
-                recognize(peek(complete(complete::char(';')))),
-                expression_next,
-                recognize(peek(complete(prod_lhs))),
-            )),
-            complete::multispace0,
-        ),
+        alt((
+            peek(complete(eof)),
+            recognize(peek(complete::char(';'))),
+            expression_next,
+            recognize(peek(complete(prod_lhs))),
+        )),
+        complete::multispace0,
     )(input)?;
 
     Ok((input, Expression::from_parts(terms)))
@@ -111,21 +106,19 @@ pub fn expression_complete(input: &str) -> IResult<&str, Expression, VerboseErro
 }
 
 pub fn production(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, lhs) = preceded(
+    let (input, lhs) = delimited(
         complete::multispace0,
-        terminated(prod_lhs, complete::multispace0),
+        prod_lhs,
+        complete::multispace0,
     )(input)?;
     let (input, rhs) = many1(complete(expression))(input)?;
     let (input, _) = preceded(
         complete::multispace0,
-        terminated(
-            alt((
-                recognize(peek(complete(eof))),
-                tag(";"),
-                recognize(peek(complete(prod_lhs))),
-            )),
-            complete::multispace0,
-        ),
+        alt((
+            recognize(peek(complete(eof))),
+            tag(";"),
+            recognize(peek(complete(prod_lhs))),
+        )),
     )(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))
@@ -139,7 +132,7 @@ pub fn production_complete(input: &str) -> IResult<&str, Production, VerboseErro
 
 pub fn grammar(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
     let (input, _) = peek(production)(input)?;
-    let (input, prods) = many1(complete(production))(input)?;
+    let (input, prods) = many1(complete(production))(input.trim_end())?;
 
     Ok((input, Grammar::from_parts(prods)))
 }

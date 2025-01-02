@@ -15,15 +15,12 @@ pub struct ABNF;
 impl Format for ABNF {
     fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         let (input, nt) = take_till(char::is_whitespace)(input)?;
-    
-        let (input, _) = preceded(
-            complete::multispace0,
-            complete::char('='),
-        )(input)?;
-    
+
+        let (input, _) = preceded(complete::multispace0, complete::char('='))(input)?;
+
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
-    
+
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         not(complete::char('\''))(input)?;
         not(complete::char('\"'))(input)?;
@@ -33,9 +30,9 @@ impl Format for ABNF {
             complete::multispace0,
         ))(input)?;
         take(1_usize)(nt)?;
-    
+
         not(complete(tag("=")))(input)?;
-    
+
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 }
@@ -45,10 +42,10 @@ mod tests {
     use super::ABNF;
     use crate::parsers::*;
 
-    use crate::term::Term;
     use crate::expression::Expression;
     use crate::grammar::Grammar;
     use crate::production::Production;
+    use crate::term::Term;
 
     fn construct_nonterminal_tuple() -> (Term, String) {
         let nonterminal_pattern = "nonterminal-pattern";

@@ -17,24 +17,18 @@ use nom::{
 pub trait Format {
     fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
 
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>>;    
+    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
 }
 
 pub struct BNF;
 
 impl Format for BNF {
     fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        let (input, nt) = delimited(
-            complete::char('<'),
-            take_until(">"),
-            complete::char('>'),
-        )(input)?;
-    
-        let (input, _) = preceded(
-            complete::multispace0,
-            tag("::="),
-        )(input)?;
-    
+        let (input, nt) =
+            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
+
+        let (input, _) = preceded(complete::multispace0, tag("::="))(input)?;
+
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 
@@ -44,9 +38,9 @@ impl Format for BNF {
             take_until(">"),
             terminated(complete::char('>'), complete::multispace0),
         ))(input)?;
-    
+
         not(complete(tag("::=")))(input)?;
-    
+
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 }
@@ -82,7 +76,7 @@ pub fn term_complete<F: Format>(input: &str) -> IResult<&str, Term, VerboseError
 pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let (input, _) = delimited(
         complete::multispace0,
-        complete::char('|'), 
+        complete::char('|'),
         complete::multispace0,
     )(input)?;
 
@@ -109,18 +103,16 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn expression_complete<F: Format>(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
+pub fn expression_complete<F: Format>(
+    input: &str,
+) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, e) = all_consuming(expression::<F>)(input)?;
 
     Ok((input, e))
 }
 
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, lhs) = delimited(
-        complete::multispace0,
-        F::prod_lhs,
-        complete::multispace0,
-    )(input)?;
+    let (input, lhs) = delimited(complete::multispace0, F::prod_lhs, complete::multispace0)(input)?;
     let (input, rhs) = many1(complete(expression::<F>))(input)?;
     let (input, _) = preceded(
         complete::multispace0,
@@ -134,7 +126,9 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseEr
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
-pub fn production_complete<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
+pub fn production_complete<F: Format>(
+    input: &str,
+) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, p) = all_consuming(production::<F>)(input)?;
 
     Ok((input, p))

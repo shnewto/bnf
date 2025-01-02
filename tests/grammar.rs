@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use bnf::{Grammar, BNF, ABNF};
+use bnf::{Grammar, ABNF, BNF};
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use rand::{rngs::StdRng, SeedableRng};
 

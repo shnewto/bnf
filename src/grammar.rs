@@ -232,7 +232,7 @@ impl Grammar {
     pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
         match parsers::grammar_complete::<F>(input) {
             Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e))
+            Result::Err(e) => Err(Error::from(e)),
         }
     }
 

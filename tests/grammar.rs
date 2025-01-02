@@ -1,6 +1,6 @@
 #![cfg(test)]
 
-use bnf::{Grammar, ABNF, BNF};
+use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use rand::{rngs::StdRng, SeedableRng};
 
@@ -17,10 +17,10 @@ const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/abnf.abnf");
 impl Arbitrary for Meta {
     fn arbitrary(gen: &mut Gen) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
-        let grammar_bnf: Result<Grammar, _> = Grammar::parse_from::<BNF>(BNF_FOR_BNF);
+        let grammar_bnf: Result<Grammar, _> = BNF_FOR_BNF.parse();
         assert!(grammar_bnf.is_ok(), "{grammar_bnf:?} should be Ok");
 
-        let grammar_abnf: Result<Grammar, _> = Grammar::parse_from::<ABNF>(ABNF_FOR_BNF);
+        let grammar_abnf: Result<Grammar, _> = ABNF_FOR_BNF.parse();
         assert!(grammar_abnf.is_ok(), "{grammar_abnf:?} should be Ok");
 
         assert_eq!(grammar_bnf, grammar_abnf);

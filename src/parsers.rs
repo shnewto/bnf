@@ -14,25 +14,41 @@ use nom::{
     IResult,
 };
 
-#[derive(Clone)]
-pub enum Format {
-    BNF,
-    ABNF,
+pub trait Format {
+    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
+
+    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>>;    
 }
 
-pub fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, nt) = delimited(
-        complete::char('<'),
-        take_until(">"),
-        complete::char('>'),
-    )(input)?;
+pub struct BNF;
 
-    let (input, _) = preceded(
-        complete::multispace0,
-        tag("::="),
-    )(input)?;
+impl Format for BNF {
+    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+        let (input, nt) = delimited(
+            complete::char('<'),
+            take_until(">"),
+            complete::char('>'),
+        )(input)?;
+    
+        let (input, _) = preceded(
+            complete::multispace0,
+            tag("::="),
+        )(input)?;
+    
+        Ok((input, Term::Nonterminal(nt.to_string())))
+    }
 
-    Ok((input, Term::Nonterminal(nt.to_string())))
+    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+        let (input, nt) = complete(delimited(
+            complete::char('<'),
+            take_until(">"),
+            terminated(complete::char('>'), complete::multispace0),
+        ))(input)?;
+    
+        not(complete(tag("::=")))(input)?;
+    
+        Ok((input, Term::Nonterminal(nt.to_string())))
+    }
 }
 
 pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
@@ -52,52 +68,40 @@ pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     Ok((input, Term::Terminal(t.to_string())))
 }
 
-pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, nt) = complete(delimited(
-        complete::char('<'),
-        take_until(">"),
-        terminated(complete::char('>'), complete::multispace0),
-    ))(input)?;
-
-    not(complete(tag("::=")))(input)?;
-
-    Ok((input, Term::Nonterminal(nt.to_string())))
-}
-
-pub fn term(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = alt((terminal, nonterminal))(input)?;
+pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    let (input, t) = alt((terminal, F::nonterminal))(input)?;
     Ok((input, t))
 }
 
-pub fn term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = all_consuming(term)(input)?;
+pub fn term_complete<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    let (input, t) = all_consuming(term::<F>)(input)?;
 
     Ok((input, t))
 }
 
-pub fn expression_next(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
+pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let (input, _) = delimited(
         complete::multispace0,
         complete::char('|'), 
         complete::multispace0,
     )(input)?;
 
-    peek(complete(expression))(input)?;
+    peek(complete(expression::<F>))(input)?;
 
     Ok((input, ""))
 }
 
-pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, _) = peek(term)(input)?;
+pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
+    let (input, _) = peek(term::<F>)(input)?;
 
-    let (input, terms) = many1(complete(term))(input)?;
+    let (input, terms) = many1(complete(term::<F>))(input)?;
     let (input, _) = delimited(
         complete::multispace0,
         alt((
             peek(complete(eof)),
             recognize(peek(complete::char(';'))),
-            expression_next,
-            recognize(peek(complete(prod_lhs))),
+            expression_next::<F>,
+            recognize(peek(complete(F::prod_lhs))),
         )),
         complete::multispace0,
     )(input)?;
@@ -105,46 +109,46 @@ pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> 
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn expression_complete(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, e) = all_consuming(expression)(input)?;
+pub fn expression_complete<F: Format>(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
+    let (input, e) = all_consuming(expression::<F>)(input)?;
 
     Ok((input, e))
 }
 
-pub fn production(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
+pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, lhs) = delimited(
         complete::multispace0,
-        prod_lhs,
+        F::prod_lhs,
         complete::multispace0,
     )(input)?;
-    let (input, rhs) = many1(complete(expression))(input)?;
+    let (input, rhs) = many1(complete(expression::<F>))(input)?;
     let (input, _) = preceded(
         complete::multispace0,
         alt((
             recognize(peek(complete(eof))),
             tag(";"),
-            recognize(peek(complete(prod_lhs))),
+            recognize(peek(complete(F::prod_lhs))),
         )),
     )(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
-pub fn production_complete(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, p) = all_consuming(production)(input)?;
+pub fn production_complete<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
+    let (input, p) = all_consuming(production::<F>)(input)?;
 
     Ok((input, p))
 }
 
-pub fn grammar(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, _) = peek(production)(input)?;
-    let (input, prods) = many1(complete(production))(input.trim_end())?;
+pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
+    let (input, _) = peek(production::<F>)(input)?;
+    let (input, prods) = many1(complete(production::<F>))(input.trim_end())?;
 
     Ok((input, Grammar::from_parts(prods)))
 }
 
-pub fn grammar_complete(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, g) = all_consuming(grammar)(input)?;
+pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
+    let (input, g) = all_consuming(grammar::<F>)(input)?;
 
     Ok((input, g))
 }
@@ -183,7 +187,7 @@ pub mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         assert_eq!(
             nonterminal_tuple.0,
-            nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
+            BNF::nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -201,7 +205,7 @@ pub mod tests {
         let expression_tuple = construct_expression_tuple();
         assert_eq!(
             expression_tuple.0,
-            expression(expression_tuple.1.as_str()).unwrap().1
+            expression::<BNF>(expression_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -225,7 +229,7 @@ pub mod tests {
     #[test]
     fn production_match() {
         let production_tuple = construct_production_tuple();
-        let parsed = production(production_tuple.1.as_str());
+        let parsed = production::<BNF>(production_tuple.1.as_str());
         assert_eq!(production_tuple.0, parsed.unwrap().1);
     }
 
@@ -245,7 +249,7 @@ pub mod tests {
         let grammar_tuple = construct_grammar_tuple();
         assert_eq!(
             grammar_tuple.0,
-            grammar(grammar_tuple.1.as_str()).unwrap().1
+            grammar::<BNF>(grammar_tuple.1.as_str()).unwrap().1
         );
     }
 }

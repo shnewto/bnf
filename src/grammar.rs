@@ -1,12 +1,10 @@
 #![allow(clippy::vec_init_then_push)]
 
-use crate::augmented;
 use crate::error::Error;
 use crate::expression::Expression;
-use crate::parsers;
+use crate::parsers::{self, Format, BNF};
 use crate::production::Production;
 use crate::term::Term;
-use crate::Format;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 
 #[cfg(feature = "serde")]
@@ -231,16 +229,10 @@ impl Grammar {
 
     /// parse a grammar given a format
 
-    pub fn parse_from(input: &str, f: Format) -> Result<Self, self::Error> {
-        match f {
-            Format::BNF => match parsers::grammar_complete(input) {
-                    Result::Ok((_, o)) => Ok(o),
-                    Result::Err(e) => Err(Error::from(e)),
-            },
-            Format::ABNF => match augmented::grammar_complete(input) {
-                    Result::Ok((_, o)) => Ok(o),
-                    Result::Err(e) => Err(Error::from(e)),
-            },
+    pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
+        match parsers::grammar_complete::<F>(input) {
+            Result::Ok((_, o)) => Ok(o),
+            Result::Err(e) => Err(Error::from(e))
         }
     }
 
@@ -511,7 +503,7 @@ impl str::FromStr for Grammar {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::grammar_complete(s) {
+        match parsers::grammar_complete::<BNF>(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

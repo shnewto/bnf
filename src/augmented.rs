@@ -1,153 +1,50 @@
-use crate::expression::Expression;
-use crate::grammar::Grammar;
-use crate::production::Production;
+use crate::parsers::Format;
 use crate::term::Term;
-use crate::augmented;
 
 use nom::{
-    branch::alt,
-    bytes::complete::{tag, take, take_until, take_till},
+    bytes::complete::{tag, take, take_till},
     character::complete,
-    combinator::{all_consuming, complete, eof, not, peek, recognize},
+    combinator::{complete, not},
     error::VerboseError,
-    multi::many1,
-    sequence::{delimited, preceded, terminated},
+    sequence::{preceded, terminated},
     IResult,
 };
 
-pub fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, nt) = take_till(char::is_whitespace)(input)?;
+pub struct ABNF;
 
-    let (input, _) = preceded(
-        complete::multispace0,
-        complete::char('='),
-    )(input)?;
-
-    Ok((input, Term::Nonterminal(nt.to_string())))
-}
-
-pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    not(complete::char('\''))(input)?;
-    not(complete::char('\"'))(input)?;
-    not(complete::char('|'))(input)?;
-    let (input, nt) = complete(terminated(
-        take_till(char::is_whitespace),
-        complete::multispace0,
-    ))(input)?;
-    take(1_usize)(nt)?;
-
-    not(complete(tag("=")))(input)?;
-
-    Ok((input, Term::Nonterminal(nt.to_string())))
-}
-
-pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = alt((
-        delimited(
-            complete::char('"'),
-            take_until("\""),
-            terminated(complete::char('"'), complete::multispace0),
-        ),
-        delimited(
-            complete::char('\''),
-            take_until("'"),
-            terminated(complete::char('\''), complete::multispace0),
-        ),
-    ))(input)?;
-
-    Ok((input, Term::Terminal(t.to_string())))
-}
-
-pub fn term(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = alt((terminal, augmented::nonterminal))(input)?;
-    Ok((input, t))
-}
-
-pub fn _term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = all_consuming(term)(input)?;
-
-    Ok((input, t))
-}
-
-pub fn expression_next(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    let (input, _) = delimited(
-        complete::multispace0,
-        complete::char('|'), 
-        complete::multispace0,
-    )(input)?;
-
-    peek(complete(expression))(input)?;
-
-    Ok((input, ""))
-}
-
-pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, _) = peek(term)(input)?;
-
-    let (input, terms) = many1(complete(term))(input)?;
-    let (input, _) = delimited(
-        complete::multispace0,
-        alt((
-            peek(complete(eof)),
-            recognize(peek(complete::char(';'))),
-            expression_next,
-            recognize(peek(complete(prod_lhs))),
-        )),
-        complete::multispace0,
-    )(input)?;
-
-    Ok((input, Expression::from_parts(terms)))
-}
-
-pub fn _expression_complete(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, e) = all_consuming(expression)(input)?;
-
-    Ok((input, e))
-}
-
-pub fn production(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, lhs) = delimited(
-        complete::multispace0,
-        prod_lhs,
-        complete::multispace0,
-    )(input)?;
-    let (input, rhs) = many1(complete(expression))(input)?;
-    let (input, _) = preceded(
-        complete::multispace0,
-        alt((
-            recognize(peek(complete(eof))),
-            tag(";"),
-            recognize(peek(complete(prod_lhs))),
-        )),
-    )(input)?;
-
-    Ok((input, Production::from_parts(lhs, rhs)))
-}
-
-pub fn _production_complete(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, p) = all_consuming(production)(input)?;
-
-    Ok((input, p))
-}
-
-pub fn grammar(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, _) = peek(production)(input)?;
-    let (input, prods) = many1(complete(production))(input.trim_end())?;
-
-    Ok((input, Grammar::from_parts(prods)))
-}
-
-pub fn grammar_complete(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, g) = all_consuming(grammar)(input)?;
-
-    Ok((input, g))
+impl Format for ABNF {
+    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+        let (input, nt) = take_till(char::is_whitespace)(input)?;
+    
+        let (input, _) = preceded(
+            complete::multispace0,
+            complete::char('='),
+        )(input)?;
+    
+        Ok((input, Term::Nonterminal(nt.to_string())))
+    }
+    
+    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+        not(complete::char('\''))(input)?;
+        not(complete::char('\"'))(input)?;
+        not(complete::char('|'))(input)?;
+        let (input, nt) = complete(terminated(
+            take_till(char::is_whitespace),
+            complete::multispace0,
+        ))(input)?;
+        take(1_usize)(nt)?;
+    
+        not(complete(tag("=")))(input)?;
+    
+        Ok((input, Term::Nonterminal(nt.to_string())))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::ABNF;
+    use crate::parsers::*;
 
-    use crate::parsers;
     use crate::term::Term;
     use crate::expression::Expression;
     use crate::grammar::Grammar;
@@ -166,13 +63,13 @@ mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         assert_eq!(
             nonterminal_tuple.0,
-            super::nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
+            ABNF::nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
         );
     }
 
     fn construct_expression_tuple() -> (Expression, String) {
         let nonterminal_tuple = construct_nonterminal_tuple();
-        let terminal_tuple = parsers::tests::construct_terminal_tuple();
+        let terminal_tuple = tests::construct_terminal_tuple();
         let expression_pattern = nonterminal_tuple.1 + " " + terminal_tuple.1.as_str();
         let expression_object = Expression::from_parts(vec![nonterminal_tuple.0, terminal_tuple.0]);
 
@@ -184,7 +81,7 @@ mod tests {
         let expression_tuple = construct_expression_tuple();
         assert_eq!(
             expression_tuple.0,
-            expression(expression_tuple.1.as_str()).unwrap().1
+            expression::<ABNF>(expression_tuple.1.as_str()).unwrap().1
         );
     }
 
@@ -208,7 +105,7 @@ mod tests {
     #[test]
     fn production_match() {
         let production_tuple = construct_production_tuple();
-        let parsed = production(production_tuple.1.as_str());
+        let parsed = production::<ABNF>(production_tuple.1.as_str());
         assert_eq!(production_tuple.0, parsed.unwrap().1);
     }
 
@@ -228,7 +125,7 @@ mod tests {
         let grammar_tuple = construct_grammar_tuple();
         assert_eq!(
             grammar_tuple.0,
-            grammar(grammar_tuple.1.as_str()).unwrap().1
+            grammar::<ABNF>(grammar_tuple.1.as_str()).unwrap().1
         );
     }
 }

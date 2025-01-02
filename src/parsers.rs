@@ -20,6 +20,7 @@ pub trait Format {
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
 }
 
+#[non_exhaustive]
 pub struct BNF;
 
 impl Format for BNF {

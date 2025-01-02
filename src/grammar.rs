@@ -228,7 +228,6 @@ impl Grammar {
     }
 
     /// parse a grammar given a format
-
     pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
         match parsers::grammar_complete::<F>(input) {
             Result::Ok((_, o)) => Ok(o),

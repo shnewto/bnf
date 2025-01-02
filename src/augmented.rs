@@ -10,6 +10,7 @@ use nom::{
     IResult,
 };
 
+#[non_exhaustive]
 pub struct ABNF;
 
 impl Format for ABNF {

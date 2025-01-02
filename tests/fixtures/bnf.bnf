@@ -6,11 +6,12 @@
 <expression>     ::= <list> | <list> <opt-whitespace> "|"
                      <opt-whitespace> <expression>
 <line-end>       ::= <opt-whitespace> <EOL>
+;that's just how it goes
 <list>           ::= <term> | <term> <opt-whitespace> <list>
 <term>           ::= <literal> | "<" <rule-name> ">"
 <literal>        ::= '"' <text1> '"' | "'" <text2> "'"
 <text1>          ::= "" | <character1> <text1>
-<text2>          ::= "" | <character2> <text2>
+<text2>          ::= "" | <character2> <text2> ;random comment
 <character>      ::= <letter> | <digit> | <symbol>
 <letter>         ::= "A" | "B" | "C" | "D" | "E" | "F"
                     | "G" | "H" | "I" | "J" | "K" | "L"
@@ -35,3 +36,4 @@
 <rule-char>      ::= <letter> | <digit> | "-"
 <EOL>            ::= "
 "
+;last thing, i promise...

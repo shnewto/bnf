@@ -26,6 +26,7 @@ impl Format for ABNF {
         not(complete::char('\''))(input)?;
         not(complete::char('\"'))(input)?;
         not(complete::char('|'))(input)?;
+        not(complete::char(';'))(input)?;
         let (input, nt) = complete(terminated(
             take_till(char::is_whitespace),
             complete::multispace0,

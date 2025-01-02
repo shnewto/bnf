@@ -1,10 +1,12 @@
 #![allow(clippy::vec_init_then_push)]
 
+use crate::augmented;
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers;
 use crate::production::Production;
 use crate::term::Term;
+use crate::Format;
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 
 #[cfg(feature = "serde")]
@@ -225,6 +227,21 @@ impl Grammar {
     #[must_use]
     pub const fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
+    }
+
+    /// parse a grammar given a format
+
+    pub fn parse_from(input: &str, f: Format) -> Result<Self, self::Error> {
+        match f {
+            Format::BNF => match parsers::grammar_complete(input) {
+                    Result::Ok((_, o)) => Ok(o),
+                    Result::Err(e) => Err(Error::from(e)),
+            },
+            Format::ABNF => match augmented::grammar_complete(input) {
+                    Result::Ok((_, o)) => Ok(o),
+                    Result::Err(e) => Err(Error::from(e)),
+            },
+        }
     }
 
     /// Add `Production` to the `Grammar`

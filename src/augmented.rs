@@ -2,10 +2,11 @@ use crate::expression::Expression;
 use crate::grammar::Grammar;
 use crate::production::Production;
 use crate::term::Term;
+use crate::augmented;
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_until},
+    bytes::complete::{tag, take, take_until, take_till},
     character::complete,
     combinator::{all_consuming, complete, eof, not, peek, recognize},
     error::VerboseError,
@@ -14,23 +15,28 @@ use nom::{
     IResult,
 };
 
-#[derive(Clone)]
-pub enum Format {
-    BNF,
-    ABNF,
-}
-
 pub fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, nt) = delimited(
-        complete::char('<'),
-        take_until(">"),
-        complete::char('>'),
-    )(input)?;
+    let (input, nt) = take_till(char::is_whitespace)(input)?;
 
     let (input, _) = preceded(
         complete::multispace0,
-        tag("::="),
+        complete::char('='),
     )(input)?;
+
+    Ok((input, Term::Nonterminal(nt.to_string())))
+}
+
+pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    not(complete::char('\''))(input)?;
+    not(complete::char('\"'))(input)?;
+    not(complete::char('|'))(input)?;
+    let (input, nt) = complete(terminated(
+        take_till(char::is_whitespace),
+        complete::multispace0,
+    ))(input)?;
+    take(1_usize)(nt)?;
+
+    not(complete(tag("=")))(input)?;
 
     Ok((input, Term::Nonterminal(nt.to_string())))
 }
@@ -52,24 +58,12 @@ pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     Ok((input, Term::Terminal(t.to_string())))
 }
 
-pub fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, nt) = complete(delimited(
-        complete::char('<'),
-        take_until(">"),
-        terminated(complete::char('>'), complete::multispace0),
-    ))(input)?;
-
-    not(complete(tag("::=")))(input)?;
-
-    Ok((input, Term::Nonterminal(nt.to_string())))
-}
-
 pub fn term(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = alt((terminal, nonterminal))(input)?;
+    let (input, t) = alt((terminal, augmented::nonterminal))(input)?;
     Ok((input, t))
 }
 
-pub fn term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+pub fn _term_complete(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = all_consuming(term)(input)?;
 
     Ok((input, t))
@@ -105,7 +99,7 @@ pub fn expression(input: &str) -> IResult<&str, Expression, VerboseError<&str>> 
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn expression_complete(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
+pub fn _expression_complete(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, e) = all_consuming(expression)(input)?;
 
     Ok((input, e))
@@ -130,7 +124,7 @@ pub fn production(input: &str) -> IResult<&str, Production, VerboseError<&str>> 
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
-pub fn production_complete(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
+pub fn _production_complete(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, p) = all_consuming(production)(input)?;
 
     Ok((input, p))
@@ -150,28 +144,17 @@ pub fn grammar_complete(input: &str) -> IResult<&str, Grammar, VerboseError<&str
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
-    pub fn construct_terminal_tuple() -> (Term, String) {
-        let terminal_pattern = "\"terminal pattern\"";
-        let terminal_value = "terminal pattern";
-        let terminal_object = Term::Terminal(terminal_value.to_string());
-
-        (terminal_object, terminal_pattern.to_string())
-    }
-
-    #[test]
-    fn terminal_match() {
-        let terminal_tuple = construct_terminal_tuple();
-        assert_eq!(
-            terminal_tuple.0,
-            terminal(terminal_tuple.1.as_str()).unwrap().1
-        );
-    }
+    use crate::parsers;
+    use crate::term::Term;
+    use crate::expression::Expression;
+    use crate::grammar::Grammar;
+    use crate::production::Production;
 
     fn construct_nonterminal_tuple() -> (Term, String) {
-        let nonterminal_pattern = "<nonterminal-pattern>";
+        let nonterminal_pattern = "nonterminal-pattern";
         let nonterminal_value = "nonterminal-pattern";
         let nonterminal_object = Term::Nonterminal(nonterminal_value.to_string());
 
@@ -183,14 +166,14 @@ pub mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         assert_eq!(
             nonterminal_tuple.0,
-            nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
+            super::nonterminal(nonterminal_tuple.1.as_str()).unwrap().1
         );
     }
 
     fn construct_expression_tuple() -> (Expression, String) {
         let nonterminal_tuple = construct_nonterminal_tuple();
-        let terminal_tuple = construct_terminal_tuple();
-        let expression_pattern = nonterminal_tuple.1 + terminal_tuple.1.as_str();
+        let terminal_tuple = parsers::tests::construct_terminal_tuple();
+        let expression_pattern = nonterminal_tuple.1 + " " + terminal_tuple.1.as_str();
         let expression_object = Expression::from_parts(vec![nonterminal_tuple.0, terminal_tuple.0]);
 
         (expression_object, expression_pattern)
@@ -210,7 +193,7 @@ pub mod tests {
         let nonterminal_tuple = construct_nonterminal_tuple();
         let terminal_tuple = construct_nonterminal_tuple();
         let production_pattern =
-            nonterminal_tuple.1 + "::=" + &expression_tuple.1 + "|" + &terminal_tuple.1 + ";";
+            nonterminal_tuple.1 + " = " + &expression_tuple.1 + " | " + &terminal_tuple.1;
         let production_object = Production::from_parts(
             nonterminal_tuple.0,
             vec![
@@ -231,7 +214,7 @@ pub mod tests {
 
     fn construct_grammar_tuple() -> (Grammar, String) {
         let production_tuple = construct_production_tuple();
-        let grammar_pattern = production_tuple.1.clone() + &production_tuple.1;
+        let grammar_pattern = production_tuple.1.clone() + " " + &production_tuple.1;
         let grammar_object = Grammar::from_parts(vec![
             construct_production_tuple().0,
             construct_production_tuple().0,

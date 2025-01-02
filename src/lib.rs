@@ -6,6 +6,7 @@ mod error;
 mod expression;
 mod grammar;
 mod parsers;
+mod augmented;
 mod production;
 mod term;
 mod tracing;
@@ -14,5 +15,7 @@ pub use crate::expression::Expression;
 pub use crate::grammar::{Grammar, ParseTree, ParseTreeNode};
 pub use crate::production::Production;
 pub use crate::term::Term;
+
+pub use parsers::Format;
 
 pub(crate) use hashbrown::HashMap;

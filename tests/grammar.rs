@@ -12,13 +12,21 @@ struct Meta {
 // Modified version of BNF for BNF from
 // https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Further_examples
 const BNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.bnf");
+const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/abnf.abnf");
 
 impl Arbitrary for Meta {
     fn arbitrary(gen: &mut Gen) -> Meta {
         // Generate Grammar object from grammar for BNF grammars
-        let grammar: Result<Grammar, _> = BNF_FOR_BNF.parse();
-        assert!(grammar.is_ok(), "{grammar:?} should be Ok");
+        let grammar_bnf: Result<Grammar, _> = BNF_FOR_BNF.parse();
+        assert!(grammar_bnf.is_ok(), "{grammar_bnf:?} should be Ok");
 
+        #[cfg(feature = "ABNF")]
+        {
+            let grammar_abnf: Result<Grammar, _> = ABNF_FOR_BNF.parse();
+            assert!(grammar_abnf.is_ok(), "{grammar_abnf:?} should be Ok");
+
+            assert_eq!(grammar_bnf, grammar_abnf);
+        }
         // generate a random valid grammar from the above
         // using an arbitrary seed
         let seed: [u8; 32] = {
@@ -32,7 +40,7 @@ impl Arbitrary for Meta {
         };
 
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let sentence = grammar.unwrap().generate_seeded(&mut rng);
+        let sentence = grammar_bnf.unwrap().generate_seeded(&mut rng);
 
         match sentence {
             Err(e) => {

@@ -20,11 +20,13 @@ impl Arbitrary for Meta {
         let grammar_bnf: Result<Grammar, _> = BNF_FOR_BNF.parse();
         assert!(grammar_bnf.is_ok(), "{grammar_bnf:?} should be Ok");
 
-        let grammar_abnf: Result<Grammar, _> = ABNF_FOR_BNF.parse();
-        assert!(grammar_abnf.is_ok(), "{grammar_abnf:?} should be Ok");
+        #[cfg(feature = "ABNF")]
+        {
+            let grammar_abnf: Result<Grammar, _> = ABNF_FOR_BNF.parse();
+            assert!(grammar_abnf.is_ok(), "{grammar_abnf:?} should be Ok");
 
-        assert_eq!(grammar_bnf, grammar_abnf);
-
+            assert_eq!(grammar_bnf, grammar_abnf);
+        }
         // generate a random valid grammar from the above
         // using an arbitrary seed
         let seed: [u8; 32] = {

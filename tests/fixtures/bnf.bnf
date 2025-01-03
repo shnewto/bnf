@@ -1,3 +1,5 @@
+;autodetection of grammar accounts for comments!(sic)
+
 <syntax>         ::= <rule> | <rule> <syntax>
 <rule>           ::= <opt-whitespace> "<" <rule-name> ">"
                      <opt-whitespace> "::=" <opt-whitespace>

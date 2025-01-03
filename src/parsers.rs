@@ -6,7 +6,7 @@ use crate::term::Term;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_till, take_until},
-    character::complete,
+    character::complete::{self, multispace0},
     combinator::{all_consuming, complete, eof, not, peek, recognize},
     error::VerboseError,
     multi::{many0, many1},
@@ -70,6 +70,16 @@ pub fn comment(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     )(input)?;
     not(complete::char(';'))(input)?;
     Ok((input, comment))
+}
+
+pub fn is_format_standard_bnf(input: &str) -> bool {
+    match terminated(many0(preceded(multispace0, comment)), multispace0)(input) {
+        Ok(tuple) => {
+            let (input, _) = tuple;
+            complete::char::<&str, VerboseError<&str>>('<')(input).is_ok()
+        }
+        Err(_) => unreachable!("this pattern should always match"),
+    }
 }
 
 pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {

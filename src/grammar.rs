@@ -7,10 +7,6 @@ use crate::production::Production;
 use crate::term::Term;
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
-#[cfg(feature = "ABNF")]
-use nom::{
-    bytes::complete::tag, character::complete::multispace0, error::VerboseError, sequence::preceded,
-};
 use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 
 #[cfg(feature = "serde")]
@@ -504,27 +500,17 @@ impl fmt::Display for Grammar {
     }
 }
 
-#[cfg(feature = "ABNF")]
-enum DetectedFormat {
-    Bnf,
-    Abnf,
-}
-
 impl str::FromStr for Grammar {
     type Err = Error;
     #[cfg(feature = "ABNF")]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        //try and autodetect the format
-        let format = match preceded(multispace0::<&str, VerboseError<&str>>, tag("<"))(s) {
-            Ok(_) => DetectedFormat::Bnf,
-            Err(_) => DetectedFormat::Abnf,
-        };
-        match format {
-            DetectedFormat::Bnf => match parsers::grammar_complete::<BNF>(s) {
+        //try and autodetect the format (in the feature we'll use a detector that returns an enum, hence the gratuitous switch case)
+        match parsers::is_format_standard_bnf(s) {
+            true => match parsers::grammar_complete::<BNF>(s) {
                 Result::Ok((_, o)) => Ok(o),
                 Result::Err(e) => Err(Error::from(e)),
             },
-            DetectedFormat::Abnf => match parsers::grammar_complete::<ABNF>(s) {
+            false => match parsers::grammar_complete::<ABNF>(s) {
                 Result::Ok((_, o)) => Ok(o),
                 Result::Err(e) => Err(Error::from(e)),
             },

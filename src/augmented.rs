@@ -3,7 +3,7 @@ use crate::term::Term;
 
 use nom::{
     bytes::complete::{tag, take, take_till},
-    character::complete,
+    character::complete::{self, satisfy},
     combinator::{complete, not},
     error::VerboseError,
     sequence::{preceded, terminated},
@@ -23,10 +23,7 @@ impl Format for ABNF {
     }
 
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        not(complete::char('\''))(input)?;
-        not(complete::char('\"'))(input)?;
-        not(complete::char('|'))(input)?;
-        not(complete::char(';'))(input)?;
+        satisfy(|c: char| c.is_alphanumeric() || c == '_')(input)?;
         let (input, nt) = complete(terminated(
             take_till(char::is_whitespace),
             complete::multispace0,

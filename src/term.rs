@@ -2,7 +2,7 @@
 
 use crate::error::Error;
 use crate::expression::Expression;
-use crate::parsers;
+use crate::parsers::{self, BNF};
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
@@ -42,7 +42,7 @@ macro_rules! term {
 impl FromStr for Term {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::term_complete(s) {
+        match parsers::term_complete::<BNF>(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

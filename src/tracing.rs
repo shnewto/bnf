@@ -16,7 +16,7 @@ mod defs {
     pub struct Span {}
 
     impl Span {
-        pub fn entered(&self) -> Self {
+        pub const fn entered(&self) -> Self {
             Self {}
         }
     }
@@ -42,7 +42,7 @@ mod defs {
     pub(crate) use event;
 
     #[allow(dead_code)]
-    pub fn init_subscriber() {}
+    pub const fn init_subscriber() {}
 }
 
 pub(crate) use defs::*;

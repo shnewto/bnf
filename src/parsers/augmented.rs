@@ -2,13 +2,14 @@ use crate::parsers::Format;
 use crate::term::Term;
 
 use nom::{
-    bytes::complete::{tag, take, take_till},
+    bytes::complete::{tag, take_till},
     character::complete::{self, satisfy},
     combinator::{complete, not},
     error::VerboseError,
-    sequence::{preceded, terminated},
     IResult,
 };
+
+use super::whitespace_plus_comments;
 
 #[non_exhaustive]
 pub struct ABNF;
@@ -17,19 +18,19 @@ impl Format for ABNF {
     fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         let (input, nt) = take_till(char::is_whitespace)(input)?;
 
-        let (input, _) = preceded(complete::multispace0, complete::char('='))(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
+        let (input, _) = complete::char('=')(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
 
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         satisfy(|c: char| c.is_alphanumeric() || c == '_')(input)?;
-        let (input, nt) = complete(terminated(
-            take_till(char::is_whitespace),
-            complete::multispace0,
-        ))(input)?;
-        take(1_usize)(nt)?;
+        let (input, nt) = take_till(char::is_whitespace)(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
 
+        //if this is the lefhandside of an expression then prod_lhs() should parse this
         not(complete(tag("=")))(input)?;
 
         Ok((input, Term::Nonterminal(nt.to_string())))

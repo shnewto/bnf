@@ -1,4 +1,4 @@
-use super::Format;
+use super::{whitespace_plus_comments, Format};
 
 use crate::term::Term;
 
@@ -7,7 +7,7 @@ use nom::{
     character::complete,
     combinator::{complete, not},
     error::VerboseError,
-    sequence::{delimited, preceded, terminated},
+    sequence::delimited,
     IResult,
 };
 
@@ -18,19 +18,19 @@ impl Format for BNF {
     fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
         let (input, nt) =
             delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
-
-        let (input, _) = preceded(complete::multispace0, tag("::="))(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
+        let (input, _) = tag("::=")(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
 
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        let (input, nt) = complete(delimited(
-            complete::char('<'),
-            take_until(">"),
-            terminated(complete::char('>'), complete::multispace0),
-        ))(input)?;
+        let (input, nt) =
+            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
+        let (input, _) = whitespace_plus_comments(input).unwrap();
 
+        //if this is the lefhandside of an expression then prod_lhs() should parse this
         not(complete(tag("::=")))(input)?;
 
         Ok((input, Term::Nonterminal(nt.to_string())))

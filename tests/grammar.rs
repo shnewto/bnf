@@ -3,10 +3,29 @@
 use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 use rand::{rngs::StdRng, SeedableRng};
+use std::sync::LazyLock;
 
 #[derive(PartialEq, Debug, Clone)]
-struct Meta {
+struct MetaBNF {
     bnf: String,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+struct MetaABNF {
+    abnf: String,
+}
+
+impl From<String> for MetaBNF {
+    fn from(bnf: String) -> Self {
+        MetaBNF { bnf }
+    }
+}
+
+#[cfg(feature = "ABNF")]
+impl From<String> for MetaABNF {
+    fn from(abnf: String) -> Self {
+        MetaABNF { abnf }
+    }
 }
 
 // Modified version of BNF for BNF from
@@ -14,44 +33,52 @@ struct Meta {
 const BNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.bnf");
 const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/abnf.abnf");
 
-impl Arbitrary for Meta {
-    fn arbitrary(gen: &mut Gen) -> Meta {
-        // Generate Grammar object from grammar for BNF grammars
-        let grammar_bnf: Result<Grammar, _> = BNF_FOR_BNF.parse();
-        assert!(grammar_bnf.is_ok(), "{grammar_bnf:?} should be Ok");
+static GRAMMAR_FOR_BNF: LazyLock<Grammar> =
+    LazyLock::new(|| BNF_FOR_BNF.parse().expect("Failed to parse BNF for BNF"));
 
-        #[cfg(feature = "ABNF")]
-        {
-            let grammar_abnf: Result<Grammar, _> = ABNF_FOR_BNF.parse();
-            assert!(grammar_abnf.is_ok(), "{grammar_abnf:?} should be Ok");
+#[cfg(feature = "ABNF")]
+static GRAMMAR_FOR_ABNF: LazyLock<Grammar> = LazyLock::new(|| {
+    let grammar_abnf = ABNF_FOR_BNF.parse().expect("Failed to parse ABNF for BNF");
 
-            assert_eq!(grammar_bnf, grammar_abnf);
+    assert_eq!(*GRAMMAR_FOR_BNF, grammar_abnf);
+
+    grammar_abnf
+});
+
+fn generate_grammar_with_gen<T>(gen: &mut Gen, grammar: &Grammar) -> T
+where
+    T: From<String>,
+{
+    let seed: [u8; 32] = {
+        let mut seed = [0u8; 32];
+        for byte in seed.iter_mut() {
+            *byte = Arbitrary::arbitrary(gen);
         }
-        // generate a random valid grammar from the above
-        // using an arbitrary seed
-        let seed: [u8; 32] = {
-            let mut seed = [0u8; 32];
+        seed
+    };
 
-            for byte in seed.iter_mut() {
-                *byte = Arbitrary::arbitrary(gen);
-            }
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+    let sentence = grammar.generate_seeded(&mut rng);
 
-            seed
-        };
+    sentence
+        .map(T::from)
+        .expect("Failed to generate a valid grammar")
+}
 
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let sentence = grammar_bnf.unwrap().generate_seeded(&mut rng);
-
-        match sentence {
-            Err(e) => {
-                panic!("Unexpected state {e:?} -- seed {seed:?}")
-            }
-            Ok(s) => Meta { bnf: s },
-        }
+impl Arbitrary for MetaBNF {
+    fn arbitrary(gen: &mut Gen) -> Self {
+        generate_grammar_with_gen(gen, &GRAMMAR_FOR_BNF)
     }
 }
 
-fn prop_grammar_from_str(meta: Meta) -> TestResult {
+#[cfg(feature = "ABNF")]
+impl Arbitrary for MetaABNF {
+    fn arbitrary(gen: &mut Gen) -> Self {
+        generate_grammar_with_gen(gen, &GRAMMAR_FOR_ABNF)
+    }
+}
+
+fn prop_bnf_grammar_from_str(meta: MetaBNF) -> TestResult {
     // parse a randomly generated grammar to a Grammar object
     let meta_grammar: Result<Grammar, _> = meta.bnf.parse();
     TestResult::from_bool(meta_grammar.is_ok())
@@ -59,5 +86,22 @@ fn prop_grammar_from_str(meta: Meta) -> TestResult {
 
 #[test]
 fn test_generated_grammars() {
-    QuickCheck::new().quickcheck(prop_grammar_from_str as fn(Meta) -> TestResult)
+    // Using a closure instead of a function pointer cast
+    QuickCheck::new()
+        .tests(1000)
+        .quickcheck(prop_bnf_grammar_from_str as fn(MetaBNF) -> TestResult)
+}
+
+fn prop_abnf_grammar_from_str(meta: MetaABNF) -> TestResult {
+    // parse a randomly generated grammar to a Grammar object
+    let meta_grammar: Result<Grammar, _> = meta.abnf.parse();
+    TestResult::from_bool(meta_grammar.is_ok())
+}
+
+#[cfg(feature = "ABNF")]
+#[test]
+fn test_generated_grammars_abnf() {
+    QuickCheck::new()
+        .tests(1000)
+        .quickcheck(prop_abnf_grammar_from_str as fn(MetaABNF) -> TestResult);
 }

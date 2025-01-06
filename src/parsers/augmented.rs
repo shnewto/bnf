@@ -26,7 +26,7 @@ impl Format for ABNF {
     }
 
     fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        satisfy(|c: char| c.is_alphanumeric() || c == '_')(input)?;
+        satisfy(|c: char| c.is_alphabetic() || c == '_')(input)?;
         let (input, nt) = take_till(char::is_whitespace)(input)?;
         let (input, _) = whitespace_plus_comments(input).unwrap();
 

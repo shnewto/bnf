@@ -65,9 +65,7 @@ pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
 }
 
 pub fn term_complete<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = all_consuming(term::<F>)(input)?;
-
-    Ok((input, t))
+    all_consuming(term::<F>)(input)
 }
 
 pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
@@ -95,9 +93,7 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
 pub fn expression_complete<F: Format>(
     input: &str,
 ) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, e) = all_consuming(expression::<F>)(input)?;
-
-    Ok((input, e))
+    all_consuming(expression::<F>)(input)
 }
 
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
@@ -115,9 +111,7 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseEr
 pub fn production_complete<F: Format>(
     input: &str,
 ) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, p) = all_consuming(production::<F>)(input)?;
-
-    Ok((input, p))
+    all_consuming(production::<F>)(input)
 }
 
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
@@ -129,9 +123,7 @@ pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&s
 }
 
 pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, g) = all_consuming(grammar::<F>)(input)?;
-
-    Ok((input, g))
+    all_consuming(grammar::<F>)(input)
 }
 
 #[cfg(test)]

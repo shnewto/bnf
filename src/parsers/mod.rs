@@ -12,18 +12,51 @@ use crate::term::Term;
 
 use nom::{
     branch::alt,
-    bytes::complete::{take_till, take_until},
-    character::complete::{self, multispace0},
-    combinator::{all_consuming, complete, eof, opt, peek, recognize},
+    bytes::complete::{tag, take_till, take_until},
+    character::complete::{self, multispace0, satisfy},
+    combinator::{all_consuming, complete, eof, not, opt, peek, recognize},
     error::VerboseError,
     multi::many1,
-    sequence::{delimited, preceded},
+    sequence::{delimited, preceded, terminated},
     IResult,
 };
 
+///like `nom::many1` but it accepts a secend parser as an element separator
+// pub fn xt_list_with_separator()
+
 pub trait Format {
-    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>>;
+    fn nonterminal_delimiter() -> Option<(char, char)>;
+    fn production_separator() -> &'static str;
+    fn alternative_separator() -> char;
+}
+
+fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    let (input, nt) = match F::nonterminal_delimiter() {
+        Some((start, end)) => delimited(
+            complete::char(start),
+            take_till(|c: char| c == end),
+            complete::char(end),
+        )(input)?,
+        None => {
+            satisfy(|c: char| c.is_alphabetic())(input)?;
+            take_till(char::is_whitespace)(input)?
+        }
+    };
+
+    let (input, _) = whitespace_plus_comments(input).unwrap();
+
+    Ok((input, Term::Nonterminal(nt.to_string())))
+}
+
+fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    let (input, nt) = nonterminal::<F>(input)?;
+
+    let (input, _) = tag(F::production_separator())(input)?;
+    //https://www.rfc-editor.org/rfc/rfc5234.html#section-3.3
+    let (input, _) = opt(complete::char(F::alternative_separator()))(input)?;
+    let (input, _) = whitespace_plus_comments(input).unwrap();
+
+    Ok((input, nt))
 }
 
 pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
@@ -61,11 +94,11 @@ pub fn is_format_standard_bnf(input: &str) -> bool {
 }
 
 pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    alt((terminal, F::nonterminal))(input)
+    alt((terminal, nonterminal::<F>))(input)
 }
 
 pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    let (input, _) = complete::char('|')(input)?;
+    let (input, _) = complete::char(F::alternative_separator())(input)?;
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
     complete(expression::<F>)(input)?;
@@ -74,25 +107,23 @@ pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseErr
 }
 
 pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
-    term::<F>(input)?;
-
-    let (input, terms) = many1(complete(term::<F>))(input)?;
+    let (input, terms) = many1(terminated(term::<F>, not(tag(F::production_separator()))))(input)?;
     let (input, _) = alt((
         peek(complete(eof)),
         expression_next::<F>,
-        recognize(peek(complete(F::prod_lhs))),
+        recognize(peek(complete(prod_lhs::<F>))),
     ))(input)?;
 
     Ok((input, Expression::from_parts(terms)))
 }
 
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, lhs) = F::prod_lhs(input)?;
+    let (input, lhs) = prod_lhs::<F>(input)?;
     let (input, rhs) = many1(complete(expression::<F>))(input)?;
     let (input, _) = whitespace_plus_comments(input).unwrap();
     let (input, _) = alt((
         recognize(peek(complete(eof))),
-        recognize(peek(complete(F::prod_lhs))),
+        recognize(peek(complete(prod_lhs::<F>))),
     ))(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))

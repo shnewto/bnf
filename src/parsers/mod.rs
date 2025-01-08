@@ -64,10 +64,6 @@ pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     alt((terminal, F::nonterminal))(input)
 }
 
-pub fn term_complete<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    all_consuming(term::<F>)(input)
-}
-
 pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
     let (input, _) = complete::char('|')(input)?;
     let (input, _) = whitespace_plus_comments(input).unwrap();
@@ -90,12 +86,6 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn expression_complete<F: Format>(
-    input: &str,
-) -> IResult<&str, Expression, VerboseError<&str>> {
-    all_consuming(expression::<F>)(input)
-}
-
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, lhs) = F::prod_lhs(input)?;
     let (input, rhs) = many1(complete(expression::<F>))(input)?;
@@ -106,12 +96,6 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseEr
     ))(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))
-}
-
-pub fn production_complete<F: Format>(
-    input: &str,
-) -> IResult<&str, Production, VerboseError<&str>> {
-    all_consuming(production::<F>)(input)
 }
 
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
@@ -137,5 +121,52 @@ pub mod tests {
 
         let (_, actual) = terminal(input).unwrap();
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn parse_anon_nonterminal() {
+        let input = "s = ('a' 'b') / 'c'";
+        //15 is the amount of characters left in anon at the start of the (
+        let expected = "<s> ::= <15> | 'c'
+                        <15> ::= 'a' 'b'";
+        let input = input.parse::<Grammar>().unwrap();
+        let twin = expected.parse::<Grammar>().unwrap();
+        assert_eq!(input, twin)
+    }
+
+    #[test]
+    fn parse_optional_anon_nonterminal() {
+        let input = "s = 'c' ['a' / 'b']";
+        let expected = "<s> ::= 'c' <11>
+                        <11> ::= 'a' | 'b' | ''";
+        let input = input.parse::<Grammar>().unwrap();
+        let twin = expected.parse::<Grammar>().unwrap();
+        assert_eq!(input, twin)
+    }
+    #[test]
+    //https://www.rfc-editor.org/rfc/rfc5234.html#section-3.3
+    fn parse_incremental_alternatives() {
+        let input = "s = a / (a s)
+                            a = 'b'
+                            a =/ 'c'";
+        let expected = "<s> ::= <a> | <78>
+                                <78> ::= <a> <s>
+                                <a> ::= 'b'
+                                <a> ::= 'c'";
+        let input = input.parse::<Grammar>().unwrap();
+        let expected = expected.parse::<Grammar>().unwrap();
+        assert_eq!(input, expected);
+        // panic!()
+    }
+    #[test]
+    fn use_incremental_alternatives() {
+        let input = "s = a / (a s)
+                            a = 'b'
+                            a =/ 'c'";
+        let grammar = input.parse::<Grammar>().unwrap();
+        grammar
+            .parse_input("bcbccbbcbcbcbbbbbbbbbbbbccc")
+            .next()
+            .unwrap();
     }
 }

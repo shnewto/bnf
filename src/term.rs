@@ -7,6 +7,7 @@ use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+use nom::combinator::all_consuming;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -42,7 +43,7 @@ macro_rules! term {
 impl FromStr for Term {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::term_complete::<BNF>(s) {
+        match all_consuming(parsers::term::<BNF>)(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

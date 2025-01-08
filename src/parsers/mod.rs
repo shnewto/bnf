@@ -59,6 +59,10 @@ fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     Ok((input, nt))
 }
 
+fn prod_rhs<F: Format>(input: &str) -> IResult<&str, Vec<Expression>, VerboseError<&str>> {
+    many1(expression::<F>)(input)
+}
+
 pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = alt((
         delimited(complete::char('"'), take_until("\""), complete::char('"')),
@@ -101,7 +105,7 @@ pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseErr
     let (input, _) = complete::char(F::alternative_separator())(input)?;
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    complete(expression::<F>)(input)?;
+    expression::<F>(input)?;
 
     Ok((input, ""))
 }
@@ -109,9 +113,9 @@ pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseErr
 pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseError<&str>> {
     let (input, terms) = many1(terminated(term::<F>, not(tag(F::production_separator()))))(input)?;
     let (input, _) = alt((
-        peek(complete(eof)),
+        peek(eof),
         expression_next::<F>,
-        recognize(peek(complete(prod_lhs::<F>))),
+        recognize(peek(prod_lhs::<F>)),
     ))(input)?;
 
     Ok((input, Expression::from_parts(terms)))
@@ -119,20 +123,27 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
 
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
     let (input, lhs) = prod_lhs::<F>(input)?;
-    let (input, rhs) = many1(complete(expression::<F>))(input)?;
+    let (input, rhs) = prod_rhs::<F>(input)?;
     let (input, _) = whitespace_plus_comments(input).unwrap();
     let (input, _) = alt((
-        recognize(peek(complete(eof))),
-        recognize(peek(complete(prod_lhs::<F>))),
+        recognize(peek(eof)),
+        recognize(peek(prod_lhs::<F>)),
     ))(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
+pub fn anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    let (input, rhs) = delimited(complete::char('('), prod_rhs::<F>, complete::char(')'))(input)?;
+    let (input, _) = whitespace_plus_comments(input).unwrap();
+
+    Ok((input, Term::AnonymousNonterminal(rhs)))
+}
+
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
     let (input, _) = whitespace_plus_comments(input).unwrap();
     production::<F>(input)?;
-    let (input, prods) = many1(complete(production::<F>))(input)?;
+    let (input, prods) = many1(production::<F>)(input)?;
 
     Ok((input, Grammar::from_parts(prods)))
 }

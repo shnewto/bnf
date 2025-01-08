@@ -19,6 +19,8 @@ pub enum Term {
     Terminal(String),
     /// A term which may be be expanded further via productions
     Nonterminal(String),
+    /// A inline term specified with () or [] 
+    AnonymousNonterminal(Vec<Expression>),
 }
 
 /// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
@@ -89,6 +91,7 @@ impl fmt::Display for Term {
                 }
             }
             Term::Nonterminal(ref s) => write!(f, "<{s}>"),
+            Term::AnonymousNonterminal(ref _v) => todo!(),
         }
     }
 }

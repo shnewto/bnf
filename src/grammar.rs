@@ -174,6 +174,7 @@ impl MermaidParseTree<'_> {
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
             Term::Terminal(_) => unreachable!(),
+            Term::AnonymousNonterminal(_) => unreachable!(),
         };
 
         let lhs_count = *count;
@@ -188,6 +189,7 @@ impl MermaidParseTree<'_> {
                     let rhs = match parse_tree.lhs {
                         Term::Nonterminal(str) => str,
                         Term::Terminal(_) => unreachable!(),
+                        Term::AnonymousNonterminal(_) => unreachable!(),
                     };
                     writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
                     let mermaid = MermaidParseTree { parse_tree };
@@ -225,8 +227,12 @@ impl Grammar {
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub const fn from_parts(v: Vec<Production>) -> Grammar {
-        Grammar { productions: v }
+    pub fn from_parts(v: Vec<Production>) -> Grammar {
+        let mut g = Self::new();
+        for prod in v {
+            g.add_production(prod);
+        }
+        g
     }
 
     /// parse a grammar given a format
@@ -239,7 +245,7 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions.push(prod);
+        self.productions.append(&mut prod.flatten());
     }
 
     /// Remove `Production` from the `Grammar`
@@ -283,6 +289,7 @@ impl Grammar {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
             Term::Terminal(ref t) => Ok(t.clone()),
+            Term::AnonymousNonterminal(_) => unreachable!(),
         }
     }
 
@@ -382,6 +389,7 @@ impl Grammar {
                         "Terminal type cannot define a production in '{term}'!"
                     )));
                 }
+                Term::AnonymousNonterminal(_) => unreachable!(),
             },
             None => {
                 return Err(Error::GenerateError(String::from(
@@ -595,7 +603,7 @@ mod tests {
             if productions.is_empty() {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar { productions }
+            Grammar::from_parts(productions)
         }
     }
 
@@ -784,7 +792,7 @@ mod tests {
         let format = format!("{grammar}");
         assert_eq!(
             format,
-            "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
+            "<dna> ::= <base> | <base> <dna>\n<base> ::= 'A' | 'C' | 'G' | 'T'\n"
         );
     }
 

@@ -3,6 +3,7 @@
 use crate::error::Error;
 use crate::parsers::{self, BNF};
 use crate::term::Term;
+use crate::Production;
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
@@ -12,7 +13,7 @@ use nom::combinator::all_consuming;
 use serde::{Deserialize, Serialize};
 
 /// An Expression is comprised of any number of Terms
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Expression {
     pub(crate) terms: Vec<Term>,
@@ -96,6 +97,29 @@ impl Expression {
         }
 
         true
+    }
+    pub(crate) fn collect_anonymous_nonterminals(&mut self, collector: &mut Vec<Production>) {
+        let mut index = 0usize;
+        loop {
+            let anon = match self.terms.get(index) {
+                Some(Term::AnonymousNonterminal((name, _))) => Some((index, name.clone())),
+                Some(_) => None,
+                None => break,
+            };
+            match anon {
+                Some((i, name)) => {
+                    let Term::AnonymousNonterminal((name, rhs)) =
+                        std::mem::replace(self.terms.get_mut(i).unwrap(), Term::Nonterminal(name))
+                    else {
+                        unreachable!()
+                    };
+                    collector.append(
+                        &mut Production::from_parts(Term::Nonterminal(name), rhs).flatten(),
+                    );
+                }
+                None => index += 1,
+            }
+        }
     }
 }
 

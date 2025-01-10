@@ -3,6 +3,7 @@
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers::{self, BNF};
+use crate::Production;
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
@@ -19,8 +20,8 @@ pub enum Term {
     Terminal(String),
     /// A term which may be be expanded further via productions
     Nonterminal(String),
-    /// A inline term specified with () or [] 
-    AnonymousNonterminal(Vec<Expression>),
+    /// A inline term specified with () or []
+    AnonymousNonterminal((String, Vec<Expression>)),
 }
 
 /// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
@@ -84,14 +85,18 @@ impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Term::Terminal(ref s) => {
-                if s.contains('"') {
-                    write!(f, "'{s}'")
-                } else {
+                if s.contains('\'') {
                     write!(f, "\"{s}\"")
+                } else {
+                    write!(f, "'{s}'")
                 }
             }
             Term::Nonterminal(ref s) => write!(f, "<{s}>"),
-            Term::AnonymousNonterminal(ref _v) => todo!(),
+            Term::AnonymousNonterminal((ref name, ref exprs)) => write!(
+                f,
+                "{}",
+                Production::from_parts(Term::Nonterminal(name.clone()), exprs.clone())
+            ),
         }
     }
 }

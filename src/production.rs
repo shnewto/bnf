@@ -85,6 +85,14 @@ impl Production {
     ) -> bool {
         self.rhs.iter().any(|e| e.terminates(terminating_rules))
     }
+    pub(crate) fn flatten(mut self) -> Vec<Production> {
+        let mut prods = vec![Production::new()];
+        for expr in self.rhs_iter_mut() {
+            expr.collect_anonymous_nonterminals(&mut prods);
+        }
+        *prods.get_mut(0).unwrap() = self;
+        prods
+    }
 }
 
 impl Default for Production {

@@ -312,6 +312,13 @@ mod tests {
     }
 
     #[test]
+    fn parse_semicolon_separated() {
+        // this should be okay because semicolon is now for comments so stops after A
+        let prod = Production::from_str("<base> ::= 'A' ; 'C' ; 'G' ; 'T'").unwrap();
+        assert_eq!(prod, crate::production!(<base> ::= 'A'));
+    }
+
+    #[test]
     fn parse_incomplete() {
         let result = Production::from_str("");
         assert!(

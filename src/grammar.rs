@@ -13,6 +13,7 @@ use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
+use std::hash::Hash;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -210,7 +211,7 @@ impl fmt::Display for MermaidParseTree<'_> {
 }
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Default, Debug, Hash)]
+#[derive(Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
@@ -542,6 +543,12 @@ impl PartialEq for Grammar {
     }
 }
 impl Eq for Grammar {}
+
+impl Hash for Grammar {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.productions.hash(state);
+    }
+}
 
 /// Construct a `Grammar` from a series of semicolon separated productions.
 /// ```

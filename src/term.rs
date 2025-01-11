@@ -21,7 +21,7 @@ pub enum Term {
     /// A term which may be be expanded further via productions
     Nonterminal(String),
     /// A inline term specified with () or []
-    AnonymousNonterminal((String, Vec<Expression>)),
+    AnonymousNonterminal(Vec<Expression>),
 }
 
 /// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
@@ -92,10 +92,13 @@ impl fmt::Display for Term {
                 }
             }
             Term::Nonterminal(ref s) => write!(f, "<{s}>"),
-            Term::AnonymousNonterminal((ref name, ref exprs)) => write!(
+            Term::AnonymousNonterminal(ref exprs) => write!(
                 f,
                 "{}",
-                Production::from_parts(Term::Nonterminal(name.clone()), exprs.clone())
+                Production::from_parts(
+                    Term::Nonterminal("anon-nonterminal".to_owned()),
+                    exprs.clone()
+                )
             ),
         }
     }

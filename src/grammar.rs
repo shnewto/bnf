@@ -210,10 +210,11 @@ impl fmt::Display for MermaidParseTree<'_> {
 }
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Debug, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
+    next_anon_id: i32,
 }
 
 impl Grammar {
@@ -222,6 +223,7 @@ impl Grammar {
     pub const fn new() -> Grammar {
         Grammar {
             productions: vec![],
+            next_anon_id: 0,
         }
     }
 
@@ -245,7 +247,8 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions.append(&mut prod.flatten());
+        self.productions
+            .append(&mut prod.flatten(&mut self.next_anon_id));
     }
 
     /// Remove `Production` from the `Grammar`
@@ -532,6 +535,13 @@ impl str::FromStr for Grammar {
         }
     }
 }
+
+impl PartialEq for Grammar {
+    fn eq(&self, other: &Self) -> bool {
+        self.productions == other.productions
+    }
+}
+impl Eq for Grammar {}
 
 /// Construct a `Grammar` from a series of semicolon separated productions.
 /// ```

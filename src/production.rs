@@ -85,10 +85,10 @@ impl Production {
     ) -> bool {
         self.rhs.iter().any(|e| e.terminates(terminating_rules))
     }
-    pub(crate) fn flatten(mut self) -> Vec<Production> {
+    pub(crate) fn flatten(mut self, next_id: &mut i32) -> Vec<Production> {
         let mut prods = vec![Production::new()];
         for expr in self.rhs_iter_mut() {
-            expr.collect_anonymous_nonterminals(&mut prods);
+            expr.collect_anonymous_nonterminals(&mut prods, next_id);
         }
         *prods.get_mut(0).unwrap() = self;
         prods

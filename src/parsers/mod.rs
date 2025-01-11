@@ -129,11 +129,10 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseEr
 
 pub fn anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, rhs) = delimited(complete::char('('), prod_rhs::<F>, complete::char(')'))(input)?;
-    let lhs = format!("{}", input.len());
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::AnonymousNonterminal((lhs, rhs))))
+    Ok((input, Term::AnonymousNonterminal(rhs)))
 }
 
 pub fn optional_anonymous_nonterminal<F: Format>(
@@ -141,13 +140,12 @@ pub fn optional_anonymous_nonterminal<F: Format>(
 ) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, mut rhs) =
         delimited(complete::char('['), prod_rhs::<F>, complete::char(']'))(input)?;
-    let lhs = format!("{}", input.len());
 
     rhs.push(Expression::from_parts(vec![Term::Terminal("".to_owned())]));
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::AnonymousNonterminal((lhs, rhs))))
+    Ok((input, Term::AnonymousNonterminal(rhs)))
 }
 
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
@@ -179,8 +177,8 @@ pub mod tests {
     fn parse_anon_nonterminal() {
         let input = "s = ('a' 'b') / 'c'";
         //6 is the amount of characters left at the start of the (
-        let expected = "<s> ::= <6> | 'c'
-                                <6> ::= 'a' 'b'";
+        let expected = "<s> ::= <0> | 'c'
+                                <0> ::= 'a' 'b'";
         let input = input.parse::<Grammar>().unwrap();
         let twin = expected.parse::<Grammar>().unwrap();
         assert_eq!(input, twin)
@@ -201,12 +199,11 @@ pub mod tests {
         let input = "s = a / (a s)
                             a = 'b'
                             a =/ 'c'";
-        let expected = "<s> ::= <a> | <73>
-                                <73> ::= <a> <s>
+        let expected = "<s> ::= <a> | <0>
+                                <0> ::= <a> <s>
                                 <a> ::= 'b'
                                 <a> ::= 'c'";
         let input = input.parse::<Grammar>().unwrap();
-        println!("{input}");
         let expected = expected.parse::<Grammar>().unwrap();
         assert_eq!(input, expected);
         // panic!()

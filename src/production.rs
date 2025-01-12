@@ -312,15 +312,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_semicolon_separated() {
-        let result = Production::from_str("<base> ::= 'A' ; 'C' ; 'G' ; 'T'");
-        assert!(
-            matches!(result, Err(Error::ParseError(_))),
-            "production result should be error {result:?}"
-        );
-    }
-
-    #[test]
     fn default_production_empty() {
         let production = Production::default();
         assert!(production.is_empty());

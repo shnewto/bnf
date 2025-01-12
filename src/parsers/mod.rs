@@ -14,10 +14,10 @@ use nom::{
     branch::alt,
     bytes::complete::{take_till, take_until},
     character::complete::{self, multispace0},
-    combinator::{all_consuming, complete, eof, not, peek, recognize},
+    combinator::{all_consuming, complete, eof, opt, peek, recognize},
     error::VerboseError,
-    multi::{many0, many1},
-    sequence::{delimited, preceded, terminated},
+    multi::many1,
+    sequence::{delimited, preceded},
     IResult,
 };
 
@@ -28,38 +28,36 @@ pub trait Format {
 
 pub fn terminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
     let (input, t) = alt((
-        delimited(
-            complete::char('"'),
-            take_until("\""),
-            terminated(complete::char('"'), complete::multispace0),
-        ),
-        delimited(
-            complete::char('\''),
-            take_until("'"),
-            terminated(complete::char('\''), complete::multispace0),
-        ),
+        delimited(complete::char('"'), take_until("\""), complete::char('"')),
+        delimited(complete::char('\''), take_until("'"), complete::char('\'')),
     ))(input)?;
+
+    let (input, _) = whitespace_plus_comments(input).unwrap();
 
     Ok((input, Term::Terminal(t.to_string())))
 }
 
-pub fn comment(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    let (input, comment) = preceded(
-        complete::char(';'),
-        take_till(|c: char| c == '\r' || c == '\n' || c == ';'),
-    )(input)?;
-    not(complete::char(';'))(input)?;
-    Ok((input, comment))
+///this should never fail, unwrap it when calling directly please!
+pub fn whitespace_plus_comments(mut input: &str) -> IResult<&str, char, VerboseError<&str>> {
+    let mut old_input = input;
+    loop {
+        (input, _) = multispace0(input)?;
+        (input, _) = opt(preceded(
+            complete::char(';'),
+            take_till(|c: char| c == '\r' || c == '\n'),
+        ))(input)?;
+
+        if input == old_input {
+            break;
+        }
+        old_input = input
+    }
+    Ok((input, '\0'))
 }
 
 pub fn is_format_standard_bnf(input: &str) -> bool {
-    match terminated(many0(preceded(multispace0, comment)), multispace0)(input) {
-        Ok(tuple) => {
-            let (input, _) = tuple;
-            complete::char::<&str, VerboseError<&str>>('<')(input).is_ok()
-        }
-        Err(_) => unreachable!("this pattern should always match"),
-    }
+    let (input, _) = whitespace_plus_comments(input).unwrap();
+    complete::char::<&str, VerboseError<&str>>('<')(input).is_ok()
 }
 
 pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
@@ -67,17 +65,12 @@ pub fn term<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
 }
 
 pub fn term_complete<F: Format>(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-    let (input, t) = all_consuming(term::<F>)(input)?;
-
-    Ok((input, t))
+    all_consuming(term::<F>)(input)
 }
 
 pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
-    let (input, _) = delimited(
-        complete::multispace0,
-        complete::char('|'),
-        complete::multispace0,
-    )(input)?;
+    let (input, _) = complete::char('|')(input)?;
+    let (input, _) = whitespace_plus_comments(input).unwrap();
 
     complete(expression::<F>)(input)?;
 
@@ -88,16 +81,11 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
     term::<F>(input)?;
 
     let (input, terms) = many1(complete(term::<F>))(input)?;
-    let (input, _) = delimited(
-        complete::multispace0,
-        alt((
-            peek(complete(eof)),
-            recognize(peek(complete::char(';'))),
-            expression_next::<F>,
-            recognize(peek(complete(F::prod_lhs))),
-        )),
-        complete::multispace0,
-    )(input)?;
+    let (input, _) = alt((
+        peek(complete(eof)),
+        expression_next::<F>,
+        recognize(peek(complete(F::prod_lhs))),
+    ))(input)?;
 
     Ok((input, Expression::from_parts(terms)))
 }
@@ -105,23 +93,17 @@ pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression, VerboseEr
 pub fn expression_complete<F: Format>(
     input: &str,
 ) -> IResult<&str, Expression, VerboseError<&str>> {
-    let (input, e) = all_consuming(expression::<F>)(input)?;
-
-    Ok((input, e))
+    all_consuming(expression::<F>)(input)
 }
 
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, _) = many0(preceded(complete::multispace0, comment))(input)?;
-    let (input, lhs) = delimited(complete::multispace0, F::prod_lhs, complete::multispace0)(input)?;
+    let (input, lhs) = F::prod_lhs(input)?;
     let (input, rhs) = many1(complete(expression::<F>))(input)?;
-    let (input, _) = preceded(
-        complete::multispace0,
-        alt((
-            recognize(peek(complete(eof))),
-            comment,
-            recognize(peek(complete(F::prod_lhs))),
-        )),
-    )(input)?;
+    let (input, _) = whitespace_plus_comments(input).unwrap();
+    let (input, _) = alt((
+        recognize(peek(complete(eof))),
+        recognize(peek(complete(F::prod_lhs))),
+    ))(input)?;
 
     Ok((input, Production::from_parts(lhs, rhs)))
 }
@@ -129,22 +111,19 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production, VerboseEr
 pub fn production_complete<F: Format>(
     input: &str,
 ) -> IResult<&str, Production, VerboseError<&str>> {
-    let (input, p) = all_consuming(production::<F>)(input)?;
-
-    Ok((input, p))
+    all_consuming(production::<F>)(input)
 }
 
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
+    let (input, _) = whitespace_plus_comments(input).unwrap();
     production::<F>(input)?;
-    let (input, prods) = many1(complete(production::<F>))(input.trim_end())?;
+    let (input, prods) = many1(complete(production::<F>))(input)?;
 
     Ok((input, Grammar::from_parts(prods)))
 }
 
 pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar, VerboseError<&str>> {
-    let (input, g) = all_consuming(grammar::<F>)(input)?;
-
-    Ok((input, g))
+    all_consuming(grammar::<F>)(input)
 }
 
 #[cfg(test)]

@@ -1,39 +1,17 @@
 use crate::parsers::Format;
-use crate::term::Term;
-
-use nom::{
-    bytes::complete::{tag, take_till},
-    character::complete::{self, satisfy},
-    combinator::{complete, not},
-    error::VerboseError,
-    IResult,
-};
-
-use super::whitespace_plus_comments;
 
 #[non_exhaustive]
 pub struct ABNF;
 
 impl Format for ABNF {
-    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        let (input, nt) = take_till(char::is_whitespace)(input)?;
-
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-        let (input, _) = complete::char('=')(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn nonterminal_delimiter() -> Option<(char, char)> {
+        None
     }
-
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        satisfy(|c: char| c.is_alphabetic() || c == '_')(input)?;
-        let (input, nt) = take_till(char::is_whitespace)(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        //if this is the lefhandside of an expression then prod_lhs() should parse this
-        not(complete(tag("=")))(input)?;
-
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn production_separator() -> &'static str {
+        "="
+    }
+    fn alternative_separator() -> char {
+        '/'
     }
 }
 
@@ -52,7 +30,7 @@ mod tests {
         let input = "nonterminal-pattern";
         let expected = Term::Nonterminal("nonterminal-pattern".to_string());
 
-        let (_, actual) = ABNF::nonterminal(input).unwrap();
+        let (_, actual) = nonterminal::<ABNF>(input).unwrap();
         assert_eq!(expected, actual);
     }
 
@@ -70,7 +48,7 @@ mod tests {
 
     #[test]
     fn production_match() {
-        let input = r#"nonterminal-pattern = nonterminal-pattern "terminal-pattern" | "terminal-pattern";\r\n"#;
+        let input = r#"nonterminal-pattern = nonterminal-pattern "terminal-pattern" / "terminal-pattern";\r\n"#;
         let expected = Production::from_parts(
             Term::Nonterminal("nonterminal-pattern".to_string()),
             vec![
@@ -88,7 +66,7 @@ mod tests {
 
     #[test]
     fn grammar_match() {
-        let input = r#"nonterminal-pattern = nonterminal-pattern "terminal-pattern" | "terminal-pattern";\r\n"#;
+        let input = r#"nonterminal-pattern = nonterminal-pattern "terminal-pattern" / "terminal-pattern";\r\n"#;
         let expected = Grammar::from_parts(vec![Production::from_parts(
             Term::Nonterminal("nonterminal-pattern".to_string()),
             vec![

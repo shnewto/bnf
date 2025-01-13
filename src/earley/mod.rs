@@ -122,6 +122,7 @@ fn earley<'gram>(
                     queue.push_back(scanned.id);
                 }
             }
+            Some(Term::AnonymousNonterminal(_)) => unreachable!(),
             None => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
 
@@ -257,6 +258,7 @@ impl<'gram> CompletionMap<'gram> {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
                 self.incomplete.entry(key).or_default().insert(traversal.id);
             }
+            Some(Term::AnonymousNonterminal(_)) => unreachable!(),
             None => {
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
                 self.complete.entry(key).or_default().insert(traversal.id);

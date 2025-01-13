@@ -1,39 +1,17 @@
-use super::{whitespace_plus_comments, Format};
-
-use crate::term::Term;
-
-use nom::{
-    bytes::complete::{tag, take_until},
-    character::complete,
-    combinator::{complete, not},
-    error::VerboseError,
-    sequence::delimited,
-    IResult,
-};
+use super::Format;
 
 #[non_exhaustive]
 pub struct BNF;
 
 impl Format for BNF {
-    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-        let (input, _) = tag("::=")(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn nonterminal_delimiter() -> Option<(char, char)> {
+        Some(('<', '>'))
     }
-
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        //if this is the lefhandside of an expression then prod_lhs() should parse this
-        not(complete(tag("::=")))(input)?;
-
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn production_separator() -> &'static str {
+        "::="
+    }
+    fn alternative_separator() -> char {
+        '|'
     }
 }
 
@@ -47,7 +25,7 @@ mod tests {
         let input = "<nonterminal-pattern>";
         let expected = Term::Nonterminal("nonterminal-pattern".to_string());
 
-        let (_, actual) = BNF::nonterminal(input).unwrap();
+        let (_, actual) = nonterminal::<BNF>(input).unwrap();
         assert_eq!(expected, actual);
     }
 

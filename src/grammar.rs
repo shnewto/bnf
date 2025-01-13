@@ -13,6 +13,7 @@ use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
+use std::hash::Hash;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -174,6 +175,7 @@ impl MermaidParseTree<'_> {
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
             Term::Terminal(_) => unreachable!(),
+            Term::AnonymousNonterminal(_) => unreachable!(),
         };
 
         let lhs_count = *count;
@@ -188,6 +190,7 @@ impl MermaidParseTree<'_> {
                     let rhs = match parse_tree.lhs {
                         Term::Nonterminal(str) => str,
                         Term::Terminal(_) => unreachable!(),
+                        Term::AnonymousNonterminal(_) => unreachable!(),
                     };
                     writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
                     let mermaid = MermaidParseTree { parse_tree };
@@ -208,10 +211,11 @@ impl fmt::Display for MermaidParseTree<'_> {
 }
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Default, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
+    next_anon_id: i32,
 }
 
 impl Grammar {
@@ -220,13 +224,18 @@ impl Grammar {
     pub const fn new() -> Grammar {
         Grammar {
             productions: vec![],
+            next_anon_id: 0,
         }
     }
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub const fn from_parts(v: Vec<Production>) -> Grammar {
-        Grammar { productions: v }
+    pub fn from_parts(v: Vec<Production>) -> Grammar {
+        let mut g = Self::new();
+        for prod in v {
+            g.add_production(prod);
+        }
+        g
     }
 
     /// parse a grammar given a format
@@ -239,7 +248,8 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions.push(prod);
+        self.productions
+            .append(&mut prod.flatten(&mut self.next_anon_id));
     }
 
     /// Remove `Production` from the `Grammar`
@@ -283,6 +293,7 @@ impl Grammar {
         match *term {
             Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
             Term::Terminal(ref t) => Ok(t.clone()),
+            Term::AnonymousNonterminal(_) => unreachable!(),
         }
     }
 
@@ -382,6 +393,7 @@ impl Grammar {
                         "Terminal type cannot define a production in '{term}'!"
                     )));
                 }
+                Term::AnonymousNonterminal(_) => unreachable!(),
             },
             None => {
                 return Err(Error::GenerateError(String::from(
@@ -525,6 +537,19 @@ impl str::FromStr for Grammar {
     }
 }
 
+impl PartialEq for Grammar {
+    fn eq(&self, other: &Self) -> bool {
+        self.productions == other.productions
+    }
+}
+impl Eq for Grammar {}
+
+impl Hash for Grammar {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.productions.hash(state);
+    }
+}
+
 /// Construct a `Grammar` from a series of semicolon separated productions.
 /// ```
 /// bnf::grammar! {
@@ -595,7 +620,7 @@ mod tests {
             if productions.is_empty() {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar { productions }
+            Grammar::from_parts(productions)
         }
     }
 
@@ -784,7 +809,7 @@ mod tests {
         let format = format!("{grammar}");
         assert_eq!(
             format,
-            "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
+            "<dna> ::= <base> | <base> <dna>\n<base> ::= 'A' | 'C' | 'G' | 'T'\n"
         );
     }
 

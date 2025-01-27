@@ -90,4 +90,4 @@ name = "divan"
 harness = false
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2.5", features = ["js"] } # needed for rand
+getrandom = { version = "0.3.0", features = ["js"] } # needed for rand

@@ -2,10 +2,7 @@ use std::error;
 use std::fmt;
 use std::str;
 
-use nom::{
-    error::{VerboseError, VerboseErrorKind},
-    Err,
-};
+use nom::{error::ErrorKind, Err};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[non_exhaustive]
@@ -24,20 +21,20 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
-impl From<VerboseError<(&'_ str, VerboseErrorKind)>> for Error {
-    fn from(err: VerboseError<(&str, VerboseErrorKind)>) -> Self {
+impl From<nom::error::Error<&str>> for Error {
+    fn from(err: nom::error::Error<&str>) -> Self {
         Error::ParseError(format!("Parsing error: {err:?}"))
     }
 }
 
-impl From<Err<VerboseError<&str>>> for Error {
-    fn from(err: Err<VerboseError<&str>>) -> Self {
+impl From<Err<nom::error::Error<&str>>> for Error {
+    fn from(err: Err<nom::error::Error<&str>>) -> Self {
         Error::ParseError(format!("Parsing error: {err:?}"))
     }
 }
 
-impl From<(&'_ str, VerboseErrorKind)> for Error {
-    fn from(err: (&str, VerboseErrorKind)) -> Self {
+impl From<(&'_ str, ErrorKind)> for Error {
+    fn from(err: (&str, ErrorKind)) -> Self {
         let string = format!("Parsing error: {:?}\n {:?}", err.1, err.0);
         Error::ParseError(string)
     }
@@ -46,9 +43,9 @@ impl From<(&'_ str, VerboseErrorKind)> for Error {
 #[cfg(test)]
 mod tests {
     use crate::error::Error;
-    use nom::{bytes::complete::tag, error::VerboseError, Err, IResult};
+    use nom::{bytes::complete::tag, Err, IResult};
 
-    fn give_error_kind(input: &str) -> IResult<&str, &str, VerboseError<&str>> {
+    fn give_error_kind(input: &str) -> IResult<&str, &str> {
         let (input, _) = tag("1234")(input)?;
         let (input, res) = tag("5678")(input)?;
         Ok((input, res))
@@ -86,16 +83,16 @@ mod tests {
 
     #[test]
     fn from_nom_verbose_error() {
-        let error = nom::error::VerboseError { errors: vec![] };
+        let error = nom::error::Error::new("test", nom::error::ErrorKind::Tag);
         assert!(matches!(Error::from(error), Error::ParseError(_)));
     }
 
     #[test]
     fn from_str_and_nom_verbose_error_kind() {
         let description = "anything";
-        let verbose_kind = nom::error::VerboseErrorKind::Char('z');
+        let error_kind = nom::error::ErrorKind::Char;
         assert!(matches!(
-            Error::from((description, verbose_kind)),
+            Error::from((description, error_kind)),
             Error::ParseError(_)
         ));
     }

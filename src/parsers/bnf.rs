@@ -6,33 +6,29 @@ use nom::{
     bytes::complete::{tag, take_until},
     character::complete,
     combinator::{complete, not},
-    error::VerboseError,
     sequence::delimited,
-    IResult,
+    IResult, Parser,
 };
 
 #[non_exhaustive]
 pub struct BNF;
 
 impl Format for BNF {
-    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    fn prod_lhs(input: &str) -> IResult<&str, Term> {
         let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
+            delimited(complete::char('<'), take_until(">"), complete::char('>')).parse(input)?;
         let (input, _) = whitespace_plus_comments(input).unwrap();
-        let (input, _) = tag("::=")(input)?;
+        let (input, _) = tag("::=").parse(input)?;
         let (input, _) = whitespace_plus_comments(input).unwrap();
 
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    fn nonterminal(input: &str) -> IResult<&str, Term> {
         let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>'))(input)?;
+            delimited(complete::char('<'), take_until(">"), complete::char('>')).parse(input)?;
         let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        //if this is the lefhandside of an expression then prod_lhs() should parse this
-        not(complete(tag("::=")))(input)?;
-
+        not(complete(tag("::="))).parse(input)?;
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 }

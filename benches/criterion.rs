@@ -2,7 +2,7 @@ mod util;
 
 use bnf::Grammar;
 use criterion::{criterion_group, criterion_main, Criterion};
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 fn examples(c: &mut Criterion) {
     let _tracing = util::init_tracing();

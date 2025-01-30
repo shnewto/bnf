@@ -7,7 +7,7 @@ use crate::production::Production;
 use crate::term::Term;
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
-use rand::{rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
+use rand::{rng, rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -428,7 +428,7 @@ impl Grammar {
     pub fn generate_callback(&self, f: impl Fn(&str, &str) -> bool) -> Result<String, Error> {
         // let seed: &[_] = &[1, 2, 3, 4];
         let mut seed: [u8; 32] = [0; 32];
-        thread_rng().fill(&mut seed);
+        rng().fill(&mut seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         self.generate_seeded_callback(&mut rng, f)
     }

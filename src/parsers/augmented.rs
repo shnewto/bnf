@@ -5,8 +5,7 @@ use nom::{
     bytes::complete::{tag, take_till},
     character::complete::{self, satisfy},
     combinator::{complete, not},
-    error::VerboseError,
-    IResult,
+    IResult, Parser,
 };
 
 use super::whitespace_plus_comments;
@@ -15,7 +14,7 @@ use super::whitespace_plus_comments;
 pub struct ABNF;
 
 impl Format for ABNF {
-    fn prod_lhs(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
+    fn prod_lhs(input: &str) -> IResult<&str, Term> {
         let (input, nt) = take_till(char::is_whitespace)(input)?;
 
         let (input, _) = whitespace_plus_comments(input).unwrap();
@@ -25,13 +24,13 @@ impl Format for ABNF {
         Ok((input, Term::Nonterminal(nt.to_string())))
     }
 
-    fn nonterminal(input: &str) -> IResult<&str, Term, VerboseError<&str>> {
-        satisfy(|c: char| c.is_alphabetic() || c == '_')(input)?;
+    fn nonterminal(input: &str) -> IResult<&str, Term> {
+        satisfy(|c: char| c.is_alphabetic() || c == '_').parse(input)?;
         let (input, nt) = take_till(char::is_whitespace)(input)?;
         let (input, _) = whitespace_plus_comments(input).unwrap();
 
         //if this is the lefhandside of an expression then prod_lhs() should parse this
-        not(complete(tag("=")))(input)?;
+        not(complete(tag("="))).parse(input)?;
 
         Ok((input, Term::Nonterminal(nt.to_string())))
     }

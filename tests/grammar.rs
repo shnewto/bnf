@@ -31,7 +31,7 @@ impl From<String> for MetaABNF {
 // Modified version of BNF for BNF from
 // https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form#Further_examples
 const BNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.bnf");
-const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/abnf.abnf");
+const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.abnf");
 
 static GRAMMAR_FOR_BNF: LazyLock<Grammar> =
     LazyLock::new(|| BNF_FOR_BNF.parse().expect("Failed to parse BNF for BNF"));

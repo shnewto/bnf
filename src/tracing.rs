@@ -1,6 +1,6 @@
 #[cfg(feature = "tracing")]
 mod defs {
-    pub(crate) use tracing::{event, span, Level};
+    pub(crate) use tracing::{Level, event, span};
 
     #[allow(dead_code)]
     pub fn init_subscriber() {

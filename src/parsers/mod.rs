@@ -11,13 +11,13 @@ use crate::production::Production;
 use crate::term::Term;
 
 use nom::{
+    IResult, Parser,
     branch::alt,
     bytes::complete::{take_till, take_until},
     character::complete::{self, multispace0},
     combinator::{all_consuming, complete, eof, opt, peek, recognize},
     multi::many1,
     sequence::{delimited, preceded},
-    IResult, Parser,
 };
 
 pub trait Format {

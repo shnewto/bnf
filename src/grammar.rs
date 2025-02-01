@@ -1,13 +1,13 @@
 #![allow(clippy::vec_init_then_push)]
 
-use crate::error::Error;
-use crate::expression::Expression;
-use crate::parsers::{self, Format, BNF};
-use crate::production::Production;
-use crate::term::Term;
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
-use rand::{rng, rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
+use crate::error::Error;
+use crate::expression::Expression;
+use crate::parsers::{self, BNF, Format};
+use crate::production::Production;
+use crate::term::Term;
+use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -612,7 +612,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(Gen::new(12usize))
+            .r#gen(Gen::new(12usize))
             .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
     }
 
@@ -896,25 +896,19 @@ mod tests {
             <base> ::= 'A' | 'C' | 'G' | 'T' ;
         };
         let expected = Grammar::from_parts(vec![
-            Production::from_parts(
-                Term::Nonterminal(String::from("dna")),
-                vec![
-                    Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]),
-                    Expression::from_parts(vec![
-                        Term::Nonterminal(String::from("base")),
-                        Term::Nonterminal(String::from("dna")),
-                    ]),
-                ],
-            ),
-            Production::from_parts(
-                Term::Nonterminal(String::from("base")),
-                vec![
-                    Expression::from_parts(vec![Term::Terminal(String::from("A"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("C"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("G"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("T"))]),
-                ],
-            ),
+            Production::from_parts(Term::Nonterminal(String::from("dna")), vec![
+                Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]),
+                Expression::from_parts(vec![
+                    Term::Nonterminal(String::from("base")),
+                    Term::Nonterminal(String::from("dna")),
+                ]),
+            ]),
+            Production::from_parts(Term::Nonterminal(String::from("base")), vec![
+                Expression::from_parts(vec![Term::Terminal(String::from("A"))]),
+                Expression::from_parts(vec![Term::Terminal(String::from("C"))]),
+                Expression::from_parts(vec![Term::Terminal(String::from("G"))]),
+                Expression::from_parts(vec![Term::Terminal(String::from("T"))]),
+            ]),
         ]);
         assert_eq!(grammar, expected);
     }

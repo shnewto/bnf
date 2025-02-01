@@ -17,6 +17,6 @@ pub use crate::term::Term;
 
 #[cfg(feature = "ABNF")]
 pub use parsers::ABNF;
-pub use parsers::{Format, BNF};
+pub use parsers::{BNF, Format};
 
 pub(crate) use hashbrown::HashMap;

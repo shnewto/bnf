@@ -2,10 +2,10 @@ use crate::parsers::Format;
 use crate::term::Term;
 
 use nom::{
+    IResult, Parser,
     bytes::complete::{tag, take_till},
     character::complete::{self, satisfy},
     combinator::{complete, not},
-    IResult, Parser,
 };
 
 use super::whitespace_plus_comments;
@@ -70,16 +70,14 @@ mod tests {
     #[test]
     fn production_match() {
         let input = r#"nonterminal-pattern = nonterminal-pattern "terminal-pattern" | "terminal-pattern";\r\n"#;
-        let expected = Production::from_parts(
-            Term::Nonterminal("nonterminal-pattern".to_string()),
-            vec![
+        let expected =
+            Production::from_parts(Term::Nonterminal("nonterminal-pattern".to_string()), vec![
                 Expression::from_parts(vec![
                     Term::Nonterminal("nonterminal-pattern".to_string()),
                     Term::Terminal("terminal-pattern".to_string()),
                 ]),
                 Expression::from_parts(vec![Term::Terminal("terminal-pattern".to_string())]),
-            ],
-        );
+            ]);
 
         let (_, actual) = production::<ABNF>(input).unwrap();
         assert_eq!(expected, actual);

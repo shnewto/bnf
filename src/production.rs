@@ -189,7 +189,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(Gen::new(25usize))
+            .r#gen(Gen::new(25usize))
             .quickcheck(prop_to_string_and_back as fn(Production) -> TestResult)
     }
 
@@ -429,19 +429,16 @@ mod tests {
     fn macro_builds_todo() {
         let production = crate::production!(<S> ::= 'T' <NT> | <NT> "AND");
 
-        let expected = Production::from_parts(
-            Term::Nonterminal(String::from("S")),
-            vec![
-                Expression::from_parts(vec![
-                    Term::Terminal(String::from("T")),
-                    Term::Nonterminal(String::from("NT")),
-                ]),
-                Expression::from_parts(vec![
-                    Term::Nonterminal(String::from("NT")),
-                    Term::Terminal(String::from("AND")),
-                ]),
-            ],
-        );
+        let expected = Production::from_parts(Term::Nonterminal(String::from("S")), vec![
+            Expression::from_parts(vec![
+                Term::Terminal(String::from("T")),
+                Term::Nonterminal(String::from("NT")),
+            ]),
+            Expression::from_parts(vec![
+                Term::Nonterminal(String::from("NT")),
+                Term::Terminal(String::from("AND")),
+            ]),
+        ]);
 
         assert_eq!(production, expected);
     }

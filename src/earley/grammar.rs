@@ -1,4 +1,4 @@
-use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
+use crate::append_vec::{AppendOnlyVec, append_only_vec_id};
 use crate::tracing;
 
 append_only_vec_id!(pub(crate) ProductionId);
@@ -56,7 +56,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
     pub fn get_productions_by_lhs(
         &self,
         lhs: &'gram crate::Term,
-    ) -> impl Iterator<Item = &Production<'gram>> {
+    ) -> impl Iterator<Item = &Production<'gram>> + use<'_, 'gram> {
         self.prods_by_lhs
             .get(lhs)
             .into_iter()
@@ -64,7 +64,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
             .map(|prod_id| self.get_production_by_id(*prod_id))
     }
     #[cfg(test)]
-    pub fn productions_iter(&self) -> impl Iterator<Item = &Production<'gram>> {
+    pub fn productions_iter(&self) -> impl Iterator<Item = &Production<'gram>> + use<'_, 'gram> {
         self.productions.iter()
     }
 }

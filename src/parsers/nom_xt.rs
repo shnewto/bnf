@@ -1,16 +1,17 @@
-use nom::error::VerboseError;
-use nom::{IResult, Parser};
+use nom::{error::ParseError, Input, Parser};
 
 ///like `nom::many1` but it accepts a secend parser as an element separator
-pub fn xt_list_with_separator<'a, F, O, D, _DO>(
+pub fn xt_list_with_separator<I, F, D, E>(
     mut parser: F,
     mut delimiter: D,
-) -> impl FnMut(&'a str) -> IResult<&str, Vec<O>, VerboseError<&str>>
+) -> impl Parser<I, Output = Vec<<F as Parser<I>>::Output>, Error = E>
 where
-    F: Parser<&'a str, O, VerboseError<&'a str>>,
-    D: Parser<&'a str, _DO, VerboseError<&'a str>>,
+    I: Clone + Input + Copy,
+    F: Parser<I, Error = E>,
+    D: Parser<I, Error = E>,
+    E: ParseError<I>,
 {
-    move |mut input: &str| {
+    move |mut input: I| {
         let mut acc = vec![];
         loop {
             match parser.parse(input) {

@@ -81,7 +81,7 @@ mod examples {
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
 
         bencher
-            .with_inputs(|| rng.gen_range(1..100))
+            .with_inputs(|| rng.random_range(1..100))
             .count_inputs_as::<divan::counter::ItemsCount>()
             .bench_local_values(|parse_count| {
                 infinite_grammar

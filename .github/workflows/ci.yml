@@ -100,7 +100,7 @@ jobs:
       - name: cargo install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: cargo llvm-cov
-        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info --no-cfg-coverage --no-cfg-coverage-nightly
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
         with:

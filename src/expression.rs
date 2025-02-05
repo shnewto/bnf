@@ -9,6 +9,7 @@ use std::ops;
 use std::str::FromStr;
 
 use nom::combinator::all_consuming;
+use nom::Parser;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -183,7 +184,7 @@ impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match all_consuming(parsers::expression::<BNF>)(s) {
+        match all_consuming(parsers::expression::<BNF>).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

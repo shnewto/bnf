@@ -8,6 +8,7 @@ use crate::term::Term;
 use std::fmt;
 
 use nom::combinator::all_consuming;
+use nom::Parser;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -119,7 +120,7 @@ impl fmt::Display for Production {
 impl FromStr for Production {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match all_consuming(parsers::production::<BNF>)(s) {
+        match all_consuming(parsers::production::<BNF>).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

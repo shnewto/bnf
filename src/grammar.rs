@@ -215,7 +215,6 @@ impl fmt::Display for MermaidParseTree<'_> {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
-    next_anon_id: i32,
 }
 
 impl Grammar {
@@ -224,17 +223,14 @@ impl Grammar {
     pub const fn new() -> Grammar {
         Grammar {
             productions: vec![],
-            next_anon_id: 0,
         }
     }
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub fn from_parts(v: Vec<Production>) -> Grammar {
+    pub fn from_parts(mut v: Vec<Production>) -> Grammar {
         let mut g = Self::new();
-        for prod in v {
-            g.add_production(prod);
-        }
+        g.productions.append(&mut v);
         g
     }
 
@@ -248,8 +244,7 @@ impl Grammar {
 
     /// Add `Production` to the `Grammar`
     pub fn add_production(&mut self, prod: Production) {
-        self.productions
-            .append(&mut prod.flatten(&mut self.next_anon_id));
+        self.productions.push(prod);
     }
 
     /// Remove `Production` from the `Grammar`

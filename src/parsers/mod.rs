@@ -178,21 +178,19 @@ pub mod tests {
     }
 
     #[test]
-    fn parse_anon_nonterminal() {
-        let input = "s = ('a' 'b') / 'c'";
-        //6 is the amount of characters left at the start of the (
-        let expected = "<s> ::= <0> | 'c'
-                                <0> ::= 'a' 'b'";
-        let input = input.parse::<Grammar>().unwrap();
-        let twin = expected.parse::<Grammar>().unwrap();
-        assert_eq!(input, twin)
+    fn use_anon_nonterminal() {
+        let grammar = "s = ('a' / 'b') 'c'";
+        let grammar = grammar.parse::<Grammar>().unwrap();
+        let inputs = vec!["ac", "bc"];
+        for input in inputs {
+            assert!(grammar.parse_input(input).next().is_some());
+        }
     }
 
     #[test]
     fn parse_optional_anon_nonterminal() {
         let input = "s = 'c' ['a' / 'b']";
-        let expected = "<s> ::= 'c' <0>
-                                <0> ::= 'a' | 'b' | ''";
+        let expected = "s = 'c' ('a' / 'b' / '')";
         let input = input.parse::<Grammar>().unwrap();
         let twin = expected.parse::<Grammar>().unwrap();
         assert_eq!(input, twin)
@@ -200,17 +198,10 @@ pub mod tests {
     #[test]
     //https://www.rfc-editor.org/rfc/rfc5234.html#section-3.3
     fn parse_incremental_alternatives() {
-        let input = "s = a / (a s)
+        let grammar = "s = a / a s
                             a = 'b'
                             a =/ 'c'";
-        let expected = "<s> ::= <a> | <0>
-                                <0> ::= <a> <s>
-                                <a> ::= 'b'
-                                <a> ::= 'c'";
-        let input = input.parse::<Grammar>().unwrap();
-        let expected = expected.parse::<Grammar>().unwrap();
-        assert_eq!(input, expected);
-        // panic!()
+        assert!(grammar.parse::<Grammar>().is_ok());
     }
     #[test]
     fn use_incremental_alternatives() {

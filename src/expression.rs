@@ -3,7 +3,6 @@
 use crate::error::Error;
 use crate::parsers::{self, BNF};
 use crate::term::Term;
-use crate::Production;
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
@@ -98,36 +97,6 @@ impl Expression {
         }
 
         true
-    }
-    pub(crate) fn collect_anonymous_nonterminals(
-        &mut self,
-        collector: &mut Vec<Production>,
-        next_id: &mut i32,
-    ) {
-        let mut index = 0usize;
-        loop {
-            let anon = match self.terms.get(index) {
-                Some(Term::AnonymousNonterminal(_)) => Some(index),
-                Some(_) => None,
-                None => break,
-            };
-            match anon {
-                Some(i) => {
-                    let name = format!("{next_id:?}");
-                    *next_id += 1;
-                    let Term::AnonymousNonterminal(rhs) = std::mem::replace(
-                        self.terms.get_mut(i).unwrap(),
-                        Term::Nonterminal(name.clone()),
-                    ) else {
-                        unreachable!()
-                    };
-                    collector.append(
-                        &mut Production::from_parts(Term::Nonterminal(name), rhs).flatten(next_id),
-                    );
-                }
-                None => index += 1,
-            }
-        }
     }
 }
 

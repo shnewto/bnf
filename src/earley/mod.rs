@@ -75,7 +75,7 @@ fn earley<'gram>(
     queue: &mut TraversalQueue,
     traversal_tree: &mut TraversalTree<'gram>,
     completions: &mut CompletionMap<'gram>,
-    grammar: &ParseGrammar<'gram>,
+    grammar: &mut ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     let _span = tracing::span!(tracing::Level::DEBUG, "earley").entered();
     while let Some(traversal_id) = queue.pop_front() {
@@ -122,7 +122,32 @@ fn earley<'gram>(
                     queue.push_back(scanned.id);
                 }
             }
-            Some(Term::AnonymousNonterminal(_)) => unreachable!(),
+            Some(anon @ Term::AnonymousNonterminal(_)) => {
+                let _span = tracing::span!(tracing::Level::DEBUG, "Predict_anon").entered();
+
+                let traversal = traversal_tree.get(traversal_id);
+                let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
+
+                completions.insert(traversal, lhs);
+
+                let input_range = traversal.input_range.clone();
+
+                for production in grammar.get_productions_by_lhs(anon) {
+                    let predicted = traversal_tree.predict(production, &input_range);
+                    tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
+                    queue.push_back(predicted.id);
+                }
+
+                for completed in completions.get_complete(anon, &input_range) {
+                    let term_match = TermMatch::Nonterminal(completed);
+                    let prior_completed = traversal_tree.match_term(traversal_id, term_match);
+                    tracing::event!(
+                        tracing::Level::TRACE,
+                        "prior_completed: {prior_completed:#?}"
+                    );
+                    queue.push_back(prior_completed.id);
+                }
+            }
             None => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
 
@@ -258,7 +283,10 @@ impl<'gram> CompletionMap<'gram> {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
                 self.incomplete.entry(key).or_default().insert(traversal.id);
             }
-            Some(Term::AnonymousNonterminal(_)) => unreachable!(),
+            Some(unmatched @ Term::AnonymousNonterminal(_)) => {
+                let key = CompletionKey::new_total(unmatched, &traversal.input_range);
+                self.incomplete.entry(key).or_default().insert(traversal.id);
+            }
             None => {
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
                 self.complete.entry(key).or_default().insert(traversal.id);

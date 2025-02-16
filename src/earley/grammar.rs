@@ -1,5 +1,5 @@
 use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
-use crate::tracing;
+use crate::{tracing, Term};
 
 append_only_vec_id!(pub(crate) ProductionId);
 
@@ -28,7 +28,6 @@ impl<'gram, 'a> ParseGrammar<'gram> {
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();
-        let mut prods_by_rhs = ProdTermMap::new();
 
         let flat_prod_iter = grammar
             .productions_iter()
@@ -37,14 +36,19 @@ impl<'gram, 'a> ParseGrammar<'gram> {
         for (lhs, rhs) in flat_prod_iter {
             let prod = productions.push_with_id(|id| Production { id, lhs, rhs });
             let id = prod.id;
-
             prods_by_lhs.entry(lhs).or_default().push(id);
 
-            for rhs in rhs.terms_iter() {
-                prods_by_rhs.entry(rhs).or_default().push(id);
+            for term in prod.rhs.terms_iter() {
+                if let Term::AnonymousNonterminal(exprs) = term {
+                    for rhs in exprs {
+                        let id = productions
+                            .push_with_id(|id| Production { id, lhs: term, rhs })
+                            .id;
+                        prods_by_lhs.entry(term).or_default().push(id);
+                    }
+                }
             }
         }
-
         Self {
             prods_by_lhs,
             productions,

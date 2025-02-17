@@ -75,7 +75,7 @@ fn earley<'gram>(
     queue: &mut TraversalQueue,
     traversal_tree: &mut TraversalTree<'gram>,
     completions: &mut CompletionMap<'gram>,
-    grammar: &mut ParseGrammar<'gram>,
+    grammar: &ParseGrammar<'gram>,
 ) -> Option<TraversalId> {
     let _span = tracing::span!(tracing::Level::DEBUG, "earley").entered();
     while let Some(traversal_id) = queue.pop_front() {

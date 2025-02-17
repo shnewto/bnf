@@ -614,7 +614,7 @@ mod tests {
             if productions.is_empty() {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar::from_parts(productions)
+            Grammar { productions }
         }
     }
 

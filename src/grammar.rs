@@ -13,7 +13,6 @@ use rand::{rng, rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use std::fmt;
-use std::hash::Hash;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -211,7 +210,7 @@ impl fmt::Display for MermaidParseTree<'_> {
 }
 
 /// A Grammar is comprised of any number of Productions
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
     productions: Vec<Production>,
@@ -228,10 +227,8 @@ impl Grammar {
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub fn from_parts(mut v: Vec<Production>) -> Grammar {
-        let mut g = Self::new();
-        g.productions.append(&mut v);
-        g
+    pub const fn from_parts(v: Vec<Production>) -> Grammar {
+        Grammar { productions: v }
     }
 
     /// parse a grammar given a format
@@ -285,10 +282,25 @@ impl Grammar {
         rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
-        match *term {
-            Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
-            Term::Terminal(ref t) => Ok(t.clone()),
-            Term::AnonymousNonterminal(_) => unreachable!(),
+        match term {
+            Term::Nonterminal(nt) => self.traverse(nt, rng, f),
+            Term::Terminal(t) => Ok(t.clone()),
+            Term::AnonymousNonterminal(rhs) => {
+                let Some(expression) = rhs.choose(rng) else {
+                    return Err(Error::GenerateError(String::from(
+                        "Couldn't select random Expression!",
+                    )));
+                };
+
+                let mut result = String::new();
+                for term in expression.terms_iter() {
+                    match self.eval_terminal(term, rng, f) {
+                        Ok(s) => result.push_str(&s),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Ok(result)
+            }
         }
     }
 
@@ -529,19 +541,6 @@ impl str::FromStr for Grammar {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
-    }
-}
-
-impl PartialEq for Grammar {
-    fn eq(&self, other: &Self) -> bool {
-        self.productions == other.productions
-    }
-}
-impl Eq for Grammar {}
-
-impl Hash for Grammar {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.productions.hash(state);
     }
 }
 

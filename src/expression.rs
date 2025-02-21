@@ -7,11 +7,13 @@ use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+use nom::combinator::all_consuming;
+use nom::Parser;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// An Expression is comprised of any number of Terms
-#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Expression {
     pub(crate) terms: Vec<Term>,
@@ -151,7 +153,7 @@ impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::expression_complete::<BNF>(s) {
+        match all_consuming(parsers::expression::<BNF>).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

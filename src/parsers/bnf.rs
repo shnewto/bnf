@@ -1,35 +1,17 @@
-use super::{whitespace_plus_comments, Format};
-
-use crate::term::Term;
-
-use nom::{
-    bytes::complete::{tag, take_until},
-    character::complete,
-    combinator::{complete, not},
-    sequence::delimited,
-    IResult, Parser,
-};
+use super::Format;
 
 #[non_exhaustive]
 pub struct BNF;
 
 impl Format for BNF {
-    fn prod_lhs(input: &str) -> IResult<&str, Term> {
-        let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>')).parse(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-        let (input, _) = tag("::=").parse(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn nonterminal_delimiter() -> Option<(char, char)> {
+        Some(('<', '>'))
     }
-
-    fn nonterminal(input: &str) -> IResult<&str, Term> {
-        let (input, nt) =
-            delimited(complete::char('<'), take_until(">"), complete::char('>')).parse(input)?;
-        let (input, _) = whitespace_plus_comments(input).unwrap();
-        not(complete(tag("::="))).parse(input)?;
-        Ok((input, Term::Nonterminal(nt.to_string())))
+    fn production_separator() -> &'static str {
+        "::="
+    }
+    fn alternative_separator() -> char {
+        '|'
     }
 }
 
@@ -43,7 +25,7 @@ mod tests {
         let input = "<nonterminal-pattern>";
         let expected = Term::Nonterminal("nonterminal-pattern".to_string());
 
-        let (_, actual) = BNF::nonterminal(input).unwrap();
+        let (_, actual) = nonterminal::<BNF>(input).unwrap();
         assert_eq!(expected, actual);
     }
 

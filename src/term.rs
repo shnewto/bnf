@@ -3,10 +3,13 @@
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers::{self, BNF};
+use crate::Production;
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
+use nom::combinator::all_consuming;
+use nom::Parser;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +21,8 @@ pub enum Term {
     Terminal(String),
     /// A term which may be be expanded further via productions
     Nonterminal(String),
+    /// A inline term specified with () or []
+    AnonymousNonterminal(Vec<Expression>),
 }
 
 /// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
@@ -42,7 +47,7 @@ macro_rules! term {
 impl FromStr for Term {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::term_complete::<BNF>(s) {
+        match all_consuming(parsers::term::<BNF>).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
@@ -81,13 +86,21 @@ impl fmt::Display for Term {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Term::Terminal(ref s) => {
-                if s.contains('"') {
-                    write!(f, "'{s}'")
-                } else {
+                if s.contains('\'') {
                     write!(f, "\"{s}\"")
+                } else {
+                    write!(f, "'{s}'")
                 }
             }
             Term::Nonterminal(ref s) => write!(f, "<{s}>"),
+            Term::AnonymousNonterminal(ref exprs) => write!(
+                f,
+                "{}",
+                Production::from_parts(
+                    Term::Nonterminal("anon-nonterminal".to_owned()),
+                    exprs.clone()
+                )
+            ),
         }
     }
 }

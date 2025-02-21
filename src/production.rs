@@ -7,6 +7,8 @@ use crate::parsers::{self, BNF};
 use crate::term::Term;
 use std::fmt;
 
+use nom::combinator::all_consuming;
+use nom::Parser;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +112,7 @@ impl fmt::Display for Production {
 impl FromStr for Production {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::production_complete::<BNF>(s) {
+        match all_consuming(parsers::production::<BNF>).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }
@@ -300,6 +302,13 @@ mod tests {
             matches!(production, Error::ParseError(_)),
             "production error should be error: {production:?}"
         );
+    }
+
+    #[test]
+    fn parse_semicolon_separated() {
+        // this should be okay because semicolon is now for comments so stops after A
+        let prod = Production::from_str("<base> ::= 'A' ; 'C' ; 'G' ; 'T'").unwrap();
+        assert_eq!(prod, crate::production!(<base> ::= 'A'));
     }
 
     #[test]

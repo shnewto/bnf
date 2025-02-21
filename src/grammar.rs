@@ -174,6 +174,7 @@ impl MermaidParseTree<'_> {
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
             Term::Terminal(_) => unreachable!(),
+            Term::AnonymousNonterminal(_) => unreachable!(),
         };
 
         let lhs_count = *count;
@@ -188,6 +189,7 @@ impl MermaidParseTree<'_> {
                     let rhs = match parse_tree.lhs {
                         Term::Nonterminal(str) => str,
                         Term::Terminal(_) => unreachable!(),
+                        Term::AnonymousNonterminal(_) => unreachable!(),
                     };
                     writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
                     let mermaid = MermaidParseTree { parse_tree };
@@ -280,9 +282,25 @@ impl Grammar {
         rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
-        match *term {
-            Term::Nonterminal(ref nt) => self.traverse(nt, rng, f),
-            Term::Terminal(ref t) => Ok(t.clone()),
+        match term {
+            Term::Nonterminal(nt) => self.traverse(nt, rng, f),
+            Term::Terminal(t) => Ok(t.clone()),
+            Term::AnonymousNonterminal(rhs) => {
+                let Some(expression) = rhs.choose(rng) else {
+                    return Err(Error::GenerateError(String::from(
+                        "Couldn't select random Expression!",
+                    )));
+                };
+
+                let mut result = String::new();
+                for term in expression.terms_iter() {
+                    match self.eval_terminal(term, rng, f) {
+                        Ok(s) => result.push_str(&s),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Ok(result)
+            }
         }
     }
 
@@ -382,6 +400,7 @@ impl Grammar {
                         "Terminal type cannot define a production in '{term}'!"
                     )));
                 }
+                Term::AnonymousNonterminal(_) => unreachable!(),
             },
             None => {
                 return Err(Error::GenerateError(String::from(
@@ -784,7 +803,7 @@ mod tests {
         let format = format!("{grammar}");
         assert_eq!(
             format,
-            "<dna> ::= <base> | <base> <dna>\n<base> ::= \"A\" | \"C\" | \"G\" | \"T\"\n"
+            "<dna> ::= <base> | <base> <dna>\n<base> ::= 'A' | 'C' | 'G' | 'T'\n"
         );
     }
 

@@ -1,4 +1,4 @@
-use nom::{error::ParseError, Input, Parser};
+use nom::{Input, Parser, error::ParseError};
 
 ///like `nom::many1` but it accepts a secend parser as an element separator
 pub fn xt_list_with_separator<I, F, D, E>(

@@ -2,7 +2,7 @@ mod grammar;
 mod input_range;
 mod traversal;
 
-use crate::{tracing, ParseTree, ParseTreeNode, Term};
+use crate::{ParseTree, ParseTreeNode, Term, tracing};
 use grammar::{ParseGrammar, Production};
 use input_range::InputRange;
 use std::collections::{BTreeSet, HashSet, VecDeque};

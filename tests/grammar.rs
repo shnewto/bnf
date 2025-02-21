@@ -2,7 +2,7 @@
 
 use bnf::Grammar;
 use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
-use rand::{rngs::StdRng, SeedableRng};
+use rand::{SeedableRng, rngs::StdRng};
 use std::sync::LazyLock;
 
 #[derive(PartialEq, Debug, Clone)]

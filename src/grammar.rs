@@ -1,13 +1,13 @@
 #![allow(clippy::vec_init_then_push)]
 
-use crate::error::Error;
-use crate::expression::Expression;
-use crate::parsers::{self, Format, BNF};
-use crate::production::Production;
-use crate::term::Term;
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
-use rand::{rng, rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
+use crate::error::Error;
+use crate::expression::Expression;
+use crate::parsers::{self, BNF, Format};
+use crate::production::Production;
+use crate::term::Term;
+use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

@@ -1,5 +1,5 @@
-use crate::append_vec::{append_only_vec_id, AppendOnlyVec};
-use crate::{tracing, Term};
+use crate::append_vec::{AppendOnlyVec, append_only_vec_id};
+use crate::{Term, tracing};
 
 append_only_vec_id!(pub(crate) ProductionId);
 

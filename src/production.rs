@@ -7,8 +7,8 @@ use crate::parsers::{self, BNF};
 use crate::term::Term;
 use std::fmt;
 
-use nom::combinator::all_consuming;
 use nom::Parser;
+use nom::combinator::all_consuming;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

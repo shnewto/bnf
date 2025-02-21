@@ -13,13 +13,13 @@ use crate::production::Production;
 use crate::term::Term;
 
 use nom::{
+    IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_till, take_until},
     character::complete::{self, multispace0, satisfy},
     combinator::{all_consuming, eof, not, opt, peek, recognize},
     multi::many1,
     sequence::{delimited, preceded, terminated},
-    IResult, Parser,
 };
 use nom_xt::xt_list_with_separator;
 

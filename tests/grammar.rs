@@ -45,14 +45,14 @@ static GRAMMAR_FOR_ABNF: LazyLock<Grammar> = LazyLock::new(|| {
     grammar_abnf
 });
 
-fn generate_grammar_with_gen<T>(gen: &mut Gen, grammar: &Grammar) -> T
+fn generate_grammar_with_gen<T>(r#gen: &mut Gen, grammar: &Grammar) -> T
 where
     T: From<String>,
 {
     let seed: [u8; 32] = {
         let mut seed = [0u8; 32];
         for byte in seed.iter_mut() {
-            *byte = Arbitrary::arbitrary(gen);
+            *byte = Arbitrary::arbitrary(r#gen);
         }
         seed
     };
@@ -66,15 +66,15 @@ where
 }
 
 impl Arbitrary for MetaBNF {
-    fn arbitrary(gen: &mut Gen) -> Self {
-        generate_grammar_with_gen(gen, &GRAMMAR_FOR_BNF)
+    fn arbitrary(r#gen: &mut Gen) -> Self {
+        generate_grammar_with_gen(r#gen, &GRAMMAR_FOR_BNF)
     }
 }
 
 #[cfg(feature = "ABNF")]
 impl Arbitrary for MetaABNF {
-    fn arbitrary(gen: &mut Gen) -> Self {
-        generate_grammar_with_gen(gen, &GRAMMAR_FOR_ABNF)
+    fn arbitrary(r#gen: &mut Gen) -> Self {
+        generate_grammar_with_gen(r#gen, &GRAMMAR_FOR_ABNF)
     }
 }
 

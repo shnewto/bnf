@@ -259,7 +259,7 @@ impl<'gram> CompletionMap<'gram> {
         &'_ self,
         term: &'gram Term,
         complete_traversal: &Traversal<'gram>,
-    ) -> impl Iterator<Item = TraversalId> + '_ {
+    ) -> impl Iterator<Item = TraversalId> + '_ + use<'_> {
         let _span = tracing::span!(tracing::Level::DEBUG, "get_incomplete").entered();
         let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
@@ -268,7 +268,7 @@ impl<'gram> CompletionMap<'gram> {
         &'_ self,
         term: &'gram Term,
         input_range: &InputRange<'gram>,
-    ) -> impl Iterator<Item = TraversalId> + '_ {
+    ) -> impl Iterator<Item = TraversalId> + '_ + use<'_> {
         let _span = tracing::span!(tracing::Level::DEBUG, "get_complete").entered();
         let key = CompletionKey::new_total(term, input_range);
         self.complete.get(&key).into_iter().flatten().cloned()

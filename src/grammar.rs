@@ -631,7 +631,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(Gen::new(12usize))
+            .r#gen(Gen::new(12usize))
             .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
     }
 

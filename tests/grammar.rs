@@ -21,7 +21,6 @@ impl From<String> for MetaBNF {
     }
 }
 
-#[cfg(feature = "ABNF")]
 impl From<String> for MetaABNF {
     fn from(abnf: String) -> Self {
         MetaABNF { abnf }
@@ -36,7 +35,6 @@ const ABNF_FOR_BNF: &str = std::include_str!("./fixtures/bnf.abnf");
 static GRAMMAR_FOR_BNF: LazyLock<Grammar> =
     LazyLock::new(|| BNF_FOR_BNF.parse().expect("Failed to parse BNF for BNF"));
 
-#[cfg(feature = "ABNF")]
 static GRAMMAR_FOR_ABNF: LazyLock<Grammar> = LazyLock::new(|| {
     let grammar_abnf = ABNF_FOR_BNF.parse().expect("Failed to parse ABNF for BNF");
 
@@ -71,7 +69,6 @@ impl Arbitrary for MetaBNF {
     }
 }
 
-#[cfg(feature = "ABNF")]
 impl Arbitrary for MetaABNF {
     fn arbitrary(gen: &mut Gen) -> Self {
         generate_grammar_with_gen(gen, &GRAMMAR_FOR_ABNF)
@@ -98,7 +95,6 @@ fn prop_abnf_grammar_from_str(meta: MetaABNF) -> TestResult {
     TestResult::from_bool(meta_grammar.is_ok())
 }
 
-#[cfg(feature = "ABNF")]
 #[test]
 fn test_generated_grammars_abnf() {
     QuickCheck::new()

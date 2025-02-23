@@ -1,7 +1,7 @@
 #![allow(clippy::vec_init_then_push)]
 
 use crate::error::Error;
-use crate::parsers::{self, BNF};
+use crate::parsers;
 use crate::term::Term;
 use std::fmt;
 use std::ops;
@@ -153,7 +153,7 @@ impl FromStr for Expression {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match all_consuming(parsers::expression::<BNF>).parse(s) {
+        match all_consuming(parsers::expression).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

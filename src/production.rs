@@ -3,7 +3,7 @@
 
 use crate::error::Error;
 use crate::expression::Expression;
-use crate::parsers::{self, BNF};
+use crate::parsers;
 use crate::term::Term;
 use std::fmt;
 
@@ -112,7 +112,7 @@ impl fmt::Display for Production {
 impl FromStr for Production {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match all_consuming(parsers::production::<BNF>).parse(s) {
+        match all_consuming(parsers::production).parse(s) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
         }

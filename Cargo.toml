@@ -75,8 +75,7 @@ version = "0.5.0"
 default-features = false # to disable Rayon for wasm32
 
 [features]
-default = ["ABNF", "serde"]
-ABNF = []
+default = ["serde"]
 serde = ["dep:serde", "dep:serde_json"]
 unstable = []
 tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]

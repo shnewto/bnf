@@ -5,7 +5,7 @@ use crate::expression::Expression;
 use crate::parsers;
 use crate::production::Production;
 use crate::term::Term;
-use rand::{rng, rngs::StdRng, seq::IndexedRandom, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -614,7 +614,7 @@ mod tests {
     fn to_string_and_back() {
         QuickCheck::new()
             .tests(1000)
-            .gen(Gen::new(12usize))
+            .r#gen(Gen::new(12usize))
             .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
     }
 

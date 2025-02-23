@@ -2,7 +2,7 @@ use std::error;
 use std::fmt;
 use std::str;
 
-use nom::{error::ErrorKind, Err};
+use nom::{Err, error::ErrorKind};
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 #[non_exhaustive]
@@ -14,7 +14,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::ParseError(ref s) | Error::GenerateError(ref s) => write!(f, "{s}"),
+            Error::ParseError(s) | Error::GenerateError(s) => write!(f, "{s}"),
         }
     }
 }
@@ -43,7 +43,7 @@ impl From<(&'_ str, ErrorKind)> for Error {
 #[cfg(test)]
 mod tests {
     use crate::error::Error;
-    use nom::{bytes::complete::tag, Err, IResult};
+    use nom::{Err, IResult, bytes::complete::tag};
 
     fn give_error_kind(input: &str) -> IResult<&str, &str> {
         let (input, _) = tag("1234")(input)?;

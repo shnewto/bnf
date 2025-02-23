@@ -4,6 +4,7 @@ use crate::production::Production;
 use crate::term::Term;
 
 use nom::{
+    IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_till, take_until},
     character::complete::{self, multispace0, satisfy},
@@ -11,7 +12,6 @@ use nom::{
     error::ParseError,
     multi::many1,
     sequence::{delimited, preceded, terminated},
-    IResult, Parser,
 };
 
 fn nonterminal(input: &str) -> IResult<&str, Term> {

@@ -2,7 +2,7 @@ mod grammar;
 mod input_range;
 mod traversal;
 
-use crate::{tracing, ParseTree, ParseTreeNode, Term};
+use crate::{ParseTree, ParseTreeNode, Term, tracing};
 use grammar::{ParseGrammar, Production};
 use input_range::InputRange;
 use std::collections::{BTreeSet, HashSet, VecDeque};
@@ -255,20 +255,20 @@ pub(crate) struct CompletionMap<'gram> {
 }
 
 impl<'gram> CompletionMap<'gram> {
-    pub fn get_incomplete(
-        &'_ self,
+    pub fn get_incomplete<'map>(
+        &'map self,
         term: &'gram Term,
         complete_traversal: &Traversal<'gram>,
-    ) -> impl Iterator<Item = TraversalId> + '_ {
+    ) -> impl Iterator<Item = TraversalId> + use<'map> {
         let _span = tracing::span!(tracing::Level::DEBUG, "get_incomplete").entered();
         let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
     }
-    pub fn get_complete(
-        &'_ self,
+    pub fn get_complete<'map>(
+        &'map self,
         term: &'gram Term,
         input_range: &InputRange<'gram>,
-    ) -> impl Iterator<Item = TraversalId> + '_ {
+    ) -> impl Iterator<Item = TraversalId> + use<'map> {
         let _span = tracing::span!(tracing::Level::DEBUG, "get_complete").entered();
         let key = CompletionKey::new_total(term, input_range);
         self.complete.get(&key).into_iter().flatten().cloned()

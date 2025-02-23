@@ -1,7 +1,8 @@
-use super::{grammar::ProductionId, InputRange, Production};
+use super::{InputRange, Production, grammar::ProductionId};
 use crate::{
-    append_vec::{append_only_vec_id, AppendOnlyVec},
-    tracing, Term,
+    Term,
+    append_vec::{AppendOnlyVec, append_only_vec_id},
+    tracing,
 };
 
 append_only_vec_id!(pub(crate) TraversalId);
@@ -252,8 +253,8 @@ impl<'gram> TraversalTree<'gram> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::earley::ParseGrammar;
     use crate::Grammar;
+    use crate::earley::ParseGrammar;
 
     fn dna_grammar() -> Grammar {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>

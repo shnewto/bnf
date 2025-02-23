@@ -7,8 +7,8 @@ use std::fmt;
 use std::ops;
 use std::str::FromStr;
 
-use nom::combinator::all_consuming;
 use nom::Parser;
+use nom::combinator::all_consuming;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

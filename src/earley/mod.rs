@@ -41,7 +41,7 @@ impl TraversalQueue {
     ) {
         for starting_prod in grammar.get_productions_by_lhs(starting_term) {
             let traversal = traversal_tree.predict_starting(starting_prod, input);
-            self.push_back(traversal.id);
+            self.push_back(traversal);
         }
     }
 }
@@ -84,12 +84,12 @@ fn earley<'gram>(
             "earley queue pop: {:#?}",
             traversal_tree.get(traversal_id)
         );
+        let traversal = traversal_tree.get(traversal_id);
 
         match traversal_tree.get_matching(traversal_id) {
             Some(nonterminal @ Term::Nonterminal(_)) => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Predict").entered();
 
-                let traversal = traversal_tree.get(traversal_id);
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
 
                 completions.insert(traversal, lhs);
@@ -99,7 +99,7 @@ fn earley<'gram>(
                 for production in grammar.get_productions_by_lhs(nonterminal) {
                     let predicted = traversal_tree.predict(production, &input_range);
                     tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
-                    queue.push_back(predicted.id);
+                    queue.push_back(predicted);
                 }
 
                 for completed in completions.get_complete(nonterminal, &input_range) {
@@ -109,23 +109,21 @@ fn earley<'gram>(
                         tracing::Level::TRACE,
                         "prior_completed: {prior_completed:#?}"
                     );
-                    queue.push_back(prior_completed.id);
+                    queue.push_back(prior_completed);
                 }
             }
             Some(Term::Terminal(term)) => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Scan").entered();
-                let traversal = traversal_tree.get(traversal_id);
                 if traversal.input_range.next().starts_with(term) {
                     let term_match = TermMatch::Terminal(term);
                     let scanned = traversal_tree.match_term(traversal_id, term_match);
                     tracing::event!(tracing::Level::TRACE, "scanned: {scanned:#?}");
-                    queue.push_back(scanned.id);
+                    queue.push_back(scanned);
                 }
             }
             Some(anon @ Term::AnonymousNonterminal(_)) => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Predict_anon").entered();
 
-                let traversal = traversal_tree.get(traversal_id);
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
 
                 completions.insert(traversal, lhs);
@@ -135,7 +133,7 @@ fn earley<'gram>(
                 for production in grammar.get_productions_by_lhs(anon) {
                     let predicted = traversal_tree.predict(production, &input_range);
                     tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
-                    queue.push_back(predicted.id);
+                    queue.push_back(predicted);
                 }
 
                 for completed in completions.get_complete(anon, &input_range) {
@@ -145,13 +143,12 @@ fn earley<'gram>(
                         tracing::Level::TRACE,
                         "prior_completed: {prior_completed:#?}"
                     );
-                    queue.push_back(prior_completed.id);
+                    queue.push_back(prior_completed);
                 }
             }
             None => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
 
-                let traversal = traversal_tree.get(traversal_id);
                 let is_full_traversal =
                     traversal.is_starting && traversal.input_range.is_complete();
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
@@ -163,7 +160,7 @@ fn earley<'gram>(
                     let completed = traversal_tree.match_term(incomplete_traversal_id, term_match);
 
                     tracing::event!(tracing::Level::TRACE, "completed: {completed:#?}");
-                    queue.push_back(completed.id);
+                    queue.push_back(completed);
                 }
 
                 if is_full_traversal {

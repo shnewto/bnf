@@ -150,7 +150,7 @@ impl<'gram> TraversalTree<'gram> {
             input_start: input_range.offset.total_len(),
         };
 
-        let predicted_id = *self
+        *self
             .tree_roots
             .entry(traversal_root_key)
             .or_insert_with(|| {
@@ -163,9 +163,7 @@ impl<'gram> TraversalTree<'gram> {
                     from: None,
                 });
                 traversal.id
-            });
-
-        predicted_id
+            })
     }
     /// Same as [`TraversalTree::predict`] but flagging the [`Traversal`] as a parsing starting point
     pub fn predict_starting(
@@ -208,7 +206,7 @@ impl<'gram> TraversalTree<'gram> {
         let is_starting = parent.is_starting;
         let from = TraversalEdge { term, parent_id };
 
-        let matched_id = *self.edges.entry(from).or_insert_with_key(|from| {
+        *self.edges.entry(from).or_insert_with_key(|from| {
             let traversal = self.arena.push_with_id(|id| Traversal {
                 id,
                 production_id,
@@ -218,9 +216,7 @@ impl<'gram> TraversalTree<'gram> {
                 from: Some(from.clone()),
             });
             traversal.id
-        });
-
-        matched_id
+        })
     }
 }
 

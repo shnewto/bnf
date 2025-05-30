@@ -36,7 +36,7 @@ where
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.vec.len()
     }
     fn next_id(&self) -> I {

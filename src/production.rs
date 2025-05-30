@@ -67,13 +67,13 @@ impl Production {
 
     /// Get number of right hand side `Expression`s
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.rhs.len()
     }
 
     /// If the production is empty of `Expression`s
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }
 

@@ -347,7 +347,7 @@ impl Grammar {
     /// # Example
     ///
     /// ```rust
-    /// use rand::{SeedableRng, rngs::StdRng};
+    /// use bnf::rand::{SeedableRng, rngs::StdRng};
     /// use bnf::Grammar;
     ///
     /// let input =

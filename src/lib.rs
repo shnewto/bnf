@@ -15,6 +15,9 @@ pub use crate::grammar::{Grammar, ParseTree, ParseTreeNode};
 pub use crate::production::Production;
 pub use crate::term::Term;
 
+// The version of `rand` used by the public API.
+pub use rand;
+
 #[cfg(feature = "ABNF")]
 pub use parsers::ABNF;
 pub use parsers::{BNF, Format};

@@ -172,7 +172,7 @@ impl<'gram> ParseTree<'gram> {
     }
 
     /// Iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter(&self) -> impl Iterator<Item = &ParseTreeNode> {
+    pub fn rhs_iter<'a>(&'a self) -> impl Iterator<Item = &'a ParseTreeNode<'gram>> {
         self.rhs.iter()
     }
 

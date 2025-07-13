@@ -32,14 +32,17 @@ to indicate the end of a production)
 ```
 
 ## Output
+
 Take the following grammar for DNA sequences to be input to this library's
 `parse` function.
+
 ```text
 <dna> ::= <base> | <base> <dna>
 <base> ::= "A" | "C" | "G" | "T"
 ```
 
 The output is a `Grammar` object representing a tree that looks like this:
+
 ```text
 Grammar {
     productions: [
@@ -143,6 +146,7 @@ match grammar {
     Err(e) => println!("Failed to make grammar from String: {}", e),
 }
 ```
+
 ## Generate Example
 
 ```rust
@@ -160,6 +164,7 @@ match sentence {
 ```
 
 ## Parse Sentence via Grammar
+
 ```rust
 use bnf::Grammar;
 

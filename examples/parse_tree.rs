@@ -3,6 +3,8 @@
 //! This example demonstrates how to use a Grammar to parse an input string and print the resulting parse tree(s).
 //! It uses the DNA grammar from the README and parses the input "GATTACA".
 
+#![allow(clippy::print_stdout, clippy::print_stderr)]
+
 use bnf::Grammar;
 
 fn main() {
@@ -16,23 +18,23 @@ fn main() {
     let grammar: Grammar = match bnf_input.parse() {
         Ok(g) => g,
         Err(e) => {
-            eprintln!("Failed to create grammar from BNF string: {}", e);
+            eprintln!("Failed to create grammar from BNF string: {e}");
             return;
         }
     };
 
     // Input string to parse
     let sentence = "GATTACA";
-    println!("Parsing input: {}", sentence);
+    println!("Parsing input: {sentence}");
 
     // Parse the input string using the grammar
     let mut parse_trees = grammar.parse_input(sentence);
     match parse_trees.next() {
         Some(parse_tree) => {
-            println!("Parse tree:\n{}", parse_tree);
+            println!("Parse tree:\n{parse_tree}");
         }
         None => {
             println!("Grammar could not parse the sentence");
         }
     }
-} 
+}

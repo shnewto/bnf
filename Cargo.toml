@@ -89,5 +89,13 @@ harness = false
 name = "divan"
 harness = false
 
+[[example]]
+name = "create_grammar"
+path = "examples/create_grammar.rs"
+
+[[example]]
+name = "parse_tree"
+path = "examples/parse_tree.rs"
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.1", features = ["wasm_js"] } # needed for rand

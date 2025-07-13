@@ -1,5 +1,39 @@
 #![allow(clippy::vec_init_then_push)]
 
+//! Grammar module for parsing and manipulating Backus-Naur Form (BNF) grammars.
+//!
+//! This module provides the core functionality for working with context-free grammars
+//! defined in BNF notation. It includes support for parsing grammars from strings,
+//! generating random sentences, parsing input against grammars, and displaying
+//! parse trees.
+//!
+//! # Unicode Support
+//!
+//! The library fully supports Unicode throughout all operations:
+//! - Unicode characters in terminal strings (e.g., `'😀'`, `'α'`, `'Hello'`)
+//! - Unicode characters in nonterminal names (e.g., `<表情>`, `<emoji>`)
+//! - Unicode input strings for parsing
+//! - Unicode output in generated sentences and parse tree displays
+//!
+//! # Examples
+//!
+//! ```rust
+//! use bnf::Grammar;
+//!
+//! // Basic grammar parsing
+//! let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+//! <base> ::= 'A' | 'C' | 'G' | 'T'".parse().unwrap();
+//!
+//! // Unicode terminals
+//! let grammar: Grammar = "<emoji> ::= '😀' | '😍' | '🎉'
+//! <text> ::= <emoji> | <emoji> <text>".parse().unwrap();
+//!
+//! // Unicode nonterminals
+//! let grammar: Grammar = "<表情> ::= '😀' | '😍'
+//! <文本> ::= <表情> | <表情> <文本>".parse().unwrap();
+//!
+//! ```
+
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
 use crate::error::Error;
@@ -209,7 +243,10 @@ impl fmt::Display for MermaidParseTree<'_> {
     }
 }
 
-/// A Grammar is comprised of any number of Productions
+/// A Grammar is comprised of any number of Productions.
+///
+/// The library fully supports Unicode throughout all operations, including Unicode
+/// characters in terminals, nonterminals, input strings, and generated output.
 #[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Grammar {
@@ -959,5 +996,198 @@ mod tests {
             ),
         ]);
         assert_eq!(grammar, expected);
+    }
+
+    // Unicode support tests
+    #[test]
+    fn unicode_grammar_parsing() {
+        // Test parsing a grammar with Unicode characters in terminals
+        let grammar: Result<Grammar, _> = "<emoji> ::= '😀' | '😍' | '🎉' | '🚀'
+        <symbol> ::= 'α' | 'β' | 'γ' | 'δ'
+        <text> ::= <emoji> | <symbol> | <emoji> <text>"
+            .parse();
+
+        assert!(grammar.is_ok(), "Should parse Unicode grammar: {grammar:?}");
+
+        let grammar = grammar.unwrap();
+        assert_eq!(grammar.productions_iter().count(), 3);
+    }
+
+    #[test]
+    fn unicode_grammar_generation() {
+        // Test generating sentences from Unicode grammar
+        let grammar: Grammar = "<emoji> ::= '😀' | '😍' | '🎉' | '🚀'
+        <symbol> ::= 'α' | 'β' | 'γ' | 'δ'
+        <text> ::= <emoji> | <symbol> | <emoji> <text>"
+            .parse()
+            .unwrap();
+
+        let sentence = grammar.generate();
+        assert!(
+            sentence.is_ok(),
+            "Should generate Unicode sentence: {sentence:?}"
+        );
+
+        let sentence = sentence.unwrap();
+        // The generated sentence should contain Unicode characters
+        assert!(
+            sentence.contains('😀')
+                || sentence.contains('😍')
+                || sentence.contains('🎉')
+                || sentence.contains('🚀')
+                || sentence.contains('α')
+                || sentence.contains('β')
+                || sentence.contains('γ')
+                || sentence.contains('δ')
+        );
+    }
+
+    #[test]
+    fn unicode_input_parsing() {
+        // Test parsing Unicode input against a grammar
+        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
+            .parse()
+            .unwrap();
+
+        let input = "😀🎉";
+        let mut parse_trees = grammar.parse_input(input);
+
+        assert!(
+            parse_trees.next().is_some(),
+            "Should parse Unicode input '{input}'"
+        );
+    }
+
+    #[test]
+    fn unicode_parse_tree_display() {
+        // Test that parse trees with Unicode display correctly
+        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
+            .parse()
+            .unwrap();
+
+        let input = "😀😍";
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let display = parse_tree.to_string();
+
+        // Should contain Unicode characters in the parse tree display
+        assert!(display.contains('😀') || display.contains('😍'));
+    }
+
+    #[test]
+    fn unicode_parse_tree_iteration() {
+        // Test that parse trees with Unicode can be iterated
+        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
+            .parse()
+            .unwrap();
+
+        let input = "😀😍🎉";
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+
+        // Test iteration over RHS nodes
+        let rhs_count = parse_tree.rhs_iter().count();
+        assert!(rhs_count > 0, "Should have RHS nodes in Unicode parse tree");
+
+        // Test mutable iteration
+        let mut parse_tree_clone = parse_tree.clone();
+        let mut rhs_iter = parse_tree_clone.rhs_iter_mut();
+        assert!(
+            rhs_iter.next().is_some(),
+            "Should be able to iterate mutably over Unicode parse tree"
+        );
+    }
+
+    #[test]
+    fn unicode_mermaid_format() {
+        // Test that Unicode parse trees can be formatted as Mermaid
+        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
+            .parse()
+            .unwrap();
+
+        let input = "😀😍";
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+
+        let mermaid = parse_tree.mermaid().to_string();
+
+        // Mermaid output should contain the flowchart structure
+        assert!(
+            mermaid.contains("flowchart TD"),
+            "Mermaid should contain flowchart declaration"
+        );
+        assert!(
+            mermaid.contains("-->"),
+            "Mermaid should contain connection arrows"
+        );
+    }
+
+    #[test]
+    fn unicode_complex_grammar() {
+        // Test a more complex Unicode grammar with multiple productions
+        let grammar: Grammar = "<greeting> ::= 'Hello' | 'Hola' | 'Bonjour' | '😀'
+        <name> ::= 'Alice' | 'Bob' | 'Charlie' | 'αβγ'
+        <punctuation> ::= '.' | '!' | '?' | '🎉'
+        <sentence> ::= <greeting> <name> <punctuation> | <greeting> <sentence>"
+            .parse()
+            .unwrap();
+
+        let sentence = grammar.generate();
+        assert!(
+            sentence.is_ok(),
+            "Should generate from complex Unicode grammar: {sentence:?}"
+        );
+
+        let sentence = sentence.unwrap();
+        // Should contain various types of Unicode content
+        assert!(
+            sentence.contains("Hello")
+                || sentence.contains("Hola")
+                || sentence.contains("Bonjour")
+                || sentence.contains('😀')
+                || sentence.contains("Alice")
+                || sentence.contains("Bob")
+                || sentence.contains("Charlie")
+                || sentence.contains("αβγ")
+                || sentence.contains('.')
+                || sentence.contains('!')
+                || sentence.contains('?')
+                || sentence.contains('🎉')
+        );
+    }
+
+    #[test]
+    fn unicode_nonterminal_names() {
+        // Test that nonterminal names can contain Unicode characters
+        let grammar: Grammar = "<文本> ::= <表情> | <符号> | <表情> <文本>
+        <表情> ::= '😀' | '😍'
+        <符号> ::= 'α' | 'β'"
+            .parse()
+            .unwrap();
+
+        let sentence = grammar.generate();
+        assert!(
+            sentence.is_ok(),
+            "Should generate from grammar with Unicode nonterminals: {sentence:?}"
+        );
+
+        let sentence = sentence.unwrap();
+        // Should contain Unicode characters from the terminals
+        assert!(
+            sentence.contains('😀')
+                || sentence.contains('😍')
+                || sentence.contains('α')
+                || sentence.contains('β')
+        );
+
+        // Test parsing input with this grammar
+        let input = "😀α";
+        let mut parse_trees = grammar.parse_input(input);
+        assert!(
+            parse_trees.next().is_some(),
+            "Should parse Unicode input with Unicode nonterminals: '{input}'"
+        );
     }
 }

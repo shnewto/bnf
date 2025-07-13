@@ -14,13 +14,13 @@ fn main() {
 
     // Parse the BNF string into a Grammar object
     let grammar: Result<Grammar, _> = bnf_input.parse();
-    
+
     match grammar {
         Ok(g) => {
             println!("Successfully created Grammar!");
             println!("Grammar structure:");
             println!("{:#?}", g);
-            
+
             // Demonstrate that we can use the grammar
             println!("\nGenerating a random DNA sequence:");
             match g.generate() {
@@ -30,4 +30,4 @@ fn main() {
         }
         Err(e) => println!("Failed to create grammar from BNF string: {}", e),
     }
-} 
+}

@@ -344,6 +344,14 @@ impl Grammar {
     /// Use if interested in reproducing the output generated.
     /// Begins from lhs of first production.
     ///
+    /// # Random Number Generation
+    ///
+    /// This method uses the provided RNG for random number generation. The cryptographic
+    /// security of the generated sentences depends entirely on the RNG implementation
+    /// provided by the caller. For cryptographically secure generation, use a secure
+    /// RNG like `StdRng` from the `rand` crate. For deterministic output for testing
+    /// or reproducibility, use any seedable RNG with a fixed seed.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -373,6 +381,14 @@ impl Grammar {
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.
+    ///
+    /// # Random Number Generation
+    ///
+    /// This method uses the provided RNG for random number generation. The cryptographic
+    /// security of the generated sentences depends entirely on the RNG implementation
+    /// provided by the caller. For cryptographically secure generation, use a secure
+    /// RNG like `StdRng` from the `rand` crate. For deterministic output for testing
+    /// or reproducibility, use any seedable RNG with a fixed seed.
     ///
     /// The first parameter to the callback is the current production name,
     /// and the second parameter is the value that was attempted to be
@@ -440,6 +456,13 @@ impl Grammar {
     /// executed on every production that is generated to check if it is okay.
     /// When the callback returns `true`, the generation continues as normal,
     /// but when the callback returns `false`, a new random option is tried.
+    ///
+    /// # Random Number Generation
+    ///
+    /// This method uses the system's default random number generator. The cryptographic
+    /// security of the generated sentences depends on the system's RNG implementation.
+    /// For applications requiring cryptographically secure generation, consider using
+    /// [`Grammar::generate_seeded_callback`] with a secure RNG like `StdRng` from the `rand` crate.
     ///
     /// The first parameter to the callback is the current production name,
     /// and the second parameter is the value that was attempted to be

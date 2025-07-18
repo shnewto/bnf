@@ -1,0 +1,178 @@
+---
+globs: *.md,.cursor/rules/*.mdc
+description: Markdown formatting standards and markdownlint compliance rules
+---
+
+# Markdown Standards
+
+This project follows specific markdown formatting conventions for consistency and
+readability.
+
+## Document Structure
+
+### Headers
+
+- Use ATX-style headers (`# ## ###`) not Setext-style (`===` or `---`)
+- Use exactly one space after the `#` symbols
+- Limit header depth to 4 levels maximum
+- Use sentence case for headers (capitalize first word only)
+
+### Document Title
+
+- Start documents with a level 1 header (`# Title`)
+- Keep titles concise and descriptive
+- Use the same title as the filename when appropriate
+
+## Text Formatting
+
+### Emphasis
+
+- Use **bold** for strong emphasis and important terms
+- Use *italic* for emphasis and foreign terms
+- Use `code` for inline code, file names, and technical terms
+- Use ~~strikethrough~~ sparingly, only for deprecated content
+
+### Lists
+
+- Use unordered lists with `-` (hyphen) consistently
+- Use ordered lists with `1.` for numbered sequences
+- Indent nested lists with 2 spaces
+- Keep list items concise and parallel in structure
+- Use proper capitalization and punctuation for list items
+
+### Code Blocks
+
+- Use triple backticks with language specification when possible
+- Use `text` for plain text code blocks
+- Use `bash` for shell commands
+- Use `rust` for Rust code examples
+- Indent code blocks properly within lists or other structures
+
+## Links and References
+
+### Internal Links
+
+- Use relative paths for links within the project
+- Use descriptive link text, not "click here" or "this"
+- For file references in documentation, use `[filename](path/to/file)`
+
+### External Links
+
+- Use descriptive link text
+- Place external links at the bottom of the document when possible
+- Use reference-style links for repeated URLs
+
+## Tables
+
+- Use proper table formatting with aligned columns
+- Include header row with `|` separators
+- Align columns appropriately (left, center, right)
+- Keep tables simple and readable
+
+## Code Examples
+
+### Rust Code
+
+- Use proper Rust syntax highlighting
+- Include complete, runnable examples when possible
+- Show expected output in comments or separate blocks
+- Use `cargo run` commands for executable examples
+
+### Shell Commands
+
+- Use `bash` syntax highlighting
+- Show expected output when helpful
+- Use `>` prefix for command prompts
+- Include error handling examples when relevant
+
+## Documentation Standards
+
+### README Files
+
+- Start with a brief description of the directory/component
+- Include usage examples
+- List available options or features
+- Provide clear instructions for common tasks
+
+### API Documentation
+
+- Use clear, concise descriptions
+- Include code examples for public APIs
+- Document parameters and return values
+- Show error handling patterns
+
+## File Organization
+
+### File Naming
+
+- Use lowercase with hyphens for multi-word filenames
+- Use descriptive names that indicate content
+- Keep filenames under 50 characters when possible
+
+### Content Structure
+
+- Start with a title and brief description
+- Organize content with clear headers
+- Use consistent spacing between sections
+- End with relevant links or references
+
+## Common Patterns
+
+### Command Examples
+
+```markdown
+**Run with:**
+```bash
+cargo run --example create_grammar
+```
+
+**Expected output:**
+
+- Description of what to expect
+- Example output when relevant
+
+```markdown
+
+### Feature Descriptions
+
+```markdown
+**What it demonstrates:**
+
+- Key feature or capability
+- Specific use case
+- Expected behavior
+```
+
+### Installation Instructions
+
+```markdown
+**Install:**
+
+```bash
+cargo install package-name
+```markdown
+
+```
+
+## Quality Guidelines
+
+- Proofread for spelling and grammar
+- Ensure all links work correctly
+- Keep line length under 100 characters when possible
+- Use consistent terminology throughout the project
+- Update documentation when code changes
+- Include examples that actually work
+
+## Markdownlint Compliance
+
+This project uses markdownlint to enforce consistent markdown formatting. Key rules:
+
+- **MD013**: Line length should not exceed 80 characters
+- **MD022**: Headings should be surrounded by blank lines
+- **MD032**: Lists should be surrounded by blank lines
+- **MD031**: Fenced code blocks should be surrounded by blank lines
+- **MD040**: Fenced code blocks should have a language specified
+- **MD003**: Use ATX-style headers (not Setext-style)
+- **MD033**: Avoid inline HTML (use markdown alternatives)
+
+Run `markdownlint *.md` to check for violations before committing changes.

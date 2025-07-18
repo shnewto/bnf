@@ -207,6 +207,7 @@ impl ops::Add<Term> for Expression {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{expression, term};
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
     impl Arbitrary for Expression {
@@ -251,42 +252,33 @@ mod tests {
 
     #[test]
     fn add_term() {
-        let mut terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-        ];
+        let terms = vec![term!("A"), term!("C"), term!("G")];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops forgot "T"
-        let forgotten = Term::Terminal(String::from("T"));
+        let forgotten = term!("T");
         dna_expression.add_term(forgotten.clone());
-        terms.push(forgotten);
-        assert_eq!(dna_expression.terms_iter().count(), terms.len());
+        let mut expected_terms = terms;
+        expected_terms.push(forgotten);
+        assert_eq!(dna_expression.terms_iter().count(), expected_terms.len());
 
         // check all terms are there
         for term in dna_expression.terms_iter() {
-            assert!(terms.contains(term), "{term} was not in terms");
+            assert!(expected_terms.contains(term), "{term} was not in terms");
         }
     }
 
     #[test]
     fn remove_term() {
-        let terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-            Term::Terminal(String::from("T")),
-            Term::Terminal(String::from("Z")),
-        ];
+        let terms = vec![term!("A"), term!("C"), term!("G"), term!("T"), term!("Z")];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops "Z" isn't a dna base
-        let accident = Term::Terminal(String::from("Z"));
+        let accident = term!("Z");
         let removed = dna_expression.remove_term(&accident);
 
         // the removed element should be the accident
@@ -302,18 +294,13 @@ mod tests {
 
     #[test]
     fn remove_nonexistent_term() {
-        let terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-            Term::Terminal(String::from("T")),
-        ];
+        let terms = vec![term!("A"), term!("C"), term!("G"), term!("T")];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops "Z" isn't a dna base
-        let nonexistent = Term::Terminal(String::from("Z"));
+        let nonexistent = term!("Z");
         let removed = dna_expression.remove_term(&nonexistent);
 
         // the nonexistent term should not be found in the terms
@@ -331,10 +318,7 @@ mod tests {
 
     #[test]
     fn parse_complete() {
-        let expression = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let expression = Expression::from_parts(vec![term!(<base>), term!(<dna>)]);
         assert_eq!(Ok(expression), Expression::from_str("<base> <dna>"));
     }
 
@@ -358,16 +342,16 @@ mod tests {
 
     #[test]
     fn add_operator() {
-        let t1 = Term::Terminal(String::from("terminal"));
-        let nt1 = Term::Nonterminal(String::from("nonterminal"));
-        let t2 = Term::Terminal(String::from("terminal"));
-        let nt2 = Term::Nonterminal(String::from("nonterminal"));
-        let t3 = Term::Terminal(String::from("terminal"));
-        let nt3 = Term::Nonterminal(String::from("nonterminal"));
-        let t4 = Term::Terminal(String::from("terminal"));
-        let nt4 = Term::Nonterminal(String::from("nonterminal"));
-        let t5 = Term::Terminal(String::from("terminal"));
-        let nt5 = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = term!("terminal");
+        let nt1 = term!(<nonterminal>);
+        let t2 = term!("terminal");
+        let nt2 = term!(<nonterminal>);
+        let t3 = term!("terminal");
+        let nt3 = term!(<nonterminal>);
+        let t4 = term!("terminal");
+        let nt4 = term!(<nonterminal>);
+        let t5 = term!("terminal");
+        let nt5 = term!(<nonterminal>);
 
         let e1 = Expression::from_parts(vec![nt1, t1]);
         // &expression + expression
@@ -401,7 +385,7 @@ mod tests {
     #[test]
     fn mutate_iterable_terms() {
         let mut expression: Expression = "'END'".parse().unwrap();
-        let new_term = Term::Terminal("X".to_string());
+        let new_term = term!("X");
         for term in expression.terms_iter_mut() {
             *term = new_term.clone();
         }
@@ -434,18 +418,10 @@ mod tests {
         assert!(!expression.terminates(None));
 
         expression = "'a' <b> <c>".parse().unwrap();
-        assert!(!expression.terminates(Some(&vec![
-            &Term::from_str("<b>").unwrap(),
-            &Term::from_str("<1>").unwrap(),
-            &Term::from_str("<2>").unwrap(),
-        ])));
+        assert!(!expression.terminates(Some(&vec![&term!(<b>), &term!(<one>), &term!(<two>),])));
 
         expression = "<a> <b> <c>".parse().unwrap();
-        assert!(!expression.terminates(Some(&vec![
-            &Term::from_str("<c>").unwrap(),
-            &Term::from_str("<b>").unwrap(),
-            &Term::from_str("<1>").unwrap(),
-        ])));
+        assert!(!expression.terminates(Some(&vec![&term!(<c>), &term!(<b>), &term!(<one>),])));
     }
 
     #[test]
@@ -460,40 +436,33 @@ mod tests {
         assert!(expression.terminates(None));
 
         let mut expression: Expression = "'a' 'b' <c>".parse().unwrap();
-        assert!(expression.terminates(Some(&vec![&Term::from_str("<c>").unwrap()])));
+        assert!(expression.terminates(Some(&vec![&term!(<c>)])));
+
+        expression = "'a' <b> <c>".parse().unwrap();
+        assert!(expression.terminates(Some(&vec![&term!(<c>), &term!(<b>),])));
 
         expression = "'a' <b> <c>".parse().unwrap();
         assert!(expression.terminates(Some(&vec![
-            &Term::from_str("<c>").unwrap(),
-            &Term::from_str("<b>").unwrap(),
-        ])));
-
-        expression = "'a' <b> <c>".parse().unwrap();
-        assert!(expression.terminates(Some(&vec![
-            &Term::from_str("<c>").unwrap(),
-            &Term::from_str("<b>").unwrap(),
-            &Term::from_str("<1>").unwrap(),
-            &Term::from_str("<2>").unwrap(),
+            &term!(<c>),
+            &term!(<b>),
+            &term!(<one>),
+            &term!(<two>),
         ])));
 
         expression = "<a> <b> <c>".parse().unwrap();
         assert!(expression.terminates(Some(&vec![
-            &Term::from_str("<c>").unwrap(),
-            &Term::from_str("<b>").unwrap(),
-            &Term::from_str("<1>").unwrap(),
-            &Term::from_str("<2>").unwrap(),
-            &Term::from_str("<a>").unwrap(),
+            &term!(<c>),
+            &term!(<b>),
+            &term!(<one>),
+            &term!(<two>),
+            &term!(<a>),
         ],)));
     }
 
     #[test]
     fn macro_builds() {
         let expr = expression!(<a> "and" <b>);
-        let expected = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("a")),
-            Term::Terminal(String::from("and")),
-            Term::Nonterminal(String::from("b")),
-        ]);
+        let expected = Expression::from_parts(vec![term!(<a>), term!("and"), term!(<b>)]);
 
         assert_eq!(expr, expected);
     }

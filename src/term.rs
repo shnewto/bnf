@@ -213,14 +213,14 @@ mod tests {
 
     #[test]
     fn add_operator() {
-        let t1 = Term::Terminal(String::from("terminal"));
-        let nt1 = Term::Nonterminal(String::from("nonterminal"));
-        let t2 = Term::Terminal(String::from("terminal"));
-        let nt2 = Term::Nonterminal(String::from("nonterminal"));
-        let t3 = Term::Terminal(String::from("terminal"));
-        let nt3 = Term::Nonterminal(String::from("nonterminal"));
-        let t4 = Term::Terminal(String::from("terminal"));
-        let nt4 = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = term!("terminal");
+        let nt1 = term!(<nonterminal>);
+        let t2 = term!("terminal");
+        let nt2 = term!(<nonterminal>);
+        let t3 = term!("terminal");
+        let nt3 = term!(<nonterminal>);
+        let t4 = term!("terminal");
+        let nt4 = term!(<nonterminal>);
 
         // term + term
         let e1 = Expression::from_parts(vec![nt1, t1]);

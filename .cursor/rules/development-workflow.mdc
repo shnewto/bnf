@@ -1,0 +1,67 @@
+---
+description: Development workflow and contribution guidelines for the BNF parser project
+globs: *.md,*.rs
+---
+
+# Development Workflow
+
+This project follows specific development practices and contribution guidelines.
+
+## Project Setup
+
+- **Rust Edition**: 2024 (specified in [Cargo.toml](mdc:Cargo.toml))
+- **Dependencies**: See [Cargo.toml](mdc:Cargo.toml) for current versions
+- **Features**: ABNF, serde, tracing, unstable (see features section)
+
+## Code Quality Standards
+
+- **Linting**: All Clippy lints are set to "deny" for maximum code quality
+- **Documentation**: Comprehensive documentation in [README.md](mdc:README.md)
+- **Testing**: Extensive test coverage with multiple testing approaches
+- **Benchmarking**: Performance benchmarks in [benches/](mdc:benches/)
+
+## Contribution Guidelines
+
+### Before Contributing
+
+- Read [CONTRIBUTING.md](mdc:CONTRIBUTING.md) for general guidelines
+- Review [CODE_OF_CONDUCT.md](mdc:CODE_OF_CONDUCT.md) for community standards
+- Understand the project structure and BNF grammar concepts
+
+### Development Process
+
+1. **Fork and Clone**: Create a fork of the repository
+2. **Create Branch**: Work on feature/fix in a dedicated branch
+3. **Follow Standards**: Adhere to strict linting rules and coding standards
+4. **Write Tests**: Add appropriate tests for new functionality
+5. **Update Documentation**: Update README.md and code documentation
+6. **Run Tests**: Ensure all tests pass before submitting
+
+### Code Review Process
+
+- **Good PR Comments**: Explain *why* changes are being made
+- **Comprehensive Testing**: Ensure all test suites pass
+- **Documentation Updates**: Keep documentation current with code changes
+- **Performance Considerations**: Run benchmarks for performance-sensitive changes
+
+## Release Process
+
+- **Version Management**: Follow process documented in [RELEASE.md](mdc:RELEASE.md)
+- **Manual Version Editing**: Avoid manual version changes unless necessary
+- **CI/CD**: Automated testing and deployment via GitHub Actions
+
+## Key Commands
+
+- `cargo build`: Build the project
+- `cargo test`: Run all tests
+- `cargo bench`: Run benchmarks
+- `cargo check`: Check code without building
+- `cargo clippy`: Run Clippy linter
+- `cargo doc`: Generate documentation
+
+## Feature Flags
+
+- **ABNF**: Enable Augmented BNF parsing support
+- **serde**: Enable serialization/deserialization support
+- **tracing**: Enable tracing and debugging features
+- **unstable**: Enable unstable features (use with caution)

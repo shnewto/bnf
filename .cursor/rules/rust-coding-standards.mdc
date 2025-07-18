@@ -1,0 +1,49 @@
+---
+globs: *.rs
+description: Rust coding standards and strict linting rules for the BNF parser project
+---
+
+# Rust Coding Standards
+
+This project enforces extremely strict linting rules. All Clippy lints are set to
+"deny" in [Cargo.toml](mdc:Cargo.toml).
+
+## Critical Rules
+
+- **No debug code**: `dbg!` macro is forbidden
+- **No print statements**: `print!`, `println!`, `eprint!`, `eprintln!` are
+  forbidden
+- **No TODOs**: TODO comments are forbidden
+- **No unsafe blocks without documentation**: All unsafe blocks must be
+  documented
+- **No ignored must-use values**: Use `let _ =` instead of `let _ =` for
+  must-use values
+- **No redundant type annotations**: Remove unnecessary type annotations
+- **No string-to-string conversions**: Avoid `.to_string()` on String types
+- **No Rc&lt;Vec&lt;T&gt;&gt; or Rc&lt;Mutex&lt;T&gt;&gt; patterns**: Use more
+  appropriate types
+
+## Performance & Complexity
+
+- **Performance lints**: All performance-related lints are denied
+- **Complexity lints**: All complexity-related lints are denied
+- **No cloning reference pointers**: Use references instead of cloning pointers
+- **No indexing/slicing without bounds checking**: Use safe indexing methods
+
+## Style & Documentation
+
+- **Style lints**: All style-related lints are denied
+- **No markdown in documentation**: Keep documentation simple
+- **Exhaustive structs**: All structs must be exhaustive
+- **Const functions**: Use const functions where possible
+
+## Error Handling
+
+- **No ignored errors**: Handle all errors properly
+- **No try_err patterns**: Use proper error handling patterns
+- **No map_err_ignore**: Don't ignore errors in map_err
+
+## Testing
+
+- **Tests in test modules**: All tests must be in proper test modules
+- **No tests outside test modules**: Keep test organization clean

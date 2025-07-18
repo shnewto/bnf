@@ -1,0 +1,55 @@
+---
+description: Information about BNF grammar concepts and how they map to the codebase
+globs: *.rs,*.md
+---
+
+# BNF Grammar Concepts
+
+This library parses Backus–Naur Form (BNF) context-free grammars. Understanding
+BNF concepts is essential for working with this codebase.
+
+## BNF Structure
+
+A BNF grammar consists of:
+
+- **Productions**: Rules that define how nonterminals can be rewritten
+- **Nonterminals**: Symbols that can be expanded (enclosed in `<angle brackets>`)
+- **Terminals**: Literal strings that appear in the final output
+- **Expressions**: The right-hand side of productions, containing sequences of
+  terms
+
+## Code Mapping
+
+- **Grammar** ([src/grammar.rs](mdc:src/grammar.rs)): Represents the entire BNF
+  grammar
+- **Production** ([src/production.rs](mdc:src/production.rs)): A single production
+  rule (LHS ::= RHS)
+- **Expression** ([src/expression.rs](mdc:src/expression.rs)): One alternative on
+  the right-hand side
+- **Term** ([src/term.rs](mdc:src/term.rs)): Individual terminals or nonterminals
+
+## Example Grammar
+
+```text
+<dna> ::= <base> | <base> <dna>
+<base> ::= "A" | "C" | "G" | "T"
+```
+
+This maps to:
+
+- Two Productions: `<dna>` and `<base>`
+- Multiple Expressions per production (separated by `|`)
+- Terms: Nonterminals `<base>`, `<dna>` and Terminals `"A"`, `"C"`, `"G"`, `"T"`
+
+## Key Operations
+
+- **Parsing**: Convert BNF text to Grammar object
+- **Generation**: Create random sentences from grammar
+- **Input Parsing**: Parse input strings against grammar using Earley algorithm
+
+## Parser Types
+
+- **BNF Parser** ([src/parsers/](mdc:src/parsers/)): Standard BNF format
+- **ABNF Parser**: Augmented BNF with additional features (feature-gated)
+- **Earley Parser** ([src/earley/](mdc:src/earley/)): Algorithm for parsing
+  input against grammars

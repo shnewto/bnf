@@ -34,7 +34,8 @@ This example uses the DNA grammar from the main README:
 
 ### `parse_tree`
 
-A simple example showing how to use a `Grammar` to parse an input string and print the resulting parse tree.
+A simple example showing how to use a `Grammar` to parse an input string and
+print the resulting parse tree.
 
 **What it demonstrates:**
 
@@ -51,4 +52,4 @@ cargo run --example parse_tree
 **Expected output:**
 
 - The input string being parsed
-- The parse tree printed in a readable format, or a message if parsing fails 
+- The parse tree printed in a readable format, or a message if parsing fails

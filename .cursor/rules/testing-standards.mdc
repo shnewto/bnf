@@ -1,0 +1,294 @@
+
+# Testing Standards and Guidelines
+
+This rule defines the comprehensive testing standards, best practices, and
+guidelines established for the BNF parser project.
+
+## Test Organization
+
+### Unit Tests
+
+- **Location**: Co-located with source code in `mod tests` blocks
+- **Files**: All source files in [src/](mdc:src/) directory
+- **Pattern**: `#[cfg(test)] mod tests { ... }`
+
+### Integration Tests
+
+- **Location**: [tests/](mdc:tests/) directory
+- **Files**: Dedicated test files for integration scenarios
+- **Pattern**: `#![cfg(test)]` at file level
+
+### Benchmarks
+
+- **Location**: [benches/](mdc:benches/) directory
+- **Tools**: Criterion and Divan for performance benchmarking
+
+### Examples
+
+- **Location**: [examples/](mdc:examples/) directory
+- **Purpose**: Demonstrate usage and provide executable examples
+
+## Testing Tools
+
+- **Insta**: Used for snapshot testing (see [tests/snapshots/](mdc:tests/snapshots/))
+- **QuickCheck**: Used for property-based testing
+- **Criterion**: Used for performance benchmarking
+- **Divan**: Used for alternative benchmarking
+
+## Macro Usage in Tests
+
+### Available Macros
+
+Use these macros to create test data concisely:
+
+```rust
+// Term creation
+term!("terminal")           // Creates Term::Terminal
+term!(<nonterminal>)        // Creates Term::Nonterminal
+
+// Expression creation  
+expression!(<a> "and" <b>)  // Creates Expression with multiple terms
+
+// Production creation
+production!(<S> ::= 'T' <NT> | <NT> "AND")
+
+// Grammar creation
+grammar! {
+    <S> ::= 'T' <NT> | <NT> "AND"
+    <NT> ::= 'A' | 'B'
+}
+```
+
+### Import Pattern
+
+Always import macros in test modules:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{term, expression, production, grammar};
+    // ... rest of tests
+}
+```
+
+## Test Naming Conventions
+
+### Function Names
+
+- Use descriptive, action-oriented names
+- Examples: `macro_builds_production_correctly`, `does_have_terminating_expression`
+- Avoid generic names like `test1`, `test_basic`
+
+### Test Structure
+
+- Group related tests together
+- Use clear section comments
+- Order: setup → test logic → assertions
+
+## Test Patterns
+
+### Grammar Parsing Tests
+
+- Test BNF grammar parsing from text input
+- Verify correct structure of parsed Grammar objects
+- Test error handling for invalid grammars
+
+### Generation Tests
+
+- Test random sentence generation from grammars
+- Verify generated sentences are valid according to grammar
+- Test infinite loop detection in recursive grammars
+
+### Input Parsing Tests
+
+- Test parsing input strings against grammars using Earley algorithm
+- Test ambiguous grammar handling
+- Test parse tree generation and formatting
+
+### Snapshot Testing
+
+- Use Insta for regression testing of complex outputs
+- Snapshots are stored in [tests/snapshots/](mdc:tests/snapshots/)
+- Update snapshots when expected behavior changes
+
+## Property-Based Testing
+
+### QuickCheck Usage
+
+```rust
+fn prop_to_string_and_back(item: Type) -> TestResult {
+    let to_string = item.to_string();
+    let from_str = Type::from_str(&to_string)
+        .expect("should be able to convert to string and back");
+    TestResult::from_bool(from_str == item)
+}
+
+#[test]
+fn to_string_and_back() {
+    QuickCheck::new()
+        .tests(1000)
+        .r#gen(Gen::new(25usize))  // Note: use r#gen, not gen
+        .quickcheck(prop_to_string_and_back as fn(Type) -> TestResult)
+}
+```
+
+## Test Data Creation
+
+### Prefer Macros Over Manual Construction
+
+```rust
+// ❌ Verbose
+let term = Term::Terminal(String::from("test"));
+let expr = Expression::from_parts(vec![
+    Term::Nonterminal(String::from("a")),
+    Term::Terminal(String::from("b"))
+]);
+
+// ✅ Concise with macros
+let term = term!("test");
+let expr = expression!(<a> "b");
+```
+
+### String Parsing for Complex Cases
+
+```rust
+// For complex structures, use string parsing
+let production: Production = "<dna> ::= <base> | <dna> <base>".parse().unwrap();
+```
+
+## Error Testing Patterns
+
+### Parse Error Testing
+
+```rust
+#[test]
+fn parse_error() {
+    let result = Type::from_str("invalid input");
+    assert!(
+        result.is_err(),
+        "should be error but got {result:?}"
+    );
+    
+    let error = result.unwrap_err();
+    assert!(
+        matches!(error, Error::ParseError(_)),
+        "error should be ParseError: {error:?}"
+    );
+}
+```
+
+### Incomplete Input Testing
+
+```rust
+#[test]
+fn parse_incomplete() {
+    let result = Type::from_str("");
+    assert!(
+        matches!(result, Err(Error::ParseError(_))),
+        "should be ParseError: {result:?}"
+    );
+}
+```
+
+## Test Fixtures
+
+- **BNF Files**: Located in [tests/fixtures/](mdc:tests/fixtures/)
+- **Input Files**: Various BNF grammar examples for testing
+- **Expected Outputs**: Snapshot files for regression testing
+
+## Quality Standards
+
+### Code Quality Checks
+
+All tests must pass:
+
+- `cargo fmt` - Proper formatting
+- `cargo clippy` - No linting errors
+- `cargo test` - All tests pass
+
+### Test Coverage
+
+- Maintain existing test coverage
+- Add tests for new functionality
+- Test both success and failure cases
+- Test edge cases and boundary conditions
+
+### Documentation
+
+- Use clear, descriptive comments
+- Explain complex test logic
+- Document test data setup when non-obvious
+
+### Code Quality
+
+- All tests must be in proper test modules (enforced by linting)
+- No tests outside test modules
+- Follow the strict linting rules defined in [Cargo.toml](mdc:Cargo.toml)
+
+## File-Specific Patterns
+
+### Production Tests ([src/production.rs](mdc:src/production.rs))
+
+- Test macro construction with `production!`
+- Test string parsing and formatting
+- Test RHS manipulation (add/remove expressions)
+- Test terminating expression detection
+
+### Expression Tests ([src/expression.rs](mdc:src/expression.rs))
+
+- Test macro construction with `expression!`
+- Test term manipulation (add/remove terms)
+- Test operator overloading (+)
+- Test termination logic
+
+### Term Tests ([src/term.rs](mdc:src/term.rs))
+
+- Test macro construction with `term!`
+- Test string parsing for terminals/nonterminals
+- Test operator overloading (+)
+- Test display formatting
+
+### Integration Tests ([tests/](mdc:tests/))
+
+- Test complete grammar parsing
+- Test input parsing against grammars
+- Test generation and iteration
+- Use snapshot testing for complex outputs
+
+## Common Pitfalls to Avoid
+
+1. **Don't use `gen` keyword** - Use `r#gen` for QuickCheck
+2. **Don't use numbers in term macros** - Use `<one>`, `<two>` instead of `<1>`,
+   `<2>`
+3. **Don't forget macro imports** - Always import needed macros in test modules
+4. **Don't use generic test names** - Be descriptive about what each test validates
+
+## Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test module
+cargo test production::tests
+
+# Run with tracing enabled
+cargo test --features tracing
+
+# Run benchmarks
+cargo bench
+
+# Review and update snapshots
+cargo insta review
+
+# Run with formatting check
+cargo fmt && cargo test
+
+# Run with linting check
+cargo clippy && cargo test
+```
+
+This comprehensive testing standard ensures consistent, maintainable, and
+high-quality tests throughout the BNF parser project, combining established
+guidelines with modern best practices.

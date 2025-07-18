@@ -165,10 +165,7 @@ mod tests {
 
     impl Arbitrary for Production {
         fn arbitrary(g: &mut Gen) -> Self {
-            let lhs_str = String::arbitrary(g)
-                .chars()
-                .filter(|&c| (c != '>'))
-                .collect();
+            let lhs_str = String::arbitrary(g).chars().filter(|&c| c != '>').collect();
 
             let lhs = Term::Nonterminal(lhs_str);
 
@@ -234,11 +231,11 @@ mod tests {
         let mut production = Production::from_parts(lhs, expression_list.clone());
         let removed = production.remove_from_rhs(&two_more);
 
-        // the removed element should be the accident
+        // the removed element should be the target
         assert_eq!(Some(two_more.clone()), removed);
         // number of productions should have decreased
         assert_eq!(production.rhs_iter().count(), expression_list.len() - 1);
-        // the unnecessary should no longer be found
+        // the removed expression should no longer be found
         assert_eq!(
             production
                 .rhs_iter()
@@ -435,7 +432,7 @@ mod tests {
     }
 
     #[test]
-    fn macro_builds_todo() {
+    fn macro_builds_production_correctly() {
         let production = crate::production!(<S> ::= 'T' <NT> | <NT> "AND");
 
         let expected = Production::from_parts(

@@ -15,6 +15,14 @@ pub fn parse<'gram>(
     ParseTreeIter::new(grammar, input)
 }
 
+pub fn parse_starting_with<'gram>(
+    grammar: &'gram crate::Grammar,
+    input: &'gram str,
+    starting_term: &'gram Term,
+) -> impl Iterator<Item = ParseTree<'gram>> {
+    ParseTreeIter::new_starting_with(grammar, input, starting_term)
+}
+
 /// A queue of [`TraversalId`] for processing, with repetitions ignored.
 #[derive(Debug, Default)]
 struct TraversalQueue {
@@ -187,6 +195,14 @@ impl<'gram> ParseTreeIter<'gram> {
             .starting_term()
             .expect("Grammar must have one production to parse");
 
+        Self::new_starting_with(grammar, input, starting_term)
+    }
+
+    pub fn new_starting_with(
+        grammar: &'gram crate::Grammar,
+        input: &'gram str,
+        starting_term: &'gram Term,
+    ) -> Self {
         let grammar = ParseGrammar::new(grammar);
 
         let input = InputRange::new(input);

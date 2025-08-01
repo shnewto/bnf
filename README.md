@@ -181,3 +181,25 @@ match parse_trees.next() {
     _ => println!("Grammar could not parse sentence"),
 }
 ```
+
+By default, `parse_input` implicitly starts from the first rule. To match another rule, 
+`parse_input_starting_with` can be used:
+
+```rust
+use bnf::{Grammar, Term};
+
+let input =
+    "<dna> ::= <base> | <base> <dna>
+    <base> ::= 'A' | 'C' | 'G' | 'T'";
+let grammar: Grammar = input.parse().unwrap();
+
+let sentence = "G";
+let target_production = Term::Nonterminal("base".to_string());
+
+let mut parse_trees = grammar.parse_input_starting_with(sentence, &target_production);
+match parse_trees.next() {
+    Some(parse_tree) => println!("{}", parse_tree),
+    _ => println!("Grammar could not parse sentence"),
+}
+```
+

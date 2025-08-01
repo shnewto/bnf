@@ -308,6 +308,15 @@ impl Grammar {
         crate::earley::parse(self, input)
     }
 
+    /// Parse input strings according to `Grammar`, starting with given production
+    pub fn parse_input_starting_with<'gram>(
+        &'gram self,
+        input: &'gram str,
+        starting_term: &'gram Term,
+    ) -> impl Iterator<Item = ParseTree<'gram>> {
+        crate::earley::parse_starting_with(self, input, starting_term)
+    }
+
     /// Get the starting term
     pub(crate) fn starting_term(&self) -> Option<&Term> {
         self.productions_iter().next().map(|prod| &prod.lhs)
@@ -1189,5 +1198,44 @@ mod tests {
             parse_trees.next().is_some(),
             "Should parse Unicode input with Unicode nonterminals: '{input}'"
         );
+    }
+
+    #[test]
+    fn parse_starting_with() {
+        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        <dna> ::= <base> | <base> <dna>"
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+
+        assert!(
+            grammar
+                .parse_input_starting_with(input, &Term::Nonterminal("dna".to_string()))
+                .next()
+                .is_some()
+        );
+        assert!(
+            grammar
+                .parse_input_starting_with(input, &Term::Nonterminal("base".to_string()))
+                .next()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn parse_starting_with_not_found_production() {
+        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        <dna> ::= <base> | <base> <dna>"
+            .parse()
+            .unwrap();
+
+        let input = "GATTACA";
+        assert!(
+            grammar
+                .parse_input_starting_with(input, &Term::Nonterminal("notfound".to_string()))
+                .next()
+                .is_none()
+        )
     }
 }

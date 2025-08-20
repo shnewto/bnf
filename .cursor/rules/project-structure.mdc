@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+description: Project structure and architecture overview for the BNF parser library
+---
+
+# BNF Parser Project Structure
+
+This is a Rust library for parsing Backus–Naur form context-free grammars. The
+main entry point is [src/lib.rs](mdc:src/lib.rs), which exports the core types
+and functionality.
+
+## Core Components
+
+- **Grammar**: The main type representing a parsed BNF grammar, defined in
+  [src/grammar.rs](mdc:src/grammar.rs)
+- **Production**: Represents grammar productions, defined in
+  [src/production.rs](mdc:src/production.rs)
+- **Expression**: Represents the right-hand side of productions, defined in
+  [src/expression.rs](mdc:src/expression.rs)
+- **Term**: Represents terminals and nonterminals, defined in
+  [src/term.rs](mdc:src/term.rs)
+
+## Parser Modules
+
+- **BNF Parser**: Standard BNF format parser in [src/parsers/](mdc:src/parsers/)
+- **ABNF Parser**: Augmented BNF format parser (feature-gated)
+- **Earley Parser**: Implementation of Earley parsing algorithm in
+  [src/earley/](mdc:src/earley/)
+
+## Key Features
+
+- Parse BNF grammars from text input
+- Generate random sentences from grammars
+- Parse input strings against grammars using Earley algorithm
+- Support for both standard BNF and ABNF formats
+- Comprehensive error handling via [src/error.rs](mdc:src/error.rs)
+
+## Configuration
+
+The project uses strict linting rules defined in [Cargo.toml](mdc:Cargo.toml) with
+all Clippy lints set to "deny" for maximum code quality.

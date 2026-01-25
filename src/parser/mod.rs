@@ -155,6 +155,56 @@ mod tests {
     }
 
     #[test]
+    fn parser_construction_fails_with_empty_grammar() {
+        let grammar = Grammar::from_parts(vec![]);
+        let parser = grammar.build_parser();
+        assert!(
+            parser.is_err(),
+            "Parser construction should fail with empty grammar"
+        );
+        assert!(
+            matches!(parser.unwrap_err(), Error::ValidationError(_)),
+            "Error should be ValidationError about missing productions"
+        );
+    }
+
+    #[test]
+    fn parser_validation_with_anonymous_nonterminal_containing_undefined() {
+        // Test that validation checks nonterminals inside anonymous nonterminals
+        let expr = crate::expression!(<undefined>);
+        let anon = Term::AnonymousNonterminal(vec![expr]);
+        let production = Production::from_parts(
+            crate::term!(<start>),
+            vec![Expression::from_parts(vec![anon])],
+        );
+        let grammar = Grammar::from_parts(vec![production]);
+        let parser = grammar.build_parser();
+        assert!(
+            parser.is_err(),
+            "Parser should fail when anonymous nonterminal contains undefined nonterminal"
+        );
+        assert!(matches!(parser.unwrap_err(), Error::ValidationError(_)));
+    }
+
+    #[test]
+    fn parser_validation_with_anonymous_nonterminal_containing_defined() {
+        // Test that validation works correctly when anonymous nonterminal contains defined nonterminal
+        let expr = crate::expression!(<base>);
+        let anon = Term::AnonymousNonterminal(vec![expr]);
+        let production1 = Production::from_parts(
+            crate::term!(<start>),
+            vec![Expression::from_parts(vec![anon])],
+        );
+        let production2 = crate::production!(<base> ::= 'A');
+        let grammar = Grammar::from_parts(vec![production1, production2]);
+        let parser = grammar.build_parser();
+        assert!(
+            parser.is_ok(),
+            "Parser should succeed when anonymous nonterminal contains defined nonterminal"
+        );
+    }
+
+    #[test]
     fn parser_construction_fails_with_undefined_nonterminal() {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= <undefined>"
@@ -200,7 +250,7 @@ mod tests {
 
         let parser = grammar.build_parser().unwrap();
         let input = "GATTACA";
-        let start_term = Term::Nonterminal("dna".to_string());
+        let start_term = crate::term!(<dna>);
 
         let parse_trees: Vec<_> = parser
             .parse_input_starting_with(input, &start_term)
@@ -221,7 +271,7 @@ mod tests {
 
         let parser = grammar.build_parser().unwrap();
         let input = "G";
-        let start_term = Term::Terminal("G".to_string());
+        let start_term = crate::term!("G");
 
         // Note: Starting with a terminal directly doesn't work with Earley parser
         // since it expects a nonterminal to have productions. This test verifies
@@ -259,7 +309,7 @@ mod tests {
 
         let input = "GATTACA";
         // Use explicit starting term to ensure both use the same starting point
-        let start_term = Term::Nonterminal("dna".to_string());
+        let start_term = crate::term!(<dna>);
 
         let parse_trees1: Vec<_> = parser1
             .parse_input_starting_with(input, &start_term)

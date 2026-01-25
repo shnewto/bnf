@@ -111,4 +111,29 @@ mod tests {
         let clone = error.clone();
         assert_eq!(error, clone);
     }
+
+    #[test]
+    fn from_nom_err_failure() {
+        let error = nom::error::Error::new("test", nom::error::ErrorKind::Tag);
+        let err = Err::Failure(error);
+        let bnf_error = Error::from(err);
+        assert!(matches!(bnf_error, Error::ParseError(_)));
+        assert!(bnf_error.to_string().contains("Parsing error:"));
+    }
+
+    #[test]
+    fn from_nom_err_incomplete() {
+        let err = Err::Incomplete(nom::Needed::Unknown);
+        let bnf_error = Error::from(err);
+        assert!(matches!(bnf_error, Error::ParseError(_)));
+        assert!(bnf_error.to_string().contains("Parsing error:"));
+    }
+
+    #[test]
+    fn error_trait_impl() {
+        // Test that Error implements std::error::Error
+        let error = Error::ParseError(String::from("test"));
+        let error_ref: &dyn std::error::Error = &error;
+        assert_eq!(error_ref.to_string(), "test");
+    }
 }

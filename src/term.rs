@@ -165,6 +165,17 @@ mod tests {
     }
 
     #[test]
+    fn anonymous_nonterminal_display() {
+        let expr1 = Expression::from_parts(vec![crate::term!("a")]);
+        let expr2 = Expression::from_parts(vec![crate::term!("b")]);
+        let anon = Term::AnonymousNonterminal(vec![expr1, expr2]);
+        let display = format!("{}", anon);
+        // Should format as a production with "anon-nonterminal" as LHS
+        assert!(display.contains("anon-nonterminal"));
+        assert!(display.contains("a") || display.contains("b"));
+    }
+
+    #[test]
     fn parse_error_display() {
         let incomplete = Term::from_str("<dna");
         assert!(incomplete.is_err());
@@ -205,22 +216,22 @@ mod tests {
 
     #[test]
     fn quote_term_to_string_and_back() {
-        let quote = Term::Terminal(String::from("\""));
+        let quote = crate::term!("\"");
         let to_string = quote.to_string();
         let from_string = Term::from_str(&to_string);
-        assert_eq!(Ok(Term::Terminal(String::from("\""))), from_string);
+        assert_eq!(Ok(crate::term!("\"")), from_string);
     }
 
     #[test]
     fn add_operator() {
-        let t1 = Term::Terminal(String::from("terminal"));
-        let nt1 = Term::Nonterminal(String::from("nonterminal"));
-        let t2 = Term::Terminal(String::from("terminal"));
-        let nt2 = Term::Nonterminal(String::from("nonterminal"));
-        let t3 = Term::Terminal(String::from("terminal"));
-        let nt3 = Term::Nonterminal(String::from("nonterminal"));
-        let t4 = Term::Terminal(String::from("terminal"));
-        let nt4 = Term::Nonterminal(String::from("nonterminal"));
+        let t1 = crate::term!("terminal");
+        let nt1 = crate::term!(<nonterminal>);
+        let t2 = crate::term!("terminal");
+        let nt2 = crate::term!(<nonterminal>);
+        let t3 = crate::term!("terminal");
+        let nt3 = crate::term!(<nonterminal>);
+        let t4 = crate::term!("terminal");
+        let nt4 = crate::term!(<nonterminal>);
 
         // term + term
         let e1 = Expression::from_parts(vec![nt1, t1]);
@@ -244,13 +255,13 @@ mod tests {
 
     #[test]
     fn macro_terminal() {
-        let terminal = term!("terminal");
+        let terminal = crate::term!("terminal");
         assert_eq!(Term::Terminal(String::from("terminal")), terminal);
     }
 
     #[test]
     fn macro_nonterminal() {
-        let nonterminal = term!(<nonterminal>);
+        let nonterminal = crate::term!(<nonterminal>);
         assert_eq!(Term::Nonterminal(String::from("nonterminal")), nonterminal);
     }
 }

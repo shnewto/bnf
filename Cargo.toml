@@ -33,7 +33,7 @@ print_stdout = "deny"
 rc_buffer = "deny"
 rc_mutex = "deny"
 redundant_type_annotations = "deny"
-string_to_string = "deny"
+implicit_clone = "deny"
 style = "deny"
 suspicious = "deny"
 tests_outside_test_module = "deny"
@@ -43,35 +43,35 @@ undocumented_unsafe_blocks = "deny"
 use_debug = "deny"
 
 [dependencies]
-tracing = { version = "0.1.37", optional = true }
-tracing-subscriber = { version = "0.3.16", optional = true, features = ["env-filter"] }
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3.22", optional = true, features = ["env-filter"] }
 tracing-flame = { version = "0.2.0", optional = true }
-hashbrown = "0.15.0"
+hashbrown = "0.16.1"
 
 [dependencies.rand]
-version = "0.9"
+version = "0.9.2"
 
 [dependencies.nom]
 version = "^8.0.0"
 
 [dependencies.serde]
-version = "1.0.118"
+version = "1.0.228"
 features = ["derive"]
 optional = true
 
 [dependencies.serde_json]
-version = "1.0.61"
+version = "1.0.149"
 optional = true
 
 [dev-dependencies]
-divan = "0.1.8"
-insta = { version = "1.26.0", default-features = false }
+divan = "0.1.21"
+insta = { version = "1.46.1", default-features = false }
 
 [dev-dependencies.quickcheck]
-version = "1.0.2"
+version = "1.0.3"
 
 [dev-dependencies.criterion]
-version = "0.6.0"
+version = "0.8.1"
 default-features = false # to disable Rayon for wasm32
 
 [features]
@@ -98,4 +98,4 @@ name = "parse_tree"
 path = "examples/parse_tree.rs"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.3.1", features = ["wasm_js"] } # needed for rand
+getrandom = { version = "0.3.4", features = ["wasm_js"] } # needed for rand

@@ -114,7 +114,7 @@ mod tests {
         fn arbitrary(g: &mut Gen) -> Self {
             let mut term = String::arbitrary(g);
             if bool::arbitrary(g) {
-                term = term.chars().filter(|&c| (c != '>')).collect();
+                term = term.chars().filter(|&c| c != '>').collect();
                 Term::Nonterminal(term)
             } else {
                 if term.contains('"') {

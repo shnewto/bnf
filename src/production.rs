@@ -165,10 +165,7 @@ mod tests {
 
     impl Arbitrary for Production {
         fn arbitrary(g: &mut Gen) -> Self {
-            let lhs_str = String::arbitrary(g)
-                .chars()
-                .filter(|&c| (c != '>'))
-                .collect();
+            let lhs_str = String::arbitrary(g).chars().filter(|&c| c != '>').collect();
 
             let lhs = Term::Nonterminal(lhs_str);
 

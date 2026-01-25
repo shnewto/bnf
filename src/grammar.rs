@@ -56,7 +56,7 @@ pub enum ParseTreeNode<'gram> {
     Nonterminal(ParseTree<'gram>),
 }
 
-/// A tree derived by successfully parsing an input string via [`Grammar::parse_input`]
+/// A tree derived by successfully parsing an input string via [`crate::GrammarParser::parse_input()`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
     /// the "left hand side" `Term` used for this `ParseTree`
@@ -161,8 +161,9 @@ impl<'gram> ParseTree<'gram> {
     /// .parse()
     /// .unwrap();
     ///
+    /// let parser = grammar.build_parser().unwrap();
     /// let input = "GATTACA";
-    /// let parsed = grammar.parse_input(input).next().unwrap();
+    /// let parsed = parser.parse_input(input).next().unwrap();
     /// let mermaid = parsed.mermaid().to_string();
     /// println!("parse tree mermaid: {}", mermaid);
     /// ```
@@ -300,7 +301,53 @@ impl Grammar {
         self.productions.iter_mut()
     }
 
+    /// Build a reusable parser from this grammar, validating that all nonterminals are defined.
+    ///
+    /// This method validates the grammar and creates a [`crate::GrammarParser`] that can be
+    /// reused to parse multiple input strings efficiently.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
+    /// productions lacks a definition in the grammar, or if the grammar has no productions.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bnf::Grammar;
+    ///
+    /// let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+    /// <base> ::= 'A' | 'C' | 'G' | 'T'"
+    ///     .parse()
+    ///     .unwrap();
+    ///
+    /// let parser = grammar.build_parser()?;
+    /// let parse_trees: Vec<_> = parser.parse_input("GATTACA").collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    pub fn build_parser(&self) -> Result<crate::GrammarParser<'_>, Error> {
+        crate::GrammarParser::new(self)
+    }
+
     /// Parse input strings according to `Grammar`
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
+    /// all nonterminals at construction time and allows reusing the parser for
+    /// multiple inputs.
+    ///
+    /// ```rust,no_run
+    /// # use bnf::Grammar;
+    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
+    /// let parser = grammar.build_parser()?;
+    /// let parse_trees: Vec<_> = parser.parse_input("input").collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    #[deprecated(
+        since = "0.6.0",
+        note = "Use Grammar::build_parser() and GrammarParser::parse_input() instead for validation and reusability"
+    )]
     pub fn parse_input<'gram>(
         &'gram self,
         input: &'gram str,
@@ -309,6 +356,25 @@ impl Grammar {
     }
 
     /// Parse input strings according to `Grammar`, starting with given production
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
+    /// all nonterminals at construction time and allows reusing the parser for
+    /// multiple inputs.
+    ///
+    /// ```rust,no_run
+    /// # use bnf::{Grammar, Term};
+    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
+    /// let parser = grammar.build_parser()?;
+    /// let start = Term::Nonterminal("dna".to_string());
+    /// let parse_trees: Vec<_> = parser.parse_input_starting_with("input", &start).collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    #[deprecated(
+        since = "0.6.0",
+        note = "Use Grammar::build_parser() and GrammarParser::parse_input_starting_with() instead for validation and reusability"
+    )]
     pub fn parse_input_starting_with<'gram>(
         &'gram self,
         input: &'gram str,
@@ -669,6 +735,7 @@ macro_rules! grammar {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::expression::Expression;

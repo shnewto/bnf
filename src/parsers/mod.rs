@@ -165,6 +165,7 @@ pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 pub mod tests {
     use super::*;
 

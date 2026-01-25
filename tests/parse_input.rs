@@ -1,4 +1,5 @@
 #![cfg(test)]
+#![allow(deprecated)]
 
 use bnf::Grammar;
 use insta::assert_snapshot;

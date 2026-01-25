@@ -1,4 +1,5 @@
-use super::{InputRange, Production, grammar::ProductionId};
+use super::InputRange;
+use crate::parser::grammar::{Production, ProductionId};
 use crate::{
     Term,
     append_vec::{AppendOnlyVec, append_only_vec_id},
@@ -50,7 +51,7 @@ struct TraversalEdge<'gram> {
 /// The root in a [`TraversalTree`].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct TraversalRoot {
-    production_id: super::grammar::ProductionId,
+    production_id: ProductionId,
     input_start: usize,
 }
 

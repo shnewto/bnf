@@ -9,12 +9,15 @@ use nom::{Err, error::ErrorKind};
 pub enum Error {
     ParseError(String),
     GenerateError(String),
+    ValidationError(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::ParseError(s) | Error::GenerateError(s) => write!(f, "{s}"),
+            Error::ParseError(s) | Error::GenerateError(s) | Error::ValidationError(s) => {
+                write!(f, "{s}")
+            }
         }
     }
 }
@@ -73,11 +76,16 @@ mod tests {
     fn test_error_display() {
         let parse_error = Error::ParseError(String::from("parsing error!"));
         let generate_error = Error::GenerateError(String::from("error generating!"));
+        let validation_error = Error::ValidationError(String::from("validation error!"));
 
         assert_eq!(parse_error.to_string(), String::from("parsing error!"));
         assert_eq!(
             generate_error.to_string(),
             String::from("error generating!")
+        );
+        assert_eq!(
+            validation_error.to_string(),
+            String::from("validation error!")
         );
     }
 

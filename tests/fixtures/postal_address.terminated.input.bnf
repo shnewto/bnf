@@ -11,3 +11,28 @@
 
         <opt-suffix-part> ::= "Sr." | "Jr." | <roman-numeral> | "";
             <opt-apt-num> ::= <apt-num> | "";
+
+        <initial> ::= 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
+
+        <first-name> ::= <name-word>;
+        <last-name> ::= <name-word>;
+        <name-word> ::= <letter> | <letter> <name-word>;
+
+        <house-num> ::= <digit> | <digit> <house-num>;
+        <apt-num> ::= <digit> | <digit> <apt-num>;
+
+        <street-name> ::= <word> | <word> " " <street-name>;
+        <town-name> ::= <word> | <word> " " <town-name>;
+        <word> ::= <letter> | <letter> <word>;
+
+        <state-code> ::= <letter> <letter>;
+
+        <ZIP-code> ::= <digit> <digit> <digit> <digit> <digit>;
+
+        <roman-numeral> ::= "I" | "II" | "III" | "IV" | "V" | "VI" | "VII" | "VIII" | "IX" | "X";
+
+        <EOL> ::= ";";
+
+        <letter> ::= 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z';
+
+        <digit> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';

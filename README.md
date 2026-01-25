@@ -173,9 +173,12 @@ let input =
     <base> ::= 'A' | 'C' | 'G' | 'T'";
 let grammar: Grammar = input.parse().unwrap();
 
+// Create a parser from the grammar (validates all nonterminals are defined)
+let parser = grammar.build_parser().unwrap();
+
 let sentence = "GATTACA";
 
-let mut parse_trees = grammar.parse_input(sentence);
+let mut parse_trees = parser.parse_input(sentence);
 match parse_trees.next() {
     Some(parse_tree) => println!("{}", parse_tree),
     _ => println!("Grammar could not parse sentence"),
@@ -193,10 +196,13 @@ let input =
     <base> ::= 'A' | 'C' | 'G' | 'T'";
 let grammar: Grammar = input.parse().unwrap();
 
+// Create a parser from the grammar (validates all nonterminals are defined)
+let parser = grammar.build_parser().unwrap();
+
 let sentence = "G";
 let target_production = Term::Nonterminal("base".to_string());
 
-let mut parse_trees = grammar.parse_input_starting_with(sentence, &target_production);
+let mut parse_trees = parser.parse_input_starting_with(sentence, &target_production);
 match parse_trees.next() {
     Some(parse_tree) => println!("{}", parse_tree),
     _ => println!("Grammar could not parse sentence"),

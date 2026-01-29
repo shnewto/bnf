@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 mod util;
 
 #[global_allocator]
@@ -21,6 +23,34 @@ mod examples {
 
         bencher.bench(|| {
             input.parse::<bnf::Grammar>().unwrap();
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn parse_postal_input(bencher: divan::Bencher) {
+        let postal_grammar: bnf::Grammar =
+            include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
+                .parse()
+                .unwrap();
+
+        // use pseudo random for consistent metrics
+        use rand::seq::SliceRandom;
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+        let random_walk_count = 100usize;
+        let mut random_postal_strings: Vec<_> = (0..random_walk_count)
+            .map(|_| postal_grammar.generate_seeded(&mut rng).unwrap())
+            .collect();
+
+        random_postal_strings.shuffle(&mut rng);
+        let random_postal_strings = divan::black_box(random_postal_strings);
+        let mut index = (0..random_walk_count).cycle();
+
+        bencher.bench_local(|| {
+            let index = index.next().unwrap();
+            let input = random_postal_strings.get(index).unwrap();
+            postal_grammar
+                .parse_input(input)
+                .for_each(divan::black_box_drop);
         });
     }
 
@@ -88,6 +118,168 @@ mod examples {
                     .parse_input("")
                     .take(parse_count)
                     .for_each(divan::black_box_drop);
+            });
+    }
+}
+
+mod parser_api {
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn build_postal_parser(bencher: divan::Bencher) {
+        let grammar = divan::black_box(
+            include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
+                .parse::<bnf::Grammar>()
+                .unwrap(),
+        );
+
+        bencher.bench(|| {
+            grammar.build_parser().unwrap();
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn build_polish_parser(bencher: divan::Bencher) {
+        let grammar = divan::black_box(
+            "<product> ::= <number> | <op> <product> <product>
+            <op> ::= '+' | '-' | '*' | '/'
+            <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+            .parse::<bnf::Grammar>()
+            .unwrap(),
+        );
+
+        bencher.bench(|| {
+            grammar.build_parser().unwrap();
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn parse_postal_with_parser(bencher: divan::Bencher) {
+        let postal_grammar: bnf::Grammar =
+            include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
+                .parse()
+                .unwrap();
+        let parser = postal_grammar.build_parser().unwrap();
+
+        // use pseudo random for consistent metrics
+        use rand::seq::SliceRandom;
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+        let random_walk_count = 100usize;
+        let mut random_postal_strings: Vec<_> = (0..random_walk_count)
+            .map(|_| postal_grammar.generate_seeded(&mut rng).unwrap())
+            .collect();
+
+        random_postal_strings.shuffle(&mut rng);
+        let random_postal_strings = divan::black_box(random_postal_strings);
+        let mut index = (0..random_walk_count).cycle();
+
+        bencher.bench_local(|| {
+            let index = index.next().unwrap();
+            let input = random_postal_strings.get(index).unwrap();
+            parser.parse_input(input).for_each(divan::black_box_drop);
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn parse_polish_with_parser(bencher: divan::Bencher) {
+        let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
+            <op> ::= '+' | '-' | '*' | '/'
+            <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+        .parse()
+        .unwrap();
+        let parser = polish_calc_grammar.build_parser().unwrap();
+
+        // use pseudo random for consistent metrics
+        use rand::seq::SliceRandom;
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+        let random_walk_count = 100usize;
+        let mut random_walks: Vec<_> = (0..random_walk_count)
+            .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
+            .collect();
+
+        random_walks.shuffle(&mut rng);
+        let random_walks = divan::black_box(random_walks);
+        let mut index = (0..random_walk_count).cycle();
+
+        bencher.bench_local(|| {
+            let index = index.next().unwrap();
+            let input = random_walks.get(index).unwrap();
+            parser.parse_input(input).for_each(divan::black_box_drop);
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn parse_infinite_nullable_with_parser(bencher: divan::Bencher) {
+        use rand::Rng;
+
+        let infinite_grammar: bnf::Grammar = "
+                <a> ::= '' | <b>
+                <b> ::= <a>"
+            .parse()
+            .unwrap();
+        let parser = infinite_grammar.build_parser().unwrap();
+
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+
+        bencher
+            .with_inputs(|| rng.random_range(1..100))
+            .count_inputs_as::<divan::counter::ItemsCount>()
+            .bench_local_values(|parse_count| {
+                parser
+                    .parse_input("")
+                    .take(parse_count)
+                    .for_each(divan::black_box_drop);
+            });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn per_input_100(bencher: divan::Bencher) {
+        let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
+            <op> ::= '+' | '-' | '*' | '/'
+            <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+        .parse()
+        .unwrap();
+
+        // One-time parser: parse each input (grammar.parse_input does internal setup each time)
+        bencher
+            .with_inputs(|| {
+                let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+                (0..100)
+                    .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .bench_local_refs(|inputs| {
+                for input in inputs {
+                    polish_calc_grammar
+                        .parse_input(input)
+                        .for_each(divan::black_box_drop);
+                }
+            });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 60)]
+    fn reuse_parser_100(bencher: divan::Bencher) {
+        let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
+            <op> ::= '+' | '-' | '*' | '/'
+            <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+        "
+        .parse()
+        .unwrap();
+
+        // Reusable parser: construct parser once, parse 100 inputs
+        let parser = polish_calc_grammar.build_parser().unwrap();
+        bencher
+            .with_inputs(|| {
+                let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+                (0..100)
+                    .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .bench_local_refs(|inputs| {
+                for input in inputs {
+                    parser.parse_input(input).for_each(divan::black_box_drop);
+                }
             });
     }
 }

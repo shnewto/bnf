@@ -1,5 +1,3 @@
-#![allow(clippy::vec_init_then_push)]
-
 //! Grammar module for parsing and manipulating Backus-Naur Form (BNF) grammars.
 //!
 //! This module provides the core functionality for working with context-free grammars
@@ -56,7 +54,7 @@ pub enum ParseTreeNode<'gram> {
     Nonterminal(ParseTree<'gram>),
 }
 
-/// A tree derived by successfully parsing an input string via [`Grammar::parse_input`]
+/// A tree derived by successfully parsing an input string via [`crate::GrammarParser::parse_input()`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseTree<'gram> {
     /// the "left hand side" `Term` used for this `ParseTree`
@@ -161,8 +159,9 @@ impl<'gram> ParseTree<'gram> {
     /// .parse()
     /// .unwrap();
     ///
+    /// let parser = grammar.build_parser().unwrap();
     /// let input = "GATTACA";
-    /// let parsed = grammar.parse_input(input).next().unwrap();
+    /// let parsed = parser.parse_input(input).next().unwrap();
     /// let mermaid = parsed.mermaid().to_string();
     /// println!("parse tree mermaid: {}", mermaid);
     /// ```
@@ -300,7 +299,53 @@ impl Grammar {
         self.productions.iter_mut()
     }
 
+    /// Build a reusable parser from this grammar, validating that all nonterminals are defined.
+    ///
+    /// This method validates the grammar and creates a [`crate::GrammarParser`] that can be
+    /// reused to parse multiple input strings efficiently.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
+    /// productions lacks a definition in the grammar, or if the grammar has no productions.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use bnf::Grammar;
+    ///
+    /// let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+    /// <base> ::= 'A' | 'C' | 'G' | 'T'"
+    ///     .parse()
+    ///     .unwrap();
+    ///
+    /// let parser = grammar.build_parser()?;
+    /// let parse_trees: Vec<_> = parser.parse_input("GATTACA").collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    pub fn build_parser(&self) -> Result<crate::GrammarParser<'_>, Error> {
+        crate::GrammarParser::new(self)
+    }
+
     /// Parse input strings according to `Grammar`
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
+    /// all nonterminals at construction time and allows reusing the parser for
+    /// multiple inputs.
+    ///
+    /// ```rust,no_run
+    /// # use bnf::Grammar;
+    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
+    /// let parser = grammar.build_parser()?;
+    /// let parse_trees: Vec<_> = parser.parse_input("input").collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    #[deprecated(
+        since = "0.6.0",
+        note = "Use Grammar::build_parser() and GrammarParser::parse_input() instead for validation and reusability"
+    )]
     pub fn parse_input<'gram>(
         &'gram self,
         input: &'gram str,
@@ -309,6 +354,25 @@ impl Grammar {
     }
 
     /// Parse input strings according to `Grammar`, starting with given production
+    ///
+    /// # Deprecated
+    ///
+    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
+    /// all nonterminals at construction time and allows reusing the parser for
+    /// multiple inputs.
+    ///
+    /// ```rust,no_run
+    /// # use bnf::{Grammar, Term};
+    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
+    /// let parser = grammar.build_parser()?;
+    /// let start = Term::Nonterminal("dna".to_string());
+    /// let parse_trees: Vec<_> = parser.parse_input_starting_with("input", &start).collect();
+    /// # Ok::<(), bnf::Error>(())
+    /// ```
+    #[deprecated(
+        since = "0.6.0",
+        note = "Use Grammar::build_parser() and GrammarParser::parse_input_starting_with() instead for validation and reusability"
+    )]
     pub fn parse_input_starting_with<'gram>(
         &'gram self,
         input: &'gram str,
@@ -626,49 +690,86 @@ macro_rules! grammar {
     () => {
         $crate::Grammar::new()
     };
-    // start productions
+    // Entry: start collecting productions
     (<$lhs:ident> ::= $($rest:tt)*) => {
         {
-            let mut prods = vec![];
-            let mut exprs = vec![];
-            let mut terms = vec![];
-            $crate::grammar!(@rhs prods exprs terms $lhs $($rest)*);
-            $crate::Grammar::from_parts(prods)
+            // State: [current_terms_vec, current_exprs_nested_vecs, current_lhs, completed_productions_nested]
+            let productions = $crate::grammar!(@collect_prods [[] [] [$lhs]] $($rest)*);
+            $crate::Grammar::from_parts(productions)
         }
     };
-    // start a new production (after the first)
-    (@lhs $prods:ident $expr:ident $terms:ident <$lhs:ident> ::= $($rest:tt)*) => {
-        $terms = vec![];
-        $expr = vec![];
-        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+
+    // Hit semicolon followed by another production
+    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$curr_lhs:ident] $($prev_prods:tt)*] ; <$next_lhs:ident> ::= $($rest:tt)*) => {
+        {
+            // Save current production and start next one
+            $crate::grammar!(@collect_prods [[] [] [$next_lhs] [[$($curr_terms),*] $($curr_exprs)*] [$curr_lhs] $($prev_prods)*] $($rest)*)
+        }
     };
-    // end of productions is a NOOP
-    (@lhs $prods:ident $exprs:ident $terms:ident) => { };
-    // munch rhs until semicolon
-    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident ; $($rest:tt)*) => {
-        $expr.push($crate::Expression::from_parts($terms));
-        $prods.push($crate::Production::from_parts($crate::term!(<$lhs>), $expr));
-        $crate::grammar!(@lhs $prods $expr $terms $($rest)*);
+
+    // Hit semicolon at end (no more productions)
+    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$curr_lhs:ident] $($prev_prods:tt)*] ;) => {
+        $crate::grammar!(@collect_prods [[$($curr_terms),*] [$($curr_exprs)*] [$curr_lhs] $($prev_prods)*])
     };
-    // if terminal add to expression
-    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident $t:literal $($rest:tt)*) => {
-        $terms.push($crate::term!($t));
-        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+
+    // Hit | within a production - finish current expression, start new one
+    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$lhs:ident] $($prev_prods:tt)*] | $($rest:tt)*) => {
+        $crate::grammar!(@collect_prods [[] [[$($curr_terms),*] $($curr_exprs)*] [$lhs] $($prev_prods)*] $($rest)*)
     };
-    // if nonterminal add to expression
-    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident <$nt:ident> $($rest:tt)*) => {
-        $terms.push($crate::term!(<$nt>));
-        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+
+    // Collect a literal term
+    (@collect_prods [[$($curr_terms:expr),*] $($state:tt)*] $t:literal $($rest:tt)*) => {
+        $crate::grammar!(@collect_prods [[$($curr_terms,)* $crate::term!($t)] $($state)*] $($rest)*)
     };
-    // if | add expression to production, create new expression
-    (@rhs $prods:ident $expr:ident $terms:ident $lhs:ident | $($rest:tt)*) => {
-        $expr.push($crate::Expression::from_parts($terms));
-        $terms = vec![];
-        $crate::grammar!(@rhs $prods $expr $terms $lhs $($rest)*);
+
+    // Collect a nonterminal
+    (@collect_prods [[$($curr_terms:expr),*] $($state:tt)*] <$nt:ident> $($rest:tt)*) => {
+        $crate::grammar!(@collect_prods [[$($curr_terms,)* $crate::term!(<$nt>)] $($state)*] $($rest)*)
+    };
+
+    // Base case - no more tokens, build all productions
+    (@collect_prods [[$($last_terms:expr),*] [$($last_exprs:tt)*] [$last_lhs:ident] $([$($prod_exprs:tt)*] [$prod_lhs:ident])*]) => {
+        {
+            #[allow(clippy::vec_init_then_push)]
+            {
+                let mut prods = vec![];
+
+                // Build previous productions (in reverse order since we accumulated backwards)
+                $(
+                    let mut exprs = vec![];
+                    $crate::grammar!(@build_exprs exprs $($prod_exprs)*);
+                    prods.push($crate::Production::from_parts(
+                        $crate::term!(<$prod_lhs>),
+                        exprs,
+                    ));
+                )*
+
+                // Build last production
+                let mut last_exprs = vec![];
+                $crate::grammar!(@build_exprs last_exprs $($last_exprs)* [$($last_terms),*]);
+                prods.push($crate::Production::from_parts(
+                    $crate::term!(<$last_lhs>),
+                    last_exprs,
+                ));
+
+                prods
+            }
+        }
+    };
+
+    // Helper to build expressions vector from nested term arrays
+    (@build_exprs $exprs:ident $([$($terms:expr),*])*) => {
+        #[allow(clippy::vec_init_then_push)]
+        {
+            $(
+                $exprs.push($crate::Expression::from_parts(vec![$($terms),*]));
+            )*
+        }
     };
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
     use crate::expression::Expression;
@@ -729,14 +830,7 @@ mod tests {
 
     #[test]
     fn add_production() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
-        let expression_list = vec![last, one_more];
-        let production = Production::from_parts(lhs, expression_list);
+        let production = crate::production!(<dna> ::= "base" | "base" <dna>);
         let productions = vec![production.clone()];
         let mut grammar = Grammar::new();
 
@@ -755,14 +849,7 @@ mod tests {
 
     #[test]
     fn remove_production() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
-        let expression_list = vec![last, one_more];
-        let production = Production::from_parts(lhs, expression_list);
+        let production = crate::production!(<dna> ::= "base" | "base" <dna>);
         let productions = vec![production.clone()];
         let mut grammar = Grammar::from_parts(productions.clone());
 
@@ -785,18 +872,11 @@ mod tests {
 
     #[test]
     fn remove_nonexistent_production() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Terminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
-        let expression_list = vec![last, one_more];
-        let production = Production::from_parts(lhs, expression_list);
+        let production = crate::production!(<dna> ::= "base" | "base" <dna>);
         let productions = vec![production.clone()];
         let mut grammar = Grammar::from_parts(productions.clone());
 
-        let unused = Production::from_parts(Term::Nonterminal(String::from("nonexistent")), vec![]);
+        let unused = crate::production!(<nonexistent> ::=);
 
         // grammar has original production
         assert_eq!(
@@ -828,6 +908,57 @@ mod tests {
             matches!(result, Err(Error::ParseError(_))),
             "{result:?} should be ParseError"
         );
+    }
+
+    #[test]
+    fn parse_from_bnf_format() {
+        use crate::parsers::BNF;
+        let input = "<dna> ::= <base> | <base> <dna>\n<base> ::= 'A' | 'C' | 'G' | 'T'";
+        let result = Grammar::parse_from::<BNF>(input);
+        assert!(result.is_ok(), "Should parse BNF format");
+        let grammar = result.unwrap();
+        assert!(grammar.productions_iter().count() >= 2);
+    }
+
+    #[cfg(feature = "ABNF")]
+    #[test]
+    fn parse_from_abnf_format() {
+        use crate::parsers::ABNF;
+        let input = "dna = base / base dna\nbase = \"A\" / \"C\" / \"G\" / \"T\"";
+        let result = Grammar::parse_from::<ABNF>(input);
+        assert!(result.is_ok(), "Should parse ABNF format");
+        let grammar = result.unwrap();
+        assert!(grammar.productions_iter().count() >= 2);
+    }
+
+    #[test]
+    fn parse_from_error() {
+        use crate::parsers::BNF;
+        let input = "<incomplete";
+        let result = Grammar::parse_from::<BNF>(input);
+        assert!(result.is_err(), "Should fail on incomplete input");
+        assert!(matches!(result.unwrap_err(), Error::ParseError(_)));
+    }
+
+    #[test]
+    fn generate_with_empty_anonymous_nonterminal() {
+        // Test error path when AnonymousNonterminal has empty expressions
+        let empty_anon = Term::AnonymousNonterminal(vec![]);
+        let production = Production::from_parts(
+            crate::term!(<start>),
+            vec![Expression::from_parts(vec![empty_anon])],
+        );
+        let grammar = Grammar::from_parts(vec![production]);
+        let result = grammar.generate();
+        assert!(
+            result.is_err(),
+            "Should fail when AnonymousNonterminal is empty"
+        );
+        if let Err(Error::GenerateError(msg)) = result {
+            assert!(msg.contains("Couldn't select random Expression"));
+        } else {
+            panic!("Expected GenerateError");
+        }
     }
 
     #[test]
@@ -983,27 +1114,10 @@ mod tests {
             <dna> ::= <base> | <base> <dna> ;
             <base> ::= 'A' | 'C' | 'G' | 'T' ;
         };
-        let expected = Grammar::from_parts(vec![
-            Production::from_parts(
-                Term::Nonterminal(String::from("dna")),
-                vec![
-                    Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]),
-                    Expression::from_parts(vec![
-                        Term::Nonterminal(String::from("base")),
-                        Term::Nonterminal(String::from("dna")),
-                    ]),
-                ],
-            ),
-            Production::from_parts(
-                Term::Nonterminal(String::from("base")),
-                vec![
-                    Expression::from_parts(vec![Term::Terminal(String::from("A"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("C"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("G"))]),
-                    Expression::from_parts(vec![Term::Terminal(String::from("T"))]),
-                ],
-            ),
-        ]);
+        let expected = crate::grammar! {
+            <dna> ::= <base> | <base> <dna> ;
+            <base> ::= 'A' | 'C' | 'G' | 'T' ;
+        };
         assert_eq!(grammar, expected);
     }
 
@@ -1211,13 +1325,13 @@ mod tests {
 
         assert!(
             grammar
-                .parse_input_starting_with(input, &Term::Nonterminal("dna".to_string()))
+                .parse_input_starting_with(input, &crate::term!(<dna>))
                 .next()
                 .is_some()
         );
         assert!(
             grammar
-                .parse_input_starting_with(input, &Term::Nonterminal("base".to_string()))
+                .parse_input_starting_with(input, &crate::term!(<base>))
                 .next()
                 .is_none()
         );
@@ -1233,7 +1347,7 @@ mod tests {
         let input = "GATTACA";
         assert!(
             grammar
-                .parse_input_starting_with(input, &Term::Nonterminal("notfound".to_string()))
+                .parse_input_starting_with(input, &crate::term!(<notfound>))
                 .next()
                 .is_none()
         )

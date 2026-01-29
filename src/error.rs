@@ -9,12 +9,15 @@ use nom::{Err, error::ErrorKind};
 pub enum Error {
     ParseError(String),
     GenerateError(String),
+    ValidationError(String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::ParseError(s) | Error::GenerateError(s) => write!(f, "{s}"),
+            Error::ParseError(s) | Error::GenerateError(s) | Error::ValidationError(s) => {
+                write!(f, "{s}")
+            }
         }
     }
 }
@@ -73,11 +76,16 @@ mod tests {
     fn test_error_display() {
         let parse_error = Error::ParseError(String::from("parsing error!"));
         let generate_error = Error::GenerateError(String::from("error generating!"));
+        let validation_error = Error::ValidationError(String::from("validation error!"));
 
         assert_eq!(parse_error.to_string(), String::from("parsing error!"));
         assert_eq!(
             generate_error.to_string(),
             String::from("error generating!")
+        );
+        assert_eq!(
+            validation_error.to_string(),
+            String::from("validation error!")
         );
     }
 
@@ -102,5 +110,30 @@ mod tests {
         let error = Error::ParseError(String::from("parsing error!"));
         let clone = error.clone();
         assert_eq!(error, clone);
+    }
+
+    #[test]
+    fn from_nom_err_failure() {
+        let error = nom::error::Error::new("test", nom::error::ErrorKind::Tag);
+        let err = Err::Failure(error);
+        let bnf_error = Error::from(err);
+        assert!(matches!(bnf_error, Error::ParseError(_)));
+        assert!(bnf_error.to_string().contains("Parsing error:"));
+    }
+
+    #[test]
+    fn from_nom_err_incomplete() {
+        let err = Err::Incomplete(nom::Needed::Unknown);
+        let bnf_error = Error::from(err);
+        assert!(matches!(bnf_error, Error::ParseError(_)));
+        assert!(bnf_error.to_string().contains("Parsing error:"));
+    }
+
+    #[test]
+    fn error_trait_impl() {
+        // Test that Error implements std::error::Error
+        let error = Error::ParseError(String::from("test"));
+        let error_ref: &dyn std::error::Error = &error;
+        assert_eq!(error_ref.to_string(), "test");
     }
 }

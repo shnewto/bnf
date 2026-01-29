@@ -1,12 +1,12 @@
-//! Example: Parse a tree from input using a Grammar, specifing which production to start from
+//! Example: Parse a tree from input using a `GrammarParser`, specifying which production to start from
 //!
-//! This example demonstrates how to use a Grammar to parse an input string and print the resulting parse tree(s).
-//! In this example, the grammar is take from the the DNA grammar from the README, but reversed. By default, parser
+//! This example demonstrates how to use a `GrammarParser` to parse an input string and print the resulting parse tree(s).
+//! In this example, the grammar is taken from the DNA grammar from the README, but reversed. By default, parser
 //! would assume that the input should be parsed with the first rule. This example demonstrates how
 //! to parse the input "GATTACA" with the second rule <dna> instead
 #![allow(clippy::print_stdout, clippy::print_stderr)]
 
-use bnf::Grammar;
+use bnf::{Grammar, Term};
 
 fn main() {
     // Define a simple BNF grammar for DNA sequences
@@ -24,15 +24,24 @@ fn main() {
         }
     };
 
+    // Create a parser from the grammar (validates all nonterminals are defined)
+    let parser = match grammar.build_parser() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Failed to create parser: {e}");
+            return;
+        }
+    };
+
     // Input string to parse
     let sentence = "GATTACA";
     println!("Parsing input with <dna>: {sentence}");
 
     // Target to start from
-    let target_production = bnf::Term::Nonterminal("dna".to_string());
+    let target_production = Term::Nonterminal("dna".to_string());
 
-    // Parse the input string using the grammar, trying to match the second <dna> target
-    let mut parse_trees = grammar.parse_input_starting_with(sentence, &target_production);
+    // Parse the input string using the parser, starting with the <dna> nonterminal
+    let mut parse_trees = parser.parse_input_starting_with(sentence, &target_production);
     match parse_trees.next() {
         Some(parse_tree) => {
             println!("Parse tree:\n{parse_tree}");

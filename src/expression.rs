@@ -1,5 +1,3 @@
-#![allow(clippy::vec_init_then_push)]
-
 use crate::error::Error;
 use crate::parsers::{self, BNF};
 use crate::term::Term;
@@ -106,34 +104,26 @@ impl Expression {
 /// ```
 #[macro_export]
 macro_rules! expression {
-    // rule which matches <ident> followed by token tree
+    // Entry: nonterminal followed by more tokens
     (<$nt:ident> $($tt:tt)*) => {
-        {
-            let mut vec = vec![];
-            $crate::expression!(vec; <$nt> $($tt)*);
-            $crate::Expression::from_parts(vec)
-        }
+        $crate::expression!(@collect [$crate::term!(<$nt>)] $($tt)*)
     };
-    // rule which matches literal followed by token tree
+    // Entry: literal followed by more tokens
     ($t:literal $($tt:tt)*) => {
-        {
-            let mut vec = vec![];
-            $crate::expression!(vec; $t $($tt)*);
-            $crate::Expression::from_parts(vec)
-        }
+        $crate::expression!(@collect [$crate::term!($t)] $($tt)*)
     };
-    // internal rule to handle vector accumulation
-    ($vec:ident; <$nt:ident> $($tt:tt)*) => {
-        $vec.push($crate::term!(<$nt>));
-        $crate::expression!($vec; $($tt)*);
+    // Collect nonterminal
+    (@collect [$($collected:expr),*] <$nt:ident> $($rest:tt)*) => {
+        $crate::expression!(@collect [$($collected,)* $crate::term!(<$nt>)] $($rest)*)
     };
-    // internal rule to handle vector accumulation
-    ($vec:ident; $t:literal $($tt:tt)*) => {
-        $vec.push($crate::term!($t));
-        $crate::expression!($vec; $($tt)*);
+    // Collect literal
+    (@collect [$($collected:expr),*] $t:literal $($rest:tt)*) => {
+        $crate::expression!(@collect [$($collected,)* $crate::term!($t)] $($rest)*)
     };
-    // case with vec but no more tt
-    ($vec:ident; ) => {};
+    // Base case - build Expression from collected terms
+    (@collect [$($collected:expr),*]) => {
+        $crate::Expression::from_parts(vec![$($collected),*])
+    };
 }
 
 impl fmt::Display for Expression {
@@ -236,12 +226,10 @@ mod tests {
 
     #[test]
     fn new_expressions() {
-        let t1 = Term::Terminal(String::from("terminal"));
-        let nt1 = Term::Nonterminal(String::from("nonterminal"));
-        let t2 = Term::Terminal(String::from("terminal"));
-        let nt2 = Term::Nonterminal(String::from("nonterminal"));
+        let t2 = crate::term!("terminal");
+        let nt2 = crate::term!(<nonterminal>);
 
-        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let e1 = crate::expression!(<nonterminal> "terminal");
         let mut e2 = Expression::new();
         e2.add_term(nt2);
         e2.add_term(t2);
@@ -251,17 +239,13 @@ mod tests {
 
     #[test]
     fn add_term() {
-        let mut terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-        ];
+        let mut terms = vec![crate::term!("A"), crate::term!("C"), crate::term!("G")];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops forgot "T"
-        let forgotten = Term::Terminal(String::from("T"));
+        let forgotten = crate::term!("T");
         dna_expression.add_term(forgotten.clone());
         terms.push(forgotten);
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
@@ -275,18 +259,18 @@ mod tests {
     #[test]
     fn remove_term() {
         let terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-            Term::Terminal(String::from("T")),
-            Term::Terminal(String::from("Z")),
+            crate::term!("A"),
+            crate::term!("C"),
+            crate::term!("G"),
+            crate::term!("T"),
+            crate::term!("Z"),
         ];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops "Z" isn't a dna base
-        let accident = Term::Terminal(String::from("Z"));
+        let accident = crate::term!("Z");
         let removed = dna_expression.remove_term(&accident);
 
         // the removed element should be the accident
@@ -303,17 +287,17 @@ mod tests {
     #[test]
     fn remove_nonexistent_term() {
         let terms = vec![
-            Term::Terminal(String::from("A")),
-            Term::Terminal(String::from("C")),
-            Term::Terminal(String::from("G")),
-            Term::Terminal(String::from("T")),
+            crate::term!("A"),
+            crate::term!("C"),
+            crate::term!("G"),
+            crate::term!("T"),
         ];
 
         let mut dna_expression = Expression::from_parts(terms.clone());
         assert_eq!(dna_expression.terms_iter().count(), terms.len());
 
         // oops "Z" isn't a dna base
-        let nonexistent = Term::Terminal(String::from("Z"));
+        let nonexistent = crate::term!("Z");
         let removed = dna_expression.remove_term(&nonexistent);
 
         // the nonexistent term should not be found in the terms
@@ -331,10 +315,7 @@ mod tests {
 
     #[test]
     fn parse_complete() {
-        let expression = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let expression = crate::expression!(<base> <dna>);
         assert_eq!(Ok(expression), Expression::from_str("<base> <dna>"));
     }
 
@@ -358,31 +339,23 @@ mod tests {
 
     #[test]
     fn add_operator() {
-        let t1 = Term::Terminal(String::from("terminal"));
-        let nt1 = Term::Nonterminal(String::from("nonterminal"));
-        let t2 = Term::Terminal(String::from("terminal"));
-        let nt2 = Term::Nonterminal(String::from("nonterminal"));
-        let t3 = Term::Terminal(String::from("terminal"));
-        let nt3 = Term::Nonterminal(String::from("nonterminal"));
-        let t4 = Term::Terminal(String::from("terminal"));
-        let nt4 = Term::Nonterminal(String::from("nonterminal"));
-        let t5 = Term::Terminal(String::from("terminal"));
-        let nt5 = Term::Nonterminal(String::from("nonterminal"));
+        let t3 = crate::term!("terminal");
+        let t5 = crate::term!("terminal");
 
-        let e1 = Expression::from_parts(vec![nt1, t1]);
+        let e1 = crate::expression!(<nonterminal> "terminal");
         // &expression + expression
-        let e2_1 = Expression::from_parts(vec![nt2]);
-        let e2_2 = Expression::from_parts(vec![t2]);
+        let e2_1 = crate::expression!(<nonterminal>);
+        let e2_2 = crate::expression!("terminal");
         let e2 = &e2_1 + e2_2;
         // &expression + term
-        let e3_1 = Expression::from_parts(vec![nt3]);
+        let e3_1 = crate::expression!(<nonterminal>);
         let e3 = &e3_1 + t3;
         // expression + expression
-        let e4_1 = Expression::from_parts(vec![nt4]);
-        let e4_2 = Expression::from_parts(vec![t4]);
+        let e4_1 = crate::expression!(<nonterminal>);
+        let e4_2 = crate::expression!("terminal");
         let e4 = e4_1 + e4_2;
         // expression + term
-        let e5_1 = Expression::from_parts(vec![nt5]);
+        let e5_1 = crate::expression!(<nonterminal>);
         let e5 = e5_1 + t5;
 
         assert_eq!(e1, e2);
@@ -401,7 +374,7 @@ mod tests {
     #[test]
     fn mutate_iterable_terms() {
         let mut expression: Expression = "'END'".parse().unwrap();
-        let new_term = Term::Terminal("X".to_string());
+        let new_term = crate::term!("X");
         for term in expression.terms_iter_mut() {
             *term = new_term.clone();
         }
@@ -488,12 +461,8 @@ mod tests {
 
     #[test]
     fn macro_builds() {
-        let expr = expression!(<a> "and" <b>);
-        let expected = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("a")),
-            Term::Terminal(String::from("and")),
-            Term::Nonterminal(String::from("b")),
-        ]);
+        let expr = crate::expression!(<a> "and" <b>);
+        let expected = crate::expression!(<a> "and" <b>);
 
         assert_eq!(expr, expected);
     }

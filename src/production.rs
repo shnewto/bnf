@@ -1,5 +1,4 @@
 #![allow(clippy::should_implement_trait)]
-#![allow(clippy::vec_init_then_push)]
 
 use crate::error::Error;
 use crate::expression::Expression;
@@ -125,37 +124,47 @@ impl FromStr for Production {
 /// ```
 #[macro_export]
 macro_rules! production {
+    // Entry: <lhs> ::= <rhs>
     (<$lhs:ident> ::= $($rest:tt)*) => {
         {
-            let mut expressions = vec![];
-            let mut terms = vec![];
-            $crate::production!(@rhs expressions terms $($rest)*);
-            expressions.push($crate::Expression::from_parts(terms));
+            // Collect all expressions (each separated by |)
+            let expressions = $crate::production!(@collect_exprs [[]] $($rest)*);
             $crate::Production::from_parts(
                 $crate::term!(<$lhs>),
                 expressions,
             )
         }
     };
-    // munch rhs until empty
-    // if terminal, add to expression
-    (@rhs $expr:ident $terms:ident $t:literal $($rest:tt)*) => {
-        $terms.push($crate::term!($t));
-        $crate::production!(@rhs $expr $terms $($rest)*);
+
+    // Hit | separator - finish current expression group, start new one
+    (@collect_exprs [[$($current:expr),*] $($prev_exprs:tt)*] | $($rest:tt)*) => {
+        $crate::production!(@collect_exprs [[] [$($current),*] $($prev_exprs)*] $($rest)*)
     };
-    // if nonterminal, add to expression and keep munching
-    (@rhs $expr:ident $terms:ident <$nt:ident> $($rest:tt)*) => {
-        $terms.push($crate::term!(<$nt>));
-        $crate::production!(@rhs $expr $terms $($rest)*);
+
+    // Collect a literal term into current expression
+    (@collect_exprs [[$($current:expr),*] $($prev_exprs:tt)*] $t:literal $($rest:tt)*) => {
+        $crate::production!(@collect_exprs [[$($current,)* $crate::term!($t)] $($prev_exprs)*] $($rest)*)
     };
-    // if | add expression to production, and create new expression
-    (@rhs $expr:ident $terms:ident | $($rest:tt)*) => {
-        $expr.push($crate::Expression::from_parts($terms));
-        $terms = vec![];
-        $crate::production!(@rhs $expr $terms $($rest)*);
+
+    // Collect a nonterminal into current expression
+    (@collect_exprs [[$($current:expr),*] $($prev_exprs:tt)*] <$nt:ident> $($rest:tt)*) => {
+        $crate::production!(@collect_exprs [[$($current,)* $crate::term!(<$nt>)] $($prev_exprs)*] $($rest)*)
     };
-    // base case
-    (@rhs $expr:ident $terms:ident) => {};
+
+    // Base case - build all expressions
+    (@collect_exprs [[$($last:expr),*] $([$($prev:expr),*])*]) => {
+        {
+            #[allow(clippy::vec_init_then_push)]
+            {
+                let mut exprs = vec![];
+                // Add previous expressions in reverse order (they were accumulated backwards)
+                $(exprs.push($crate::Expression::from_parts(vec![$($prev),*]));)*
+                // Add the last expression
+                exprs.push($crate::Expression::from_parts(vec![$($last),*]));
+                exprs
+            }
+        }
+    };
 }
 
 #[cfg(test)]
@@ -194,18 +203,12 @@ mod tests {
 
     #[test]
     fn new_productions() {
-        let lhs1 = Term::Nonterminal(String::from("STRING A"));
-        let rhs1 = Expression::from_parts(vec![
-            Term::Terminal(String::from("STRING B")),
-            Term::Nonterminal(String::from("STRING C")),
-        ]);
+        let lhs1 = crate::term!(<STRING_A>);
+        let rhs1 = crate::expression!("STRING B" <STRING_C>);
         let p1 = Production::from_parts(lhs1, vec![rhs1]);
 
-        let lhs2 = Term::Nonterminal(String::from("STRING A"));
-        let rhs2 = Expression::from_parts(vec![
-            Term::Terminal(String::from("STRING B")),
-            Term::Nonterminal(String::from("STRING C")),
-        ]);
+        let lhs2 = crate::term!(<STRING_A>);
+        let rhs2 = crate::expression!("STRING B" <STRING_C>);
         let mut p2 = Production::new();
         p2.lhs = lhs2;
         p2.add_to_rhs(rhs2);
@@ -215,18 +218,11 @@ mod tests {
 
     #[test]
     fn remove_from_rhs() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let lhs = crate::term!(<dna>);
+        let last = crate::expression!(<base>);
+        let one_more = crate::expression!(<base> <dna>);
         // unnecessary expression to be removed from production
-        let two_more = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let two_more = crate::expression!(<base> <base> <dna>);
         let expression_list = vec![last, one_more, two_more.clone()];
         let mut production = Production::from_parts(lhs, expression_list.clone());
         let removed = production.remove_from_rhs(&two_more);
@@ -246,21 +242,14 @@ mod tests {
 
     #[test]
     fn remove_nonexistent_from_rhs() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Terminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let lhs = crate::term!(<dna>);
+        let last = crate::expression!(<base>);
+        let one_more = crate::expression!("base" <dna>);
         let expression_list = vec![last, one_more];
         let mut production = Production::from_parts(lhs, expression_list.clone());
 
         // unused expression to fail being removed from production
-        let two_more = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
+        let two_more = crate::expression!(<base> <base> <dna>);
         let removed = production.remove_from_rhs(&two_more);
 
         // the unused term should not be found in the terms
@@ -273,13 +262,7 @@ mod tests {
 
     #[test]
     fn parse_complete() {
-        let lhs = Term::Nonterminal(String::from("dna"));
-        let last = Expression::from_parts(vec![Term::Nonterminal(String::from("base"))]);
-        let one_more = Expression::from_parts(vec![
-            Term::Nonterminal(String::from("base")),
-            Term::Nonterminal(String::from("dna")),
-        ]);
-        let production = Production::from_parts(lhs, vec![last, one_more]);
+        let production = crate::production!(<dna> ::= <base> | <base> <dna>);
         assert_eq!(
             Ok(production),
             Production::from_str("<dna> ::= <base> | <base> <dna>")
@@ -435,19 +418,7 @@ mod tests {
     fn macro_builds_todo() {
         let production = crate::production!(<S> ::= 'T' <NT> | <NT> "AND");
 
-        let expected = Production::from_parts(
-            Term::Nonterminal(String::from("S")),
-            vec![
-                Expression::from_parts(vec![
-                    Term::Terminal(String::from("T")),
-                    Term::Nonterminal(String::from("NT")),
-                ]),
-                Expression::from_parts(vec![
-                    Term::Nonterminal(String::from("NT")),
-                    Term::Terminal(String::from("AND")),
-                ]),
-            ],
-        );
+        let expected = crate::production!(<S> ::= 'T' <NT> | <NT> "AND");
 
         assert_eq!(production, expected);
     }

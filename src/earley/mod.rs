@@ -1,11 +1,11 @@
-mod grammar;
 mod input_range;
 mod traversal;
 
+use crate::parser::grammar::ParseGrammar;
 use crate::{ParseTree, ParseTreeNode, Term, tracing};
-use grammar::{ParseGrammar, Production};
 use input_range::InputRange;
 use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::rc::Rc;
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
 pub fn parse<'gram>(
@@ -21,6 +21,17 @@ pub fn parse_starting_with<'gram>(
     starting_term: &'gram Term,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
     ParseTreeIter::new_starting_with(grammar, input, starting_term)
+}
+
+/// Parse input using a pre-built `ParseGrammar`, starting with the given term.
+/// This allows reusing the `ParseGrammar` for multiple inputs.
+pub(crate) fn parse_starting_with_grammar<'gram>(
+    parse_grammar: &Rc<ParseGrammar<'gram>>,
+    input: &'gram str,
+    starting_term: &'gram Term,
+) -> impl Iterator<Item = ParseTree<'gram>> {
+    // Clone the Rc (just increments reference count, no data copying)
+    ParseTreeIter::new_starting_with_grammar(Rc::clone(parse_grammar), input, starting_term)
 }
 
 /// A queue of [`TraversalId`] for processing, with repetitions ignored.
@@ -57,7 +68,7 @@ impl TraversalQueue {
 /// Create a [`ParseTree`] starting at the root [`TraversalId`].
 fn parse_tree<'gram>(
     traversal_tree: &TraversalTree<'gram>,
-    grammar: &ParseGrammar<'gram>,
+    grammar: &Rc<ParseGrammar<'gram>>,
     traversal_id: TraversalId,
 ) -> ParseTree<'gram> {
     let production = {
@@ -83,7 +94,7 @@ fn earley<'gram>(
     queue: &mut TraversalQueue,
     traversal_tree: &mut TraversalTree<'gram>,
     completions: &mut CompletionMap<'gram>,
-    grammar: &ParseGrammar<'gram>,
+    grammar: &Rc<ParseGrammar<'gram>>,
 ) -> Option<TraversalId> {
     let _span = tracing::span!(tracing::Level::DEBUG, "earley").entered();
     while let Some(traversal_id) = queue.pop_front() {
@@ -184,7 +195,7 @@ fn earley<'gram>(
 #[derive(Debug)]
 struct ParseTreeIter<'gram> {
     traversal_tree: TraversalTree<'gram>,
-    grammar: ParseGrammar<'gram>,
+    grammar: Rc<ParseGrammar<'gram>>,
     queue: TraversalQueue,
     completions: CompletionMap<'gram>,
 }
@@ -203,18 +214,25 @@ impl<'gram> ParseTreeIter<'gram> {
         input: &'gram str,
         starting_term: &'gram Term,
     ) -> Self {
-        let grammar = ParseGrammar::new(grammar);
+        let parse_grammar = Rc::new(ParseGrammar::new(grammar));
+        Self::new_starting_with_grammar(parse_grammar, input, starting_term)
+    }
 
+    pub(crate) fn new_starting_with_grammar(
+        parse_grammar: Rc<ParseGrammar<'gram>>,
+        input: &'gram str,
+        starting_term: &'gram Term,
+    ) -> Self {
         let input = InputRange::new(input);
         let mut traversal_tree = TraversalTree::default();
         let mut queue = TraversalQueue::default();
         let completions = CompletionMap::default();
 
-        queue.push_back_starting(&mut traversal_tree, &grammar, starting_term, &input);
+        queue.push_back_starting(&mut traversal_tree, &parse_grammar, starting_term, &input);
 
         Self {
             traversal_tree,
-            grammar,
+            grammar: parse_grammar,
             queue,
             completions,
         }

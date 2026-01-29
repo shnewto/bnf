@@ -122,9 +122,9 @@ mod examples {
     }
 }
 
-mod new_parser_api {
+mod parser_api {
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn new_parser_postal(bencher: divan::Bencher) {
+    fn build_postal_parser(bencher: divan::Bencher) {
         let grammar = divan::black_box(
             include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
                 .parse::<bnf::Grammar>()
@@ -137,7 +137,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn new_parser_polish_calculator(bencher: divan::Bencher) {
+    fn build_polish_parser(bencher: divan::Bencher) {
         let grammar = divan::black_box(
             "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
@@ -153,7 +153,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn parse_postal_new_api(bencher: divan::Bencher) {
+    fn parse_postal_with_parser(bencher: divan::Bencher) {
         let postal_grammar: bnf::Grammar =
             include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
                 .parse()
@@ -180,7 +180,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn parse_polish_calculator_new_api(bencher: divan::Bencher) {
+    fn parse_polish_with_parser(bencher: divan::Bencher) {
         let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
             <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
@@ -209,7 +209,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn parse_infinite_nullable_grammar_new_api(bencher: divan::Bencher) {
+    fn parse_infinite_nullable_with_parser(bencher: divan::Bencher) {
         use rand::Rng;
 
         let infinite_grammar: bnf::Grammar = "
@@ -233,7 +233,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn reusable_parser_old_api_100_inputs(bencher: divan::Bencher) {
+    fn per_input_100(bencher: divan::Bencher) {
         let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
             <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
@@ -241,7 +241,7 @@ mod new_parser_api {
         .parse()
         .unwrap();
 
-        // Old API: parse each input (grammar.parse_input does internal setup each time)
+        // One-time parser: parse each input (grammar.parse_input does internal setup each time)
         bencher
             .with_inputs(|| {
                 let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
@@ -259,7 +259,7 @@ mod new_parser_api {
     }
 
     #[divan::bench(min_time = 5, max_time = 60)]
-    fn reusable_parser_new_api_100_inputs(bencher: divan::Bencher) {
+    fn reuse_parser_100(bencher: divan::Bencher) {
         let polish_calc_grammar: bnf::Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
             <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
@@ -267,7 +267,7 @@ mod new_parser_api {
         .parse()
         .unwrap();
 
-        // New API: construct parser once, parse 100 inputs
+        // Reusable parser: construct parser once, parse 100 inputs
         let parser = polish_calc_grammar.build_parser().unwrap();
         bencher
             .with_inputs(|| {

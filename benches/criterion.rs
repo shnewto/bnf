@@ -69,11 +69,11 @@ fn examples(c: &mut Criterion) {
     }
 }
 
-fn new_parser_api(c: &mut Criterion) {
+fn parser_api_benches(c: &mut Criterion) {
     let _tracing = util::init_tracing();
 
-    // Benchmark parser construction
-    c.bench_function("new parser: postal", |b| {
+    // Benchmark parser construction (one-time)
+    c.bench_function("build parser: postal", |b| {
         let grammar: Grammar =
             std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
                 .parse()
@@ -81,7 +81,7 @@ fn new_parser_api(c: &mut Criterion) {
         b.iter(|| grammar.build_parser().unwrap());
     });
 
-    c.bench_function("new parser: polish calculator", |b| {
+    c.bench_function("build parser: polish calculator", |b| {
         let grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
             <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
@@ -91,7 +91,7 @@ fn new_parser_api(c: &mut Criterion) {
         b.iter(|| grammar.build_parser().unwrap());
     });
 
-    // Benchmark parsing with new API
+    // Benchmark parsing with reusable parser
     let postal_grammar: Grammar =
         std::include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
             .parse()
@@ -105,7 +105,7 @@ fn new_parser_api(c: &mut Criterion) {
         .map(|_| postal_grammar.generate_seeded(&mut rng).unwrap())
         .collect();
 
-    c.bench_function("parse postal (new API)", |b| {
+    c.bench_function("parse postal (reused parser)", |b| {
         b.iter(|| {
             let input = random_postal_strings.choose(&mut rng).unwrap();
             let parses: Vec<_> = postal_parser.parse_input(input).collect();
@@ -128,7 +128,7 @@ fn new_parser_api(c: &mut Criterion) {
         .map(|_| polish_calc_grammar.generate_seeded(&mut rng).unwrap())
         .collect();
 
-    c.bench_function("parse polish calculator (new API)", |b| {
+    c.bench_function("parse polish calculator (reused parser)", |b| {
         b.iter(|| {
             let input = random_walks.choose(&mut rng).unwrap();
             let parses: Vec<_> = polish_parser.parse_input(input).collect();
@@ -144,7 +144,7 @@ fn new_parser_api(c: &mut Criterion) {
     let infinite_parser = infinite_grammar.build_parser().unwrap();
     let input = "";
 
-    let mut group = c.benchmark_group("parse infinite nullable grammar (new API)");
+    let mut group = c.benchmark_group("parse infinite nullable grammar (reused parser)");
     for parse_count in (0usize..=100).step_by(25) {
         group.throughput(criterion::Throughput::Elements(parse_count as u64));
         group.bench_with_input(
@@ -163,7 +163,7 @@ fn new_parser_api(c: &mut Criterion) {
     }
     group.finish();
 
-    // Benchmark showing reusability benefit: parse N inputs with a single parser
+    // Benchmark showing reusability benefit: parse N inputs with a single reused parser
     let polish_calc_grammar: Grammar = "<product> ::= <number> | <op> <product> <product>
             <op> ::= '+' | '-' | '*' | '/'
             <number> ::= '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
@@ -171,11 +171,11 @@ fn new_parser_api(c: &mut Criterion) {
     .parse()
     .unwrap();
 
-    let mut group = c.benchmark_group("reusable parser: parse N inputs");
+    let mut group = c.benchmark_group("parser strategies");
     for input_count in [1, 10, 100, 1000] {
-        // Old API: construct + parse for each input (simulated by constructing parser each time)
+        // One-time parser: construct + parse for each input (simulated by constructing parser each time)
         group.bench_with_input(
-            criterion::BenchmarkId::new("old API (construct each time)", input_count),
+            criterion::BenchmarkId::new("per-input construct", input_count),
             &input_count,
             |b, &input_count| {
                 let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
@@ -192,9 +192,9 @@ fn new_parser_api(c: &mut Criterion) {
             },
         );
 
-        // New API: construct once, parse N inputs
+        // Reusable parser: construct once, parse N inputs
         group.bench_with_input(
-            criterion::BenchmarkId::new("new API (reuse parser)", input_count),
+            criterion::BenchmarkId::new("reuse parser", input_count),
             &input_count,
             |b, &input_count| {
                 let parser = polish_calc_grammar.build_parser().unwrap();
@@ -214,5 +214,5 @@ fn new_parser_api(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, examples, new_parser_api);
+criterion_group!(benches, examples, parser_api_benches);
 criterion_main!(benches);

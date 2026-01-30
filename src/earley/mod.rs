@@ -30,6 +30,7 @@ pub(crate) fn parse_starting_with_grammar<'gram>(
     input: &'gram str,
     starting_term: &'gram Term,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(tracing::Level::DEBUG, "parse_starting_with_grammar").entered();
     // Clone the Rc (just increments reference count, no data copying)
     ParseTreeIter::new_starting_with_grammar(Rc::clone(parse_grammar), input, starting_term)
 }

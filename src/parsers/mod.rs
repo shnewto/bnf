@@ -17,7 +17,7 @@ use nom::{
     IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_till, take_until},
-    character::complete::{self, multispace0, satisfy},
+    character::complete::{self, satisfy},
     combinator::{all_consuming, eof, not, opt, peek, recognize},
     multi::many1,
     sequence::{delimited, preceded, terminated},
@@ -79,9 +79,17 @@ pub trait Format {
     fn nonterminal_delimiter() -> Option<(char, char)>;
     fn production_separator() -> &'static str;
     fn alternative_separator() -> char;
+    /// If `Some(c)`, production boundaries can be detected by this character after whitespace
+    /// (e.g. BNF uses `'<'`), avoiding a full `prod_lhs` parse as lookahead.
+    fn production_start_char() -> Option<char> {
+        None
+    }
 }
 
+#[inline(always)]
 fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "nonterminal").entered();
     let (input, nt) = match F::nonterminal_delimiter() {
         Some((start, end)) => delimited(
             complete::char(start),
@@ -100,7 +108,10 @@ fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
     Ok((input, Term::Nonterminal(nt.to_string())))
 }
 
+#[inline(always)]
 fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "prod_lhs").entered();
     let (input, nt) = nonterminal::<F>(input)?;
 
     let (input, _) = tag(F::production_separator()).parse(input)?;
@@ -111,11 +122,17 @@ fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term> {
     Ok((input, nt))
 }
 
+#[inline(always)]
 fn prod_rhs<F: Format>(input: &str) -> IResult<&str, Vec<Expression>> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "prod_rhs").entered();
     xt_list_with_separator(expression::<F>, expression_next::<F>).parse(input)
 }
 
+#[inline(always)]
 pub fn terminal(input: &str) -> IResult<&str, Term> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "terminal").entered();
     let (input, t) = alt((
         delimited(complete::char('"'), take_until("\""), complete::char('"')),
         delimited(complete::char('\''), take_until("'"), complete::char('\'')),
@@ -127,23 +144,28 @@ pub fn terminal(input: &str) -> IResult<&str, Term> {
     Ok((input, Term::Terminal(t.to_string())))
 }
 
-///this should never fail, unwrap it when calling directly please!
+/// Skips whitespace and ;-comments in one pass. Never fails.
+#[inline(always)]
 pub fn whitespace_plus_comments(mut input: &str) -> IResult<&str, char> {
-    let mut old_input = input;
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "whitespace_plus_comments").entered();
     loop {
-        (input, _) = multispace0::<&str, nom::error::Error<&str>>.parse(input)?;
-        (input, _) = opt(preceded(
-            complete::char(';'),
-            take_till(|c: char| c == '\r' || c == '\n'),
-        ))
-        .parse(input)?;
-
-        if input == old_input {
-            break;
+        let rest = input.trim_start_matches(|c: char| c.is_whitespace());
+        if rest.len() == input.len() {
+            if rest.starts_with(';') {
+                let after_semicolon = &rest[1..];
+                if let Some(pos) = after_semicolon.find(|c: char| c == '\r' || c == '\n') {
+                    input = &after_semicolon[pos..];
+                } else {
+                    return Ok(("", '\0'));
+                }
+            } else {
+                return Ok((input, '\0'));
+            }
+        } else {
+            input = rest;
         }
-        old_input = input
     }
-    Ok((input, '\0'))
 }
 
 pub fn is_format_standard_bnf(input: &str) -> bool {
@@ -153,7 +175,10 @@ pub fn is_format_standard_bnf(input: &str) -> bool {
         .is_ok()
 }
 
+#[inline(always)]
 pub fn term<F: Format>(input: &str) -> IResult<&str, Term> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "term").entered();
     alt((terminal, nonterminal::<F>)).parse(input)
 }
 
@@ -164,23 +189,70 @@ pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str> {
     Ok((input, ""))
 }
 
+#[inline(always)]
 pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "expression").entered();
     let (input, terms) =
         many1(terminated(term::<F>, not(tag(F::production_separator())))).parse(input)?;
 
     Ok((input, Expression::from_parts(terms)))
 }
 
+#[inline(always)]
 pub fn production<F: Format>(input: &str) -> IResult<&str, Production> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "production").entered();
     let (input, lhs) = prod_lhs::<F>(input)?;
     let (input, rhs) = prod_rhs::<F>(input)?;
-    let (input, _) = alt((recognize(peek(eof)), recognize(peek(prod_lhs::<F>)))).parse(input)?;
+    let (input, _) = match F::production_start_char() {
+        Some(start_char) => alt((
+            recognize(peek(eof)),
+            recognize(peek(preceded(whitespace_plus_comments, complete::char(start_char)))),
+        ))
+        .parse(input)?,
+        None => alt((recognize(peek(eof)), recognize(peek(prod_lhs::<F>)))).parse(input)?,
+    };
 
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
+/// Returns true if the grammar text contains `(` or `[` outside of string literals,
+/// i.e. it uses extended syntax (groups or optionals). Used to choose the fast parse path.
+pub(crate) fn grammar_has_extended_syntax(input: &str) -> bool {
+    if !input.contains('(') && !input.contains('[') {
+        return false;
+    }
+    let mut in_double = false;
+    let mut in_single = false;
+    for c in input.chars() {
+        if in_double {
+            if c == '"' {
+                in_double = false;
+            }
+            continue;
+        }
+        if in_single {
+            if c == '\'' {
+                in_single = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => in_double = true,
+            '\'' => in_single = true,
+            '(' | '[' => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
 #[allow(dead_code)] // kept for API compatibility; Grammar parsing uses parsed_grammar_complete + normalize
+#[inline(always)]
 pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "grammar").entered();
     let (input, _) = whitespace_plus_comments(input)?;
     production::<F>(input)?;
     let (input, prods) = many1(production::<F>).parse(input)?;
@@ -188,7 +260,10 @@ pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar> {
 }
 
 #[allow(dead_code)] // kept for API compatibility; Grammar parsing uses parsed_grammar_complete + normalize
+#[inline(always)]
 pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar> {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "grammar_complete").entered();
     all_consuming(grammar::<F>).parse(input)
 }
 
@@ -330,6 +405,8 @@ pub(crate) fn parsed_grammar_complete<F: Format>(input: &str) -> IResult<&str, P
 /// so they do not clash with any existing LHS nonterminal (e.g. user-defined `<__anon0>`).
 /// Optionals `[A / B]` are lowered to a fresh nonterminal with alternatives `A | B | ''`.
 pub(crate) fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "normalize_parsed_grammar").entered();
     let mut used_names: HashSet<String> = HashSet::new();
     for prod in &parsed.productions {
         used_names.insert(prod.lhs.clone());
@@ -356,6 +433,8 @@ pub(crate) fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
         counter: &mut usize,
         anon_prods: &mut Vec<Production>,
     ) -> Expression {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "lower_expression").entered();
         let terms: Vec<Term> = expr
             .terms
             .into_iter()
@@ -370,6 +449,8 @@ pub(crate) fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
         counter: &mut usize,
         anon_prods: &mut Vec<Production>,
     ) -> Term {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "lower_term").entered();
         match term {
             ParsedTerm::Terminal(t) => Term::Terminal(t),
             ParsedTerm::Nonterminal(nt) => Term::Nonterminal(nt),

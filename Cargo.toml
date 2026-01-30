@@ -77,6 +77,10 @@ serde = ["dep:serde", "dep:serde_json"]
 unstable = []
 tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]
 
+[[bin]]
+name = "summarize_trace"
+path = "src/bin/summarize_trace.rs"
+
 [[bench]]
 name = "divan"
 harness = false

@@ -40,6 +40,8 @@ impl<'gram> GrammarParser<'gram> {
     /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
     /// productions lacks a definition in the grammar.
     pub fn new(grammar: &'gram Grammar) -> Result<Self, Error> {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "GrammarParser::new").entered();
         validate_nonterminals(grammar)?;
         let starting_term = grammar.starting_term().ok_or_else(|| {
             Error::ValidationError("Grammar must have at least one production".to_string())
@@ -76,30 +78,32 @@ impl<'gram> GrammarParser<'gram> {
 ///
 /// Returns `Error::ValidationError` with a message listing all undefined nonterminals.
 fn validate_nonterminals(grammar: &Grammar) -> Result<(), Error> {
-    // Collect all nonterminals defined in LHS of productions
-    let mut defined_nonterminals = HashSet::new();
-    for production in grammar.productions_iter() {
-        if let Term::Nonterminal(ref nt) = production.lhs {
-            defined_nonterminals.insert(nt.clone());
-        }
-    }
+    #[cfg(feature = "tracing")]
+    let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "validate_nonterminals").entered();
+    // Collect all nonterminals defined in LHS of productions (no allocation)
+    let defined: HashSet<&str> = grammar
+        .productions_iter()
+        .filter_map(|p| match &p.lhs {
+            Term::Nonterminal(nt) => Some(nt.as_str()),
+            _ => None,
+        })
+        .collect();
 
-    // Collect all nonterminals used in RHS of all productions
-    let mut referenced_nonterminals = HashSet::new();
-    for production in grammar.productions_iter() {
-        for expression in production.rhs_iter() {
-            for term in expression.terms_iter() {
-                if let Term::Nonterminal(nt) = term {
-                    referenced_nonterminals.insert(nt.clone());
-                }
-            }
-        }
-    }
+    // Collect all nonterminals used in RHS of all productions (no allocation)
+    let referenced: HashSet<&str> = grammar
+        .productions_iter()
+        .flat_map(|p| p.rhs_iter())
+        .flat_map(|e| e.terms_iter())
+        .filter_map(|t| match t {
+            Term::Nonterminal(nt) => Some(nt.as_str()),
+            _ => None,
+        })
+        .collect();
 
-    // Find undefined nonterminals
-    let undefined: Vec<String> = referenced_nonterminals
-        .difference(&defined_nonterminals)
-        .cloned()
+    // Find undefined nonterminals (allocate only for the error message)
+    let undefined: Vec<String> = referenced
+        .difference(&defined)
+        .map(|s| (*s).to_string())
         .collect();
 
     if !undefined.is_empty() {

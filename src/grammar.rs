@@ -35,7 +35,6 @@
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
 use crate::error::Error;
-use crate::expression::Expression;
 use crate::parsers::{self, BNF, Format};
 use crate::production::Production;
 use crate::term::Term;
@@ -272,6 +271,17 @@ impl Grammar {
 
     /// parse a grammar given a format
     pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "Grammar::parse_from").entered();
+        if !parsers::grammar_has_extended_syntax(input) {
+            #[cfg(feature = "tracing")]
+            let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "grammar_fast_path").entered();
+            if let Result::Ok((_, grammar)) = parsers::grammar_complete::<F>(input) {
+                return Ok(grammar);
+            }
+        }
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "grammar_extended_path").entered();
         match parsers::parsed_grammar_complete::<F>(input) {
             Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
             Result::Err(e) => Err(Error::from(e)),
@@ -395,8 +405,10 @@ impl Grammar {
         rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "eval_terminal").entered();
         match term {
-            Term::Nonterminal(nt) => self.traverse(nt, rng, f),
+            Term::Nonterminal(nt) => self.traverse(nt.as_str(), rng, f),
             Term::Terminal(t) => Ok(t.clone()),
         }
     }
@@ -407,15 +419,18 @@ impl Grammar {
         rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "traverse").entered();
         loop {
-            let nonterm = Term::Nonterminal(ident.to_string());
-            let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
-
-            let Some(production) = find_lhs else {
-                return Ok(nonterm.to_string());
+            let production = match self
+                .productions_iter()
+                .find(|p| matches!(&p.lhs, Term::Nonterminal(s) if s.as_str() == ident))
+            {
+                Some(p) => p,
+                None => return Ok(ident.to_string()),
             };
 
-            let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
+            let expressions: Vec<_> = production.rhs_iter().collect();
 
             let Some(expression) = expressions.choose(rng) else {
                 return Err(Error::GenerateError(String::from(
@@ -495,6 +510,8 @@ impl Grammar {
         rng: &mut StdRng,
         f: impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
+        #[cfg(feature = "tracing")]
+        let _span = crate::tracing::span!(crate::tracing::Level::DEBUG, "generate_seeded_callback").entered();
         let start_rule: String;
         let first_production = self.productions_iter().next();
 
@@ -643,19 +660,39 @@ impl str::FromStr for Grammar {
     #[cfg(feature = "ABNF")]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         //try and autodetect the format (in the feature we'll use a detector that returns an enum, hence the gratuitous switch case)
+        let use_fast_path = !parsers::grammar_has_extended_syntax(s);
         match parsers::is_format_standard_bnf(s) {
-            true => match parsers::parsed_grammar_complete::<BNF>(s) {
-                Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
-                Result::Err(e) => Err(Error::from(e)),
-            },
-            false => match parsers::parsed_grammar_complete::<ABNF>(s) {
-                Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
-                Result::Err(e) => Err(Error::from(e)),
-            },
+            true => {
+                if use_fast_path {
+                    if let Result::Ok((_, grammar)) = parsers::grammar_complete::<BNF>(s) {
+                        return Ok(grammar);
+                    }
+                }
+                match parsers::parsed_grammar_complete::<BNF>(s) {
+                    Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
+                    Result::Err(e) => Err(Error::from(e)),
+                }
+            }
+            false => {
+                if use_fast_path {
+                    if let Result::Ok((_, grammar)) = parsers::grammar_complete::<ABNF>(s) {
+                        return Ok(grammar);
+                    }
+                }
+                match parsers::parsed_grammar_complete::<ABNF>(s) {
+                    Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
+                    Result::Err(e) => Err(Error::from(e)),
+                }
+            }
         }
     }
     #[cfg(not(feature = "ABNF"))]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if !parsers::grammar_has_extended_syntax(s) {
+            if let Result::Ok((_, grammar)) = parsers::grammar_complete::<BNF>(s) {
+                return Ok(grammar);
+            }
+        }
         match parsers::parsed_grammar_complete::<BNF>(s) {
             Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
             Result::Err(e) => Err(Error::from(e)),

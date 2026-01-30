@@ -12,7 +12,7 @@ where
     E: ParseError<I>,
 {
     move |mut input: I| {
-        let mut acc = vec![];
+        let mut acc = Vec::with_capacity(16);
         loop {
             match parser.parse(input) {
                 Ok((i, o)) => {

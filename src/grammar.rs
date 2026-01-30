@@ -207,7 +207,6 @@ impl MermaidParseTree<'_> {
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
             Term::Terminal(_) => unreachable!(),
-            Term::AnonymousNonterminal(_) => unreachable!(),
         };
 
         let lhs_count = *count;
@@ -222,7 +221,6 @@ impl MermaidParseTree<'_> {
                     let rhs = match parse_tree.lhs {
                         Term::Nonterminal(str) => str,
                         Term::Terminal(_) => unreachable!(),
-                        Term::AnonymousNonterminal(_) => unreachable!(),
                     };
                     writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
                     let mermaid = MermaidParseTree { parse_tree };
@@ -243,6 +241,11 @@ impl fmt::Display for MermaidParseTree<'_> {
 }
 
 /// A Grammar is comprised of any number of Productions.
+///
+/// When parsing from text (e.g. [`str::parse`] or [`Grammar::parse_from`]), extended
+/// syntax such as `(A / B)` and `[A]` is accepted and normalized into additional
+/// named nonterminals (e.g. `__anon0`), so that the resulting grammar uses only
+/// [`Term::Terminal`] and [`Term::Nonterminal`].
 ///
 /// The library fully supports Unicode throughout all operations, including Unicode
 /// characters in terminals, nonterminals, input strings, and generated output.
@@ -269,8 +272,8 @@ impl Grammar {
 
     /// parse a grammar given a format
     pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
-        match parsers::grammar_complete::<F>(input) {
-            Result::Ok((_, o)) => Ok(o),
+        match parsers::parsed_grammar_complete::<F>(input) {
+            Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
             Result::Err(e) => Err(Error::from(e)),
         }
     }
@@ -395,22 +398,6 @@ impl Grammar {
         match term {
             Term::Nonterminal(nt) => self.traverse(nt, rng, f),
             Term::Terminal(t) => Ok(t.clone()),
-            Term::AnonymousNonterminal(rhs) => {
-                let Some(expression) = rhs.choose(rng) else {
-                    return Err(Error::GenerateError(String::from(
-                        "Couldn't select random Expression!",
-                    )));
-                };
-
-                let mut result = String::new();
-                for term in expression.terms_iter() {
-                    match self.eval_terminal(term, rng, f) {
-                        Ok(s) => result.push_str(&s),
-                        Err(e) => return Err(e),
-                    }
-                }
-                Ok(result)
-            }
         }
     }
 
@@ -526,7 +513,6 @@ impl Grammar {
                         "Terminal type cannot define a production in '{term}'!"
                     )));
                 }
-                Term::AnonymousNonterminal(_) => unreachable!(),
             },
             None => {
                 return Err(Error::GenerateError(String::from(
@@ -658,20 +644,20 @@ impl str::FromStr for Grammar {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         //try and autodetect the format (in the feature we'll use a detector that returns an enum, hence the gratuitous switch case)
         match parsers::is_format_standard_bnf(s) {
-            true => match parsers::grammar_complete::<BNF>(s) {
-                Result::Ok((_, o)) => Ok(o),
+            true => match parsers::parsed_grammar_complete::<BNF>(s) {
+                Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
                 Result::Err(e) => Err(Error::from(e)),
             },
-            false => match parsers::grammar_complete::<ABNF>(s) {
-                Result::Ok((_, o)) => Ok(o),
+            false => match parsers::parsed_grammar_complete::<ABNF>(s) {
+                Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
                 Result::Err(e) => Err(Error::from(e)),
             },
         }
     }
     #[cfg(not(feature = "ABNF"))]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match parsers::grammar_complete::<BNF>(s) {
-            Result::Ok((_, o)) => Ok(o),
+        match parsers::parsed_grammar_complete::<BNF>(s) {
+            Result::Ok((_, parsed)) => Ok(parsers::normalize_parsed_grammar(parsed)),
             Result::Err(e) => Err(Error::from(e)),
         }
     }
@@ -941,27 +927,6 @@ mod tests {
     }
 
     #[test]
-    fn generate_with_empty_anonymous_nonterminal() {
-        // Test error path when AnonymousNonterminal has empty expressions
-        let empty_anon = Term::AnonymousNonterminal(vec![]);
-        let production = Production::from_parts(
-            crate::term!(<start>),
-            vec![Expression::from_parts(vec![empty_anon])],
-        );
-        let grammar = Grammar::from_parts(vec![production]);
-        let result = grammar.generate();
-        assert!(
-            result.is_err(),
-            "Should fail when AnonymousNonterminal is empty"
-        );
-        if let Err(Error::GenerateError(msg)) = result {
-            assert!(msg.contains("Couldn't select random Expression"));
-        } else {
-            panic!("Expected GenerateError");
-        }
-    }
-
-    #[test]
     fn lhs_is_terminal_parse() {
         let grammar: Result<Grammar, _> = "\"wrong place\" ::= <not-used>".parse();
         assert!(grammar.is_err(), "{grammar:?} should be error");
@@ -992,6 +957,25 @@ mod tests {
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
         assert!(sentence.is_err(), "{sentence:?} should be error");
+    }
+
+    #[test]
+    fn generate_with_groups_and_optionals() {
+        // Grammar with extended syntax ( ) and [ ] is normalized; generate() should still work
+        let grammar: Grammar = "<s> ::= (<a> | <b>) [<c>]\n<a> ::= 'a'\n<b> ::= 'b'\n<c> ::= 'c'"
+            .parse()
+            .unwrap();
+        let valid: std::collections::HashSet<String> = ["a", "b", "ac", "bc"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        for _ in 0..50 {
+            let s = grammar.generate().expect("generate should succeed");
+            assert!(
+                valid.contains(&s),
+                "generated '{s}' should be one of a, b, ac, bc"
+            );
+        }
     }
 
     #[test]

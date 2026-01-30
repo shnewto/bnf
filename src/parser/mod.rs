@@ -89,23 +89,8 @@ fn validate_nonterminals(grammar: &Grammar) -> Result<(), Error> {
     for production in grammar.productions_iter() {
         for expression in production.rhs_iter() {
             for term in expression.terms_iter() {
-                match term {
-                    Term::Nonterminal(nt) => {
-                        referenced_nonterminals.insert(nt.clone());
-                    }
-                    Term::AnonymousNonterminal(exprs) => {
-                        // For anonymous nonterminals, check the expressions they contain
-                        for expr in exprs {
-                            for inner_term in expr.terms_iter() {
-                                if let Term::Nonterminal(nt) = inner_term {
-                                    referenced_nonterminals.insert(nt.clone());
-                                }
-                            }
-                        }
-                    }
-                    Term::Terminal(_) => {
-                        // Terminals don't need definitions
-                    }
+                if let Term::Nonterminal(nt) = term {
+                    referenced_nonterminals.insert(nt.clone());
                 }
             }
         }
@@ -169,39 +154,74 @@ mod tests {
     }
 
     #[test]
-    fn parser_validation_with_anonymous_nonterminal_containing_undefined() {
-        // Test that validation checks nonterminals inside anonymous nonterminals
-        let expr = crate::expression!(<undefined>);
-        let anon = Term::AnonymousNonterminal(vec![expr]);
-        let production = Production::from_parts(
-            crate::term!(<start>),
-            vec![Expression::from_parts(vec![anon])],
-        );
-        let grammar = Grammar::from_parts(vec![production]);
+    fn parser_validation_with_group_containing_undefined() {
+        // Test that validation fails when a grouped term references an undefined nonterminal
+        let grammar: Grammar = "<start> ::= (<undefined>)".parse().unwrap();
         let parser = grammar.build_parser();
         assert!(
             parser.is_err(),
-            "Parser should fail when anonymous nonterminal contains undefined nonterminal"
+            "Parser should fail when group contains undefined nonterminal"
         );
         assert!(matches!(parser.unwrap_err(), Error::ValidationError(_)));
     }
 
     #[test]
-    fn parser_validation_with_anonymous_nonterminal_containing_defined() {
-        // Test that validation works correctly when anonymous nonterminal contains defined nonterminal
-        let expr = crate::expression!(<base>);
-        let anon = Term::AnonymousNonterminal(vec![expr]);
-        let production1 = Production::from_parts(
-            crate::term!(<start>),
-            vec![Expression::from_parts(vec![anon])],
-        );
-        let production2 = crate::production!(<base> ::= 'A');
-        let grammar = Grammar::from_parts(vec![production1, production2]);
+    fn parser_validation_with_group_containing_defined() {
+        // Test that validation succeeds when a group contains a defined nonterminal
+        let grammar: Grammar = "<start> ::= (<base>)\n<base> ::= 'A'".parse().unwrap();
         let parser = grammar.build_parser();
         assert!(
             parser.is_ok(),
-            "Parser should succeed when anonymous nonterminal contains defined nonterminal"
+            "Parser should succeed when group contains defined nonterminal"
         );
+    }
+
+    #[test]
+    fn normalization_groups_and_optionals_produce_named_nonterminals() {
+        // Regression: extended syntax ( ) and [ ] is normalized to __anon* nonterminals
+        let grammar: Grammar = "<s> ::= (<a> | <b>) [<c>]\n<a> ::= 'a'\n<b> ::= 'b'\n<c> ::= 'c'"
+            .parse()
+            .unwrap();
+        for prod in grammar.productions_iter() {
+            for expr in prod.rhs_iter() {
+                for term in expr.terms_iter() {
+                    match term {
+                        crate::Term::Terminal(_) | crate::Term::Nonterminal(_) => {}
+                    }
+                }
+            }
+        }
+        let parser = grammar.build_parser().unwrap();
+        assert!(parser.parse_input("a").next().is_some());
+        assert!(parser.parse_input("ac").next().is_some());
+        assert!(parser.parse_input("").next().is_none());
+    }
+
+    #[test]
+    fn parse_empty_optional_bnf() {
+        // BNF optional [A] normalizes to __anon* with '' alternative; "" and "x" both parse
+        let grammar: Grammar = "<s> ::= [<x>]\n<x> ::= 'x'".parse().unwrap();
+        let parser = grammar.build_parser().unwrap();
+        assert!(parser.parse_input("").next().is_some());
+        assert!(parser.parse_input("x").next().is_some());
+    }
+
+    #[test]
+    fn user_defined_anon_name_no_collision() {
+        // User-defined <__anon0> should not collide with generated anon names for groups
+        let grammar: Grammar = "<__anon0> ::= 'a'\n<s> ::= (<__anon0>)".parse().unwrap();
+        let parser = grammar.build_parser().unwrap();
+        assert!(parser.parse_input("a").next().is_some());
+        // Grammar should contain both user's __anon0 and a generated anon for the group
+        let lhs_names: Vec<_> = grammar
+            .productions_iter()
+            .map(|p| match &p.lhs {
+                crate::Term::Nonterminal(n) => n.as_str(),
+                _ => "",
+            })
+            .collect();
+        assert!(lhs_names.contains(&"__anon0"));
+        assert!(lhs_names.iter().any(|n| n.starts_with("__anon")));
     }
 
     #[test]

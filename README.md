@@ -31,6 +31,19 @@ to indicate the end of a production)
     <opt-apt-num> ::= <apt-num> | ""
 ```
 
+## Extended syntax (groups and optionals)
+
+When parsing grammar text (e.g. [`str::parse`] or [`Grammar::parse_from`]), the parser accepts extended syntax:
+
+- **Parenthesized groups** — `(A / B)` for grouping alternatives.
+- **Optionals** — `[A / B]` for “zero or one” of the grouped alternatives.
+
+These constructs are *normalized* into a grammar that uses only plain nonterminals and terminals: each group or optional is turned into a fresh internal nonterminal (e.g. `__anon0`, `__anon1`). The public [`Term`] type therefore has only [`Term::Terminal`] and [`Term::Nonterminal`]; parsing and generation work on this normalized form.
+
+**Round-trip:** Formatting a grammar (e.g. `format!("{}", grammar)`) does *not* preserve the original `( )` or `[ ]` syntax; the formatted result uses the internal `__anon*` nonterminal names. Re-parsing that string yields an equivalent grammar.
+
+Empty groups and optionals — `()` or `[]` with nothing inside — are invalid and cause parse errors; at least one alternative is required within the parentheses or brackets.
+
 ## Output
 
 Take the following grammar for DNA sequences to be input to this library's

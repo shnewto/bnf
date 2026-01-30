@@ -140,31 +140,6 @@ fn earley<'gram>(
                     queue.push_back(scanned);
                 }
             }
-            Some(anon @ Term::AnonymousNonterminal(_)) => {
-                let _span = tracing::span!(tracing::Level::DEBUG, "Predict_anon").entered();
-
-                let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
-
-                completions.insert(traversal, lhs);
-
-                let input_range = traversal.input_range.clone();
-
-                for production in grammar.get_productions_by_lhs(anon) {
-                    let predicted = traversal_tree.predict(production, &input_range);
-                    tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
-                    queue.push_back(predicted);
-                }
-
-                for completed in completions.get_complete(anon, &input_range) {
-                    let term_match = TermMatch::Nonterminal(completed);
-                    let prior_completed = traversal_tree.match_term(traversal_id, term_match);
-                    tracing::event!(
-                        tracing::Level::TRACE,
-                        "prior_completed: {prior_completed:#?}"
-                    );
-                    queue.push_back(prior_completed);
-                }
-            }
             None => {
                 let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
 
@@ -311,10 +286,6 @@ impl<'gram> CompletionMap<'gram> {
                 // do nothing, because terminals are irrelevant to completion
             }
             Some(unmatched @ Term::Nonterminal(_)) => {
-                let key = CompletionKey::new_total(unmatched, &traversal.input_range);
-                self.incomplete.entry(key).or_default().insert(traversal.id);
-            }
-            Some(unmatched @ Term::AnonymousNonterminal(_)) => {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
                 self.incomplete.entry(key).or_default().insert(traversal.id);
             }

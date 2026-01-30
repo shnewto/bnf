@@ -1,5 +1,5 @@
 use crate::append_vec::{AppendOnlyVec, append_only_vec_id};
-use crate::{Term, tracing};
+use crate::tracing;
 
 append_only_vec_id!(pub(crate) ProductionId);
 
@@ -37,17 +37,6 @@ impl<'gram, 'a> ParseGrammar<'gram> {
             let prod = productions.push_with_id(|id| Production { id, lhs, rhs });
             let id = prod.id;
             prods_by_lhs.entry(lhs).or_default().push(id);
-
-            for term in prod.rhs.terms_iter() {
-                if let Term::AnonymousNonterminal(exprs) = term {
-                    for rhs in exprs {
-                        let id = productions
-                            .push_with_id(|id| Production { id, lhs: term, rhs })
-                            .id;
-                        prods_by_lhs.entry(term).or_default().push(id);
-                    }
-                }
-            }
         }
         Self {
             prods_by_lhs,

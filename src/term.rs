@@ -1,6 +1,5 @@
 #![allow(clippy::should_implement_trait)]
 
-use crate::Production;
 use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers::{self, BNF};
@@ -13,7 +12,12 @@ use nom::combinator::all_consuming;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// A Term can represent a Terminal or Nonterminal node
+/// A Term can represent a Terminal or Nonterminal node.
+///
+/// Grammar text may use extended syntax such as `(A / B)` or `[A]`; that syntax
+/// is parsed into an internal AST and normalized into a `Grammar` whose productions
+/// use only `Terminal` and `Nonterminal` (with fresh `__anon*` nonterminals for
+/// groups and optionals). The public `Term` type therefore has only these two variants.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum Term {
@@ -21,8 +25,6 @@ pub enum Term {
     Terminal(String),
     /// A term which may be be expanded further via productions
     Nonterminal(String),
-    /// A inline term specified with () or []
-    AnonymousNonterminal(Vec<Expression>),
 }
 
 /// Creates a Terminal if the input is a string literal or a Nonterminal if the input is inside angle brackets
@@ -93,14 +95,6 @@ impl fmt::Display for Term {
                 }
             }
             Term::Nonterminal(ref s) => write!(f, "<{s}>"),
-            Term::AnonymousNonterminal(ref exprs) => write!(
-                f,
-                "{}",
-                Production::from_parts(
-                    Term::Nonterminal("anon-nonterminal".to_owned()),
-                    exprs.clone()
-                )
-            ),
         }
     }
 }
@@ -162,17 +156,6 @@ mod tests {
     fn parse_incomplete() {
         let result = Term::from_str("");
         assert!(matches!(result, Err(Error::ParseError(_))));
-    }
-
-    #[test]
-    fn anonymous_nonterminal_display() {
-        let expr1 = Expression::from_parts(vec![crate::term!("a")]);
-        let expr2 = Expression::from_parts(vec![crate::term!("b")]);
-        let anon = Term::AnonymousNonterminal(vec![expr1, expr2]);
-        let display = format!("{}", anon);
-        // Should format as a production with "anon-nonterminal" as LHS
-        assert!(display.contains("anon-nonterminal"));
-        assert!(display.contains("a") || display.contains("b"));
     }
 
     #[test]

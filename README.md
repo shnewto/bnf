@@ -31,6 +31,55 @@ to indicate the end of a production)
     <opt-apt-num> ::= <apt-num> | ""
 ```
 
+## Extended syntax (groups and optionals)
+
+When parsing grammar text (e.g. [`str::parse`] or [`Grammar::parse_from`]), the parser accepts two shortcuts:
+
+### Parenthesized groups `( ... )`
+
+Group alternatives so they act as **one unit** in a sequence.
+
+**Without parentheses**, `|` binds loosely. This rule:
+
+```text
+<s> ::= <a> | <b> <c>
+```
+
+means "`<a>` **or** `<b>` `<c>`". So `"a"` matches, and `"b c"` matches, but `"a c"` does not.
+
+**With parentheses**, you get "(a or b) then c":
+
+```text
+<s> ::= (<a> | <b>) <c>
+```
+
+So only `"a c"` and `"b c"` match.
+
+### Optionals `[ ... ]`
+
+**Zero or one** of the grouped alternatives (like `?` in regex).
+
+```text
+<word> ::= <letter> [<digit>]
+```
+
+means: a letter, optionally followed by a digit. Both `"x"` and `"x1"` match.
+
+Equivalent long form without extended syntax:
+
+```text
+<word>      ::= <letter> <opt-digit>
+<opt-digit> ::= <digit> | ""
+```
+
+### Normalization
+
+Groups and optionals are *normalized* into a grammar that uses only plain nonterminals and terminals: each group or optional is turned into a fresh internal nonterminal (e.g. `__anon0`, `__anon1`). The public [`Term`] type has only [`Term::Terminal`] and [`Term::Nonterminal`]; parsing and generation use this normalized form.
+
+**Round-trip:** Formatting a grammar (e.g. `format!("{}", grammar)`) does *not* preserve `( )` or `[ ]`; the result uses `__anon*` names. Re-parsing yields an equivalent grammar.
+
+Empty groups or optionals — `()` or `[]` with nothing inside — are invalid; at least one alternative is required.
+
 ## Output
 
 Take the following grammar for DNA sequences to be input to this library's
@@ -44,70 +93,15 @@ Take the following grammar for DNA sequences to be input to this library's
 The output is a `Grammar` object representing a tree that looks like this:
 
 ```text
-Grammar {
-    productions: [
-        Production {
-            lhs: Nonterminal(
-                "dna"
-            ),
-            rhs: [
-                Expression {
-                    terms: [
-                        Nonterminal(
-                            "base"
-                        )
-                    ]
-                },
-                Expression {
-                    terms: [
-                        Nonterminal(
-                            "base"
-                        ),
-                        Nonterminal(
-                            "dna"
-                        )
-                    ]
-                }
-            ]
-        },
-        Production {
-            lhs: Nonterminal(
-                "base"
-            ),
-            rhs: [
-                Expression {
-                    terms: [
-                        Terminal(
-                            "A"
-                        )
-                    ]
-                },
-                Expression {
-                    terms: [
-                        Terminal(
-                            "C"
-                        )
-                    ]
-                },
-                Expression {
-                    terms: [
-                        Terminal(
-                            "G"
-                        )
-                    ]
-                },
-                Expression {
-                    terms: [
-                        Terminal(
-                            "T"
-                        )
-                    ]
-                }
-            ]
-        }
-    ]
-}
-
+Grammar
+├── <dna> ::=
+│   ├── <base>
+│   └── <base> <dna>
+└── <base> ::=
+    ├── "A"
+    ├── "C"
+    ├── "G"
+    └── "T"
 ```
 
 Once the `Grammar` object is populated, to generate a random sentence from it

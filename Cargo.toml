@@ -70,20 +70,12 @@ insta = { version = "1.46.1", default-features = false }
 [dev-dependencies.quickcheck]
 version = "1.0.3"
 
-[dev-dependencies.criterion]
-version = "0.8.1"
-default-features = false # to disable Rayon for wasm32
-
 [features]
 default = ["ABNF", "serde"]
 ABNF = []
 serde = ["dep:serde", "dep:serde_json"]
 unstable = []
 tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]
-
-[[bench]]
-name = "criterion"
-harness = false
 
 [[bench]]
 name = "divan"

@@ -5,6 +5,14 @@ mod std_trait {
 
     use bnf::{Expression, Grammar, Production, Term};
 
+    #[test]
+    fn production_is_empty() {
+        assert!(Production::new().is_empty());
+        let mut p = Production::new();
+        p.add_to_rhs(Expression::new());
+        assert!(!p.is_empty());
+    }
+
     fn std_str_trait<T: FromStr>(_: T, input: &str) {
         let from_str_result = T::from_str(input);
         assert!(from_str_result.is_ok())
@@ -63,6 +71,19 @@ mod custom_trait {
         <🤘> ::= '👏 ' '👊' | '👌'";
         let grammar: Result<Grammar, _> = input.parse();
         assert!(grammar.is_ok())
+    }
+
+    #[test]
+    fn grammar_from_str_returns_parsed_content() {
+        let input = "<a> ::= 'x'";
+        let grammar: Grammar = input.parse().expect("parse");
+        assert_eq!(
+            grammar.productions_iter().count(),
+            1,
+            "parsed grammar must have one production"
+        );
+        let prod = grammar.productions_iter().next().unwrap();
+        assert_eq!(prod.lhs, bnf::Term::Nonterminal("a".into()));
     }
 
     #[test]

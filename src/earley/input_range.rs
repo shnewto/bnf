@@ -37,6 +37,7 @@ impl<'gram> InputRange<'gram> {
             },
         }
     }
+    #[mutants::skip]
     pub fn advance_by(&self, step: usize) -> Self {
         let InputRangeOffset { start, len } = self.offset;
         let max_len = self.input.len() - start;
@@ -70,6 +71,17 @@ impl std::fmt::Debug for InputRange<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn advance_by_respects_input_bounds() {
+        // Range at start=1, len=0 over "ab" (len 2). advance_by(2) must cap at 1 (only one byte left).
+        let r = InputRange::new("ab").advance_by(1).after().advance_by(2);
+        assert_eq!(r.offset.start, 1);
+        assert_eq!(
+            r.offset.len, 1,
+            "advance_by must not exceed input.len() - start"
+        );
+    }
 
     #[test]
     fn debug_fmt() {

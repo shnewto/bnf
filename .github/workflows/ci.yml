@@ -12,16 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
-
-      - name: install rustfmt
-        run: rustup component add rustfmt
+          components: rustfmt
 
       - name: rustfmt check
         run: cargo fmt --all -- --check
@@ -30,79 +26,54 @@ jobs:
     needs: [format]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   macos-latest-nightly:
     needs: [format]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   windows-latest-stable:
     needs: [format]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   windows-latest-nightly:
     needs: [format]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   coveralls-coverage-report:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
       - name: install llvm-tools-preview
         run: rustup component add llvm-tools-preview
-      - name: cargo install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
       - name: cargo llvm-cov
         run: cargo llvm-cov --all-features --lcov --output-path lcov.info --no-cfg-coverage --no-cfg-coverage-nightly
-      - name: Coveralls upload
-        uses: coverallsapp/github-action@master
+      - name: coveralls upload
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: lcov.info
@@ -111,32 +82,18 @@ jobs:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
           components: clippy
-          profile: minimal
-      # because this action requires an access token
-      # pin to specific version to prevent future malicious activity
-      - uses: actions-rs/clippy-check@v1.0.7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --all-targets
+      - name: cargo clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
 
   ubuntu-latest-nightly:
     needs: [format]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
       - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test

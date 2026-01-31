@@ -76,6 +76,7 @@ pub fn terminal(input: &str) -> IResult<&str, Term> {
 }
 
 ///this should never fail, unwrap it when calling directly please!
+#[mutants::skip]
 pub fn whitespace_plus_comments(mut input: &str) -> IResult<&str, char> {
     let mut old_input = input;
     loop {

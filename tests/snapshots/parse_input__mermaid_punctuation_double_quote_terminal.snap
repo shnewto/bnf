@@ -1,0 +1,6 @@
+---
+source: tests/parse_input.rs
+expression: output
+---
+flowchart TD
+0["q"] --> 1["#34;"]

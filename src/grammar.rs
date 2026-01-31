@@ -44,7 +44,7 @@ use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::fmt;
+use std::fmt::{self, Write};
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -97,23 +97,23 @@ impl<'gram> ParseTree<'gram> {
 
         writeln!(f)?;
 
-        // recursively print children, noting which is a "last child"
-        // because they receive different prefix string ("├── <base>" vs "└── <base>"")
+        // Recursively print children, noting which is a "last child" (different prefix).
+        // Skip when rhs is empty to avoid underflow; the type allows empty rhs.
         let child_depth = depth + 1;
-        let last_child_idx = self.rhs.len() - 1;
-
-        for (idx, child) in self.rhs.iter().enumerate() {
-            let is_last_child = idx == last_child_idx;
-            if is_last_child {
-                depth_format_set.remove(&depth);
-            }
-            match child {
-                ParseTreeNode::Terminal(terminal) => {
-                    Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
-                    writeln!(f, "\"{terminal}\"")?;
+        if let Some(last_child_idx) = self.rhs.len().checked_sub(1) {
+            for (idx, child) in self.rhs.iter().enumerate() {
+                let is_last_child = idx == last_child_idx;
+                if is_last_child {
+                    depth_format_set.remove(&depth);
                 }
-                ParseTreeNode::Nonterminal(nonterminal) => {
-                    nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
+                match child {
+                    ParseTreeNode::Terminal(terminal) => {
+                        Self::fmt_node_prefix(f, depth_format_set, child_depth, is_last_child)?;
+                        writeln!(f, "\"{terminal}\"")?;
+                    }
+                    ParseTreeNode::Nonterminal(nonterminal) => {
+                        nonterminal.fmt(f, depth_format_set, child_depth, is_last_child)?;
+                    }
                 }
             }
         }
@@ -188,8 +188,30 @@ impl fmt::Display for ParseTree<'_> {
     }
 }
 
+/// Characters that must be escaped in Mermaid flowchart node labels (entity code = decimal codepoint).
+/// See [Mermaid entity codes](https://mermaid.js.org/syntax/flowchart.html#entity-codes-to-escape-characters).
+const MERMAID_ESCAPE_CHARS: &[char] = &['"', '&', '#', '<', '>', '[', '\\', ']', ';', '\n', '\r'];
+
+/// Escapes a label string for use inside Mermaid flowchart node `["label"]` syntax.
+/// Uses [Mermaid entity codes](https://mermaid.js.org/syntax/flowchart.html#entity-codes-to-escape-characters):
+/// each special character is replaced by `#<codepoint>;` (e.g. `"` → `#34;`). Other characters are left unchanged.
+#[must_use]
+pub fn escape_mermaid_label(s: &str) -> String {
+    let mut out = String::with_capacity(s.len().saturating_mul(2));
+    for c in s.chars() {
+        if MERMAID_ESCAPE_CHARS.contains(&c) {
+            write!(out, "#{};", c as u32).expect("write to String never fails");
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Wrap `ParseTree` in "Mermaid" type, which opts into new implementation of `std::fmt::Display`.
 /// Writes `ParseTree` as [Mermaid.js](https://mermaid-js.github.io/) flowchart.
+/// Node labels are escaped with [entity codes](https://mermaid.js.org/syntax/flowchart.html#entity-codes-to-escape-characters)
+/// so that quotes, ampersand, angle brackets, brackets, backslash, hash, semicolon, and newlines render correctly.
 pub struct MermaidParseTree<'a> {
     parse_tree: &'a ParseTree<'a>,
 }
@@ -200,23 +222,25 @@ impl MermaidParseTree<'_> {
             writeln!(f, "flowchart TD")?;
         }
 
-        // write line for each child
-        // A --> B
-        // A --> C
-        // id1([This is the text in the box])
+        // Parser-built trees have LHS as Nonterminal; Terminal/AnonymousNonterminal are unreachable.
         let lhs = match self.parse_tree.lhs {
             Term::Nonterminal(str) => str,
             Term::Terminal(_) => unreachable!(),
             Term::AnonymousNonterminal(_) => unreachable!(),
         };
-
+        let lhs_escaped = escape_mermaid_label(lhs);
         let lhs_count = *count;
 
         for rhs in &self.parse_tree.rhs {
             *count += 1;
             match rhs {
                 ParseTreeNode::Terminal(rhs) => {
-                    writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
+                    let rhs_escaped = escape_mermaid_label(rhs);
+                    writeln!(
+                        f,
+                        "{}[\"{}\"] --> {}[\"{}\"]",
+                        lhs_count, lhs_escaped, *count, rhs_escaped
+                    )?;
                 }
                 ParseTreeNode::Nonterminal(parse_tree) => {
                     let rhs = match parse_tree.lhs {
@@ -224,7 +248,12 @@ impl MermaidParseTree<'_> {
                         Term::Terminal(_) => unreachable!(),
                         Term::AnonymousNonterminal(_) => unreachable!(),
                     };
-                    writeln!(f, "{}[\"{}\"] --> {}[\"{}\"]", lhs_count, lhs, *count, rhs)?;
+                    let rhs_escaped = escape_mermaid_label(rhs);
+                    writeln!(
+                        f,
+                        "{}[\"{}\"] --> {}[\"{}\"]",
+                        lhs_count, lhs_escaped, *count, rhs_escaped
+                    )?;
                     let mermaid = MermaidParseTree { parse_tree };
                     mermaid.fmt(f, count)?;
                 }
@@ -261,7 +290,7 @@ impl Grammar {
         }
     }
 
-    /// Construct an `Grammar` from `Production`s
+    /// Construct a `Grammar` from `Production`s
     #[must_use]
     pub const fn from_parts(v: Vec<Production>) -> Grammar {
         Grammar { productions: v }
@@ -270,8 +299,8 @@ impl Grammar {
     /// parse a grammar given a format
     pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
         match parsers::grammar_complete::<F>(input) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
+            Ok((_, o)) => Ok(o),
+            Err(e) => Err(Error::from(e)),
         }
     }
 
@@ -508,9 +537,6 @@ impl Grammar {
         rng: &mut StdRng,
         f: impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
-        let start_rule: String;
-        let first_production = self.productions_iter().next();
-
         if !self.terminates() {
             return Err(Error::GenerateError(
                 "Can't generate, first rule in grammar doesn't lead to a terminal state"
@@ -518,9 +544,9 @@ impl Grammar {
             ));
         }
 
-        match first_production {
-            Some(term) => match term.lhs {
-                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+        let start_rule = match self.productions_iter().next() {
+            Some(term) => match &term.lhs {
+                Term::Nonterminal(nt) => nt.clone(),
                 Term::Terminal(_) => {
                     return Err(Error::GenerateError(format!(
                         "Terminal type cannot define a production in '{term}'!"
@@ -533,7 +559,7 @@ impl Grammar {
                     "Failed to get first production!",
                 )));
             }
-        }
+        };
         self.traverse(&start_rule, rng, &f)
     }
 
@@ -659,20 +685,20 @@ impl str::FromStr for Grammar {
         //try and autodetect the format (in the feature we'll use a detector that returns an enum, hence the gratuitous switch case)
         match parsers::is_format_standard_bnf(s) {
             true => match parsers::grammar_complete::<BNF>(s) {
-                Result::Ok((_, o)) => Ok(o),
-                Result::Err(e) => Err(Error::from(e)),
+                Ok((_, o)) => Ok(o),
+                Err(e) => Err(Error::from(e)),
             },
             false => match parsers::grammar_complete::<ABNF>(s) {
-                Result::Ok((_, o)) => Ok(o),
-                Result::Err(e) => Err(Error::from(e)),
+                Ok((_, o)) => Ok(o),
+                Err(e) => Err(Error::from(e)),
             },
         }
     }
     #[cfg(not(feature = "ABNF"))]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match parsers::grammar_complete::<BNF>(s) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
+            Ok((_, o)) => Ok(o),
+            Err(e) => Err(Error::from(e)),
         }
     }
 }
@@ -1005,6 +1031,27 @@ mod tests {
             format,
             "<dna> ::= <base> | <base> <dna>\n<base> ::= 'A' | 'C' | 'G' | 'T'\n"
         );
+    }
+
+    #[test]
+    fn parse_tree_fmt_empty_rhs() {
+        // ParseTree allows empty rhs; fmt must not underflow (last_child_idx = len - 1).
+        let lhs = Term::Nonterminal("root".to_string());
+        let tree = ParseTree::new(&lhs, vec![]);
+        let s = tree.to_string();
+        assert!(s.contains("root"));
+        assert!(s.contains("::="));
+    }
+
+    #[test]
+    fn parse_tree_fmt_single_child() {
+        let lhs = Term::Nonterminal("root".to_string());
+        let child = ParseTreeNode::Terminal("x");
+        let tree = ParseTree::new(&lhs, vec![child]);
+        let s = tree.to_string();
+        assert!(s.contains("root"));
+        assert!(s.contains("::="));
+        assert!(s.contains("\"x\""));
     }
 
     #[test]
@@ -1351,5 +1398,101 @@ mod tests {
                 .next()
                 .is_none()
         )
+    }
+
+    #[test]
+    fn escape_mermaid_label_identity() {
+        assert_eq!(escape_mermaid_label("abc"), "abc");
+        assert_eq!(escape_mermaid_label("sum"), "sum");
+        assert_eq!(escape_mermaid_label("G"), "G");
+    }
+
+    #[test]
+    fn escape_mermaid_label_double_quote() {
+        assert_eq!(escape_mermaid_label("\""), "#34;");
+        assert_eq!(escape_mermaid_label("a\"b"), "a#34;b");
+    }
+
+    #[test]
+    fn escape_mermaid_label_brackets() {
+        assert_eq!(escape_mermaid_label("["), "#91;");
+        assert_eq!(escape_mermaid_label("]"), "#93;");
+        assert_eq!(escape_mermaid_label("[x]"), "#91;x#93;");
+    }
+
+    #[test]
+    fn escape_mermaid_label_backslash_and_hash_semicolon() {
+        assert_eq!(escape_mermaid_label("\\"), "#92;");
+        assert_eq!(escape_mermaid_label("#"), "#35;");
+        assert_eq!(escape_mermaid_label(";"), "#59;");
+        assert_eq!(escape_mermaid_label("#34;"), "#35;34#59;");
+    }
+
+    #[test]
+    fn escape_mermaid_label_angle_brackets_and_ampersand() {
+        assert_eq!(escape_mermaid_label("<"), "#60;");
+        assert_eq!(escape_mermaid_label(">"), "#62;");
+        assert_eq!(escape_mermaid_label("&"), "#38;");
+        assert_eq!(escape_mermaid_label("<foo>"), "#60;foo#62;");
+        assert_eq!(escape_mermaid_label("a&b"), "a#38;b");
+    }
+
+    #[test]
+    fn escape_mermaid_label_newlines() {
+        assert_eq!(escape_mermaid_label("\n"), "#10;");
+        assert_eq!(escape_mermaid_label("\r"), "#13;");
+        assert_eq!(escape_mermaid_label("a\nb"), "a#10;b");
+    }
+
+    #[test]
+    fn escape_mermaid_label_mixed() {
+        assert_eq!(
+            escape_mermaid_label(r#"["];\#""#),
+            "#91;#34;#93;#59;#92;#35;#34;"
+        );
+    }
+
+    #[test]
+    fn mermaid_entity_codes_double_quote_in_label() {
+        let grammar: Grammar = r#"<q> ::= '"'"#.parse().unwrap();
+        let input = "\"";
+        let parse_tree = grammar.parse_input(input).next().unwrap();
+        let mermaid = parse_tree.mermaid().to_string();
+        // Label for terminal " must be escaped as #34;, so line has exactly 4 quotes (two node wrappers).
+        assert!(
+            mermaid.contains("#34;"),
+            "mermaid should escape quote as #34;"
+        );
+        for line in mermaid.lines() {
+            if line.contains("-->") {
+                let quote_count = line.matches('"').count();
+                assert_eq!(
+                    quote_count, 4,
+                    "each edge line must have 4 quotes (balanced labels); line: {line:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn mermaid_entity_codes_brackets_in_label() {
+        let grammar: Grammar = "<b> ::= ']' | '['
+        "
+        .parse()
+        .unwrap();
+        for input in ["]", "["] {
+            let parse_tree = grammar.parse_input(input).next().unwrap();
+            let mermaid = parse_tree.mermaid().to_string();
+            assert!(
+                mermaid.contains("#91;") || mermaid.contains("#93;"),
+                "mermaid should escape brackets"
+            );
+            for line in mermaid.lines() {
+                if line.contains("-->") {
+                    let quote_count = line.matches('"').count();
+                    assert_eq!(quote_count, 4, "line: {line:?}");
+                }
+            }
+        }
     }
 }

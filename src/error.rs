@@ -57,13 +57,13 @@ mod tests {
     #[test]
     fn gets_error_error() {
         let nom_result = give_error_kind("12340");
-        assert!(matches!(nom_result, Result::Err(Err::Error(_))));
+        assert!(matches!(nom_result, Err(Err::Error(_))));
     }
 
     #[test]
     fn gets_error_on_incomplete() {
         let nom_result = give_error_kind("").map_err(Error::from);
-        assert!(matches!(nom_result, Result::Err(Error::ParseError(_))));
+        assert!(matches!(nom_result, Err(Error::ParseError(_))));
     }
 
     #[test]

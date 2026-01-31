@@ -1,0 +1,5 @@
+---
+source: tests/parse_input.rs
+expression: output
+---
+

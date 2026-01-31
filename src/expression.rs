@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::parsers::{self, BNF};
 use crate::term::Term;
+use std::borrow::Cow;
 use std::fmt;
 use std::ops;
 use std::str::FromStr;
@@ -13,26 +14,39 @@ use serde::{Deserialize, Serialize};
 /// An Expression is comprised of any number of Terms
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct Expression {
-    pub(crate) terms: Vec<Term>,
+pub struct Expression<'a> {
+    pub(crate) terms: Cow<'a, [Term<'a>]>,
 }
 
-impl Expression {
+impl<'a> Expression<'a> {
     /// Construct a new `Expression`
     #[must_use]
-    pub const fn new() -> Expression {
-        Expression { terms: vec![] }
+    pub const fn new() -> Expression<'a> {
+        Expression {
+            terms: Cow::Owned(vec![]),
+        }
     }
 
     /// Construct an `Expression` from `Term`s
     #[must_use]
-    pub const fn from_parts(v: Vec<Term>) -> Expression {
-        Expression { terms: v }
+    pub const fn from_parts(v: Vec<Term<'a>>) -> Expression<'a> {
+        Expression {
+            terms: Cow::Owned(v),
+        }
+    }
+
+    /// Construct an `Expression` from a borrowed slice of terms.
+    /// Use this for const grammars with `Cow::Borrowed` data.
+    #[must_use]
+    pub const fn from_borrowed(terms: &'a [Term<'a>]) -> Expression<'a> {
+        Expression {
+            terms: Cow::Borrowed(terms),
+        }
     }
 
     /// Add `Term` to `Expression`
-    pub fn add_term(&mut self, term: Term) {
-        self.terms.push(term);
+    pub fn add_term(&mut self, term: Term<'a>) {
+        self.terms.to_mut().push(term);
     }
 
     /// Remove `Term` from `Expression`
@@ -45,7 +59,7 @@ impl Expression {
     /// use bnf::{Expression, Term};
     ///
     /// let mut expression = Expression::from_parts(vec![]);
-    /// let to_remove = Term::Terminal(String::from("a_terminal"));
+    /// let to_remove = Term::Terminal(std::borrow::Cow::Owned(String::from("a_terminal")));
     /// let removed = expression.remove_term(&to_remove);
     /// # let removed_clone = removed.clone();
     /// match removed {
@@ -55,27 +69,27 @@ impl Expression {
     ///
     /// # assert_eq!(removed_clone, None);
     /// ```
-    pub fn remove_term(&mut self, term: &Term) -> Option<Term> {
-        if let Some(pos) = self.terms.iter().position(|x| *x == *term) {
-            Some(self.terms.remove(pos))
-        } else {
-            None
-        }
+    pub fn remove_term(&mut self, term: &Term<'a>) -> Option<Term<'a>> {
+        let terms = self.terms.to_mut();
+        terms
+            .iter()
+            .position(|x| *x == *term)
+            .map(|pos| terms.remove(pos))
     }
 
     /// Get iterator of `Term`s within `Expression`
-    pub fn terms_iter(&self) -> impl Iterator<Item = &Term> {
+    pub fn terms_iter(&self) -> impl Iterator<Item = &Term<'a>> {
         self.terms.iter()
     }
 
     /// Get mutable iterator of `Term`s within `Expression`
-    pub fn terms_iter_mut(&mut self) -> impl Iterator<Item = &mut Term> {
-        self.terms.iter_mut()
+    pub fn terms_iter_mut(&mut self) -> impl Iterator<Item = &mut Term<'a>> {
+        self.terms.to_mut().iter_mut()
     }
 
     /// Determine if this expression terminates or not, i.e contains all terminal elements or every
     /// non-terminal element in the expression exists in the (optional) list of 'terminating rules'
-    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<&Term>>) -> bool {
+    pub(crate) fn terminates(&self, terminating_rules: Option<&Vec<&Term<'a>>>) -> bool {
         if !self.terms.iter().any(|t| matches!(t, Term::Nonterminal(_))) {
             return true;
         }
@@ -126,7 +140,7 @@ macro_rules! expression {
     };
 }
 
-impl fmt::Display for Expression {
+impl<'a> fmt::Display for Expression<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let display = self
             .terms
@@ -139,7 +153,7 @@ impl fmt::Display for Expression {
     }
 }
 
-impl FromStr for Expression {
+impl FromStr for Expression<'static> {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -150,9 +164,9 @@ impl FromStr for Expression {
     }
 }
 
-impl ops::Add<Expression> for &Expression {
-    type Output = Expression;
-    fn add(self, rhs: Expression) -> Self::Output {
+impl<'a> ops::Add<Expression<'a>> for &Expression<'a> {
+    type Output = Expression<'a>;
+    fn add(self, rhs: Expression<'a>) -> Self::Output {
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -164,9 +178,9 @@ impl ops::Add<Expression> for &Expression {
     }
 }
 
-impl ops::Add<Term> for &Expression {
-    type Output = Expression;
-    fn add(self, rhs: Term) -> Self::Output {
+impl<'a> ops::Add<Term<'a>> for &Expression<'a> {
+    type Output = Expression<'a>;
+    fn add(self, rhs: Term<'a>) -> Self::Output {
         let mut new_expression = Expression::new();
         for t in self.terms_iter() {
             new_expression.add_term(t.clone());
@@ -176,9 +190,9 @@ impl ops::Add<Term> for &Expression {
     }
 }
 
-impl ops::Add<Expression> for Expression {
-    type Output = Expression;
-    fn add(mut self, rhs: Expression) -> Self::Output {
+impl<'a> ops::Add<Expression<'a>> for Expression<'a> {
+    type Output = Expression<'a>;
+    fn add(mut self, rhs: Expression<'a>) -> Self::Output {
         for t in rhs.terms_iter() {
             self.add_term(t.clone());
         }
@@ -186,9 +200,9 @@ impl ops::Add<Expression> for Expression {
     }
 }
 
-impl ops::Add<Term> for Expression {
-    type Output = Expression;
-    fn add(mut self, rhs: Term) -> Self::Output {
+impl<'a> ops::Add<Term<'a>> for Expression<'a> {
+    type Output = Expression<'a>;
+    fn add(mut self, rhs: Term<'a>) -> Self::Output {
         self.add_term(rhs);
         self
     }
@@ -199,18 +213,20 @@ mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
-    impl Arbitrary for Expression {
+    impl Arbitrary for Expression<'static> {
         fn arbitrary(g: &mut Gen) -> Self {
-            let mut terms = Vec::<Term>::arbitrary(g);
+            let mut terms = Vec::<Term<'static>>::arbitrary(g);
             // expressions must always have at least one term
             if terms.is_empty() {
                 terms.push(Term::arbitrary(g));
             }
-            Expression { terms }
+            Expression {
+                terms: Cow::Owned(terms),
+            }
         }
     }
 
-    fn prop_to_string_and_back(expr: Expression) -> TestResult {
+    fn prop_to_string_and_back(expr: Expression<'static>) -> TestResult {
         let to_string: String = expr.to_string();
         let from_str: Result<Expression, _> = to_string.parse();
         match from_str {
@@ -221,7 +237,8 @@ mod tests {
 
     #[test]
     fn to_string_and_back() {
-        QuickCheck::new().quickcheck(prop_to_string_and_back as fn(Expression) -> TestResult)
+        QuickCheck::new()
+            .quickcheck(prop_to_string_and_back as fn(Expression<'static>) -> TestResult)
     }
 
     #[test]
@@ -368,7 +385,7 @@ mod tests {
     fn iterate_terms() {
         let expression: Expression = "<b> 'A' <b>".parse().unwrap();
         let terms = expression.terms_iter().cloned().collect::<Vec<_>>();
-        assert_eq!(terms, expression.terms);
+        assert_eq!(terms, expression.terms.as_ref());
     }
 
     #[test]
@@ -378,7 +395,7 @@ mod tests {
         for term in expression.terms_iter_mut() {
             *term = new_term.clone();
         }
-        assert_eq!(expression.terms, vec![new_term])
+        assert_eq!(expression.terms.as_ref(), vec![new_term])
     }
 
     #[test]

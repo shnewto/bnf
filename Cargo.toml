@@ -43,6 +43,7 @@ undocumented_unsafe_blocks = "deny"
 use_debug = "deny"
 
 [dependencies]
+bnf-macros = { path = "bnf-macros" }
 tracing = { version = "0.1.44", optional = true }
 tracing-subscriber = { version = "0.3.22", optional = true, features = ["env-filter"] }
 tracing-flame = { version = "0.2.0", optional = true }
@@ -88,6 +89,10 @@ path = "examples/create_grammar.rs"
 [[example]]
 name = "parse_tree"
 path = "examples/parse_tree.rs"
+
+[[example]]
+name = "const_grammar"
+path = "examples/const_grammar.rs"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.4", features = ["wasm_js"] } # needed for rand

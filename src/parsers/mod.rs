@@ -11,6 +11,7 @@ use crate::expression::Expression;
 use crate::grammar::Grammar;
 use crate::production::Production;
 use crate::term::Term;
+use std::borrow::Cow;
 
 use nom::{
     IResult, Parser,
@@ -29,7 +30,7 @@ pub trait Format {
     fn alternative_separator() -> char;
 }
 
-fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
+fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term<'static>> {
     let (input, nt) = match F::nonterminal_delimiter() {
         Some((start, end)) => delimited(
             complete::char(start),
@@ -45,10 +46,10 @@ fn nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::Nonterminal(nt.to_string())))
+    Ok((input, Term::nonterminal(nt.to_string())))
 }
 
-fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term> {
+fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term<'static>> {
     let (input, nt) = nonterminal::<F>(input)?;
 
     let (input, _) = tag(F::production_separator()).parse(input)?;
@@ -59,11 +60,11 @@ fn prod_lhs<F: Format>(input: &str) -> IResult<&str, Term> {
     Ok((input, nt))
 }
 
-fn prod_rhs<F: Format>(input: &str) -> IResult<&str, Vec<Expression>> {
+fn prod_rhs<F: Format>(input: &str) -> IResult<&str, Vec<Expression<'static>>> {
     xt_list_with_separator(expression::<F>, expression_next::<F>).parse(input)
 }
 
-pub fn terminal(input: &str) -> IResult<&str, Term> {
+pub fn terminal(input: &str) -> IResult<&str, Term<'static>> {
     let (input, t) = alt((
         delimited(complete::char('"'), take_until("\""), complete::char('"')),
         delimited(complete::char('\''), take_until("'"), complete::char('\'')),
@@ -72,7 +73,7 @@ pub fn terminal(input: &str) -> IResult<&str, Term> {
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::Terminal(t.to_string())))
+    Ok((input, Term::terminal(t.to_string())))
 }
 
 ///this should never fail, unwrap it when calling directly please!
@@ -101,7 +102,7 @@ pub fn is_format_standard_bnf(input: &str) -> bool {
         .is_ok()
 }
 
-pub fn term<F: Format>(input: &str) -> IResult<&str, Term> {
+pub fn term<F: Format>(input: &str) -> IResult<&str, Term<'static>> {
     alt((
         terminal,
         nonterminal::<F>,
@@ -118,14 +119,14 @@ pub fn expression_next<F: Format>(input: &str) -> IResult<&str, &str> {
     Ok((input, ""))
 }
 
-pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression> {
+pub fn expression<F: Format>(input: &str) -> IResult<&str, Expression<'static>> {
     let (input, terms) =
         many1(terminated(term::<F>, not(tag(F::production_separator())))).parse(input)?;
 
     Ok((input, Expression::from_parts(terms)))
 }
 
-pub fn production<F: Format>(input: &str) -> IResult<&str, Production> {
+pub fn production<F: Format>(input: &str) -> IResult<&str, Production<'static>> {
     let (input, lhs) = prod_lhs::<F>(input)?;
     let (input, rhs) = prod_rhs::<F>(input)?;
     let (input, _) = alt((recognize(peek(eof)), recognize(peek(prod_lhs::<F>)))).parse(input)?;
@@ -133,34 +134,36 @@ pub fn production<F: Format>(input: &str) -> IResult<&str, Production> {
     Ok((input, Production::from_parts(lhs, rhs)))
 }
 
-pub fn anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
+pub fn anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term<'static>> {
     let (input, rhs) =
         delimited(complete::char('('), prod_rhs::<F>, complete::char(')')).parse(input)?;
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::AnonymousNonterminal(rhs)))
+    Ok((input, Term::AnonymousNonterminal(Cow::Owned(rhs))))
 }
 
-pub fn optional_anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term> {
+pub fn optional_anonymous_nonterminal<F: Format>(input: &str) -> IResult<&str, Term<'static>> {
     let (input, mut rhs) =
         delimited(complete::char('['), prod_rhs::<F>, complete::char(']')).parse(input)?;
 
-    rhs.push(Expression::from_parts(vec![Term::Terminal("".to_owned())]));
+    rhs.push(Expression::from_parts(vec![Term::Terminal(Cow::Owned(
+        String::new(),
+    ))]));
 
     let (input, _) = whitespace_plus_comments(input).unwrap();
 
-    Ok((input, Term::AnonymousNonterminal(rhs)))
+    Ok((input, Term::AnonymousNonterminal(Cow::Owned(rhs))))
 }
 
-pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar> {
+pub fn grammar<F: Format>(input: &str) -> IResult<&str, Grammar<'static>> {
     let (input, _) = whitespace_plus_comments(input)?;
     production::<F>(input)?;
     let (input, prods) = many1(production::<F>).parse(input)?;
     Ok((input, Grammar::from_parts(prods)))
 }
 
-pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar> {
+pub fn grammar_complete<F: Format>(input: &str) -> IResult<&str, Grammar<'static>> {
     all_consuming(grammar::<F>).parse(input)
 }
 
@@ -172,7 +175,7 @@ pub mod tests {
     #[test]
     fn terminal_match() {
         let input = "\"hello world\"";
-        let expected = Term::Terminal("hello world".to_string());
+        let expected = Term::Terminal(Cow::Owned("hello world".to_string()));
 
         let (_, actual) = terminal(input).unwrap();
         assert_eq!(expected, actual);
@@ -182,9 +185,10 @@ pub mod tests {
     fn use_anon_nonterminal() {
         let grammar = "s = ('a' / 'b') 'c'";
         let grammar = grammar.parse::<Grammar>().unwrap();
+        let parser = grammar.build_parser().unwrap();
         let inputs = vec!["ac", "bc"];
         for input in inputs {
-            assert!(grammar.parse_input(input).next().is_some());
+            assert!(parser.parse_input(input).next().is_some());
         }
     }
 
@@ -211,6 +215,8 @@ pub mod tests {
                             a =/ 'c'";
         let grammar = input.parse::<Grammar>().unwrap();
         grammar
+            .build_parser()
+            .unwrap()
             .parse_input("bcbccbbcbcbcbbbbbbbbbbbbccc")
             .next()
             .unwrap();

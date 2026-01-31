@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::expression::Expression;
 use crate::parsers::{self, BNF};
 use crate::term::Term;
+use std::borrow::Cow;
 use std::fmt;
 
 use nom::Parser;
@@ -16,63 +17,75 @@ use std::str::FromStr;
 /// A Production is comprised of any number of Expressions
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct Production {
+pub struct Production<'a> {
     /// The "left hand side" of the production, i.e. "lhs -> rhs ..."
-    pub lhs: Term,
-    rhs: Vec<Expression>,
+    pub lhs: Term<'a>,
+    rhs: Cow<'a, [Expression<'a>]>,
 }
 
-impl Production {
+impl<'a> Production<'a> {
     /// Construct a new `Production`
     #[must_use]
-    pub const fn new() -> Production {
+    pub const fn new() -> Production<'a> {
         Production {
-            lhs: Term::Nonterminal(String::new()),
-            rhs: vec![],
+            lhs: Term::Nonterminal(Cow::Owned(String::new())),
+            rhs: Cow::Owned(vec![]),
         }
     }
 
     /// Construct an `Production` from `Expression`s
     #[must_use]
-    pub const fn from_parts(t: Term, e: Vec<Expression>) -> Production {
-        Production { lhs: t, rhs: e }
+    pub const fn from_parts(t: Term<'a>, e: Vec<Expression<'a>>) -> Production<'a> {
+        Production {
+            lhs: t,
+            rhs: Cow::Owned(e),
+        }
+    }
+
+    /// Construct a `Production` from a left-hand side term and a borrowed slice of expressions.
+    /// Use this for const grammars with `Cow::Borrowed` data.
+    #[must_use]
+    pub const fn from_borrowed_rhs(lhs: Term<'a>, rhs: &'a [Expression<'a>]) -> Production<'a> {
+        Production {
+            lhs,
+            rhs: Cow::Borrowed(rhs),
+        }
     }
 
     /// Add `Expression` to the `Production`'s right hand side
-    pub fn add_to_rhs(&mut self, expr: Expression) {
-        self.rhs.push(expr);
+    pub fn add_to_rhs(&mut self, expr: Expression<'a>) {
+        self.rhs.to_mut().push(expr);
     }
 
     /// Remove `Expression` from the `Production`'s right hand side
     ///
     /// If interested if `Expression` was removed, then inspect the returned `Option`.
-    pub fn remove_from_rhs(&mut self, expr: &Expression) -> Option<Expression> {
-        if let Some(pos) = self.rhs.iter().position(|x| *x == *expr) {
-            Some(self.rhs.remove(pos))
-        } else {
-            None
-        }
+    pub fn remove_from_rhs(&mut self, expr: &Expression<'a>) -> Option<Expression<'a>> {
+        let rhs = self.rhs.to_mut();
+        rhs.iter()
+            .position(|x| *x == *expr)
+            .map(|pos| rhs.remove(pos))
     }
 
     /// Get iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter(&self) -> impl Iterator<Item = &Expression> {
+    pub fn rhs_iter(&self) -> impl Iterator<Item = &Expression<'a>> {
         self.rhs.iter()
     }
 
     /// Get mutable iterator of the `Production`'s right hand side `Expression`s
-    pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        self.rhs.iter_mut()
+    pub fn rhs_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression<'a>> {
+        self.rhs.to_mut().iter_mut()
     }
 
     /// Get number of right hand side `Expression`s
     #[must_use]
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.rhs.len()
     }
 
     /// If the production is empty of `Expression`s
     #[must_use]
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.rhs.is_empty()
     }
 
@@ -81,19 +94,19 @@ impl Production {
     /// expression exists in the (optional) list of 'terminating rules'
     pub(crate) fn has_terminating_expression(
         &self,
-        terminating_rules: Option<&Vec<&Term>>,
+        terminating_rules: Option<&Vec<&Term<'a>>>,
     ) -> bool {
         self.rhs.iter().any(|e| e.terminates(terminating_rules))
     }
 }
 
-impl Default for Production {
+impl<'a> Default for Production<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl fmt::Display for Production {
+impl<'a> fmt::Display for Production<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -108,7 +121,7 @@ impl fmt::Display for Production {
     }
 }
 
-impl FromStr for Production {
+impl FromStr for Production<'static> {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match all_consuming(parsers::production::<BNF>).parse(s) {
@@ -172,21 +185,24 @@ mod tests {
     use super::*;
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
-    impl Arbitrary for Production {
+    impl Arbitrary for Production<'static> {
         fn arbitrary(g: &mut Gen) -> Self {
             let lhs_str = String::arbitrary(g).chars().filter(|&c| c != '>').collect();
 
-            let lhs = Term::Nonterminal(lhs_str);
+            let lhs = Term::Nonterminal(Cow::Owned(lhs_str));
 
-            let mut rhs = Vec::<Expression>::arbitrary(g);
+            let mut rhs = Vec::<Expression<'static>>::arbitrary(g);
             if rhs.is_empty() {
                 rhs.push(Expression::arbitrary(g));
             }
-            Production { lhs, rhs }
+            Production {
+                lhs,
+                rhs: Cow::Owned(rhs),
+            }
         }
     }
 
-    fn prop_to_string_and_back(prop: Production) -> TestResult {
+    fn prop_to_string_and_back(prop: Production<'static>) -> TestResult {
         let to_string = prop.to_string();
         let from_str = Production::from_str(&to_string)
             .expect("should be able to convert production to string and back");
@@ -198,7 +214,7 @@ mod tests {
         QuickCheck::new()
             .tests(1000)
             .r#gen(Gen::new(25usize))
-            .quickcheck(prop_to_string_and_back as fn(Production) -> TestResult)
+            .quickcheck(prop_to_string_and_back as fn(Production<'static>) -> TestResult)
     }
 
     #[test]

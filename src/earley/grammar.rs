@@ -23,7 +23,7 @@ pub(crate) struct ParseGrammar<'gram> {
 }
 
 impl<'gram, 'a> ParseGrammar<'gram> {
-    pub fn new(grammar: &'gram crate::Grammar) -> Self {
+    pub fn new(grammar: &'gram crate::grammar::Grammar<'gram>) -> Self {
         let _span = tracing::span!(tracing::Level::DEBUG, "ParseGrammar_new").entered();
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
@@ -38,9 +38,9 @@ impl<'gram, 'a> ParseGrammar<'gram> {
             let id = prod.id;
             prods_by_lhs.entry(lhs).or_default().push(id);
 
-            for term in prod.rhs.terms_iter() {
+            for term in rhs.terms_iter() {
                 if let Term::AnonymousNonterminal(exprs) = term {
-                    for rhs in exprs {
+                    for rhs in exprs.iter() {
                         let id = productions
                             .push_with_id(|id| Production { id, lhs: term, rhs })
                             .id;
@@ -59,7 +59,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
     }
     pub fn get_productions_by_lhs(
         &self,
-        lhs: &'gram crate::Term,
+        lhs: &'gram crate::Term<'gram>,
     ) -> impl Iterator<Item = &Production<'gram>> + use<'_, 'gram> {
         self.prods_by_lhs
             .get(lhs)

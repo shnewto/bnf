@@ -29,8 +29,7 @@ fn iterate_grammar() {
 
     // check nonterminals are in left and right hand terms collection
     for term in ["dna", "base"].iter() {
-        let term_string = String::from(*term);
-        let expected_nonterminal = Term::Nonterminal(term_string);
+        let expected_nonterminal = Term::nonterminal(*term);
 
         assert!(
             left_hand_terms.contains(&&expected_nonterminal),
@@ -50,8 +49,7 @@ fn iterate_grammar() {
 
     // check terminals are only on right hand side
     for term in ["A", "C", "G", "T"].iter() {
-        let term_string = String::from(*term);
-        let expected_terminal = Term::Terminal(term_string);
+        let expected_terminal = Term::terminal(*term);
 
         assert!(
             only_right_terms.any(|e| e == &expected_terminal),
@@ -78,7 +76,7 @@ fn mutably_iterate_grammar() {
 
         // transform all terminals to "Z"
         for term in terminals {
-            *term = Term::Terminal(String::from("Z"));
+            *term = Term::terminal("Z");
         }
     }
 
@@ -88,8 +86,8 @@ fn mutably_iterate_grammar() {
         .flat_map(|prod| prod.rhs_iter())
         .flat_map(|expr| expr.terms_iter())
         .filter(|&term| matches!(*term, Term::Terminal(_)))
-        .all(|term| match *term {
-            Term::Terminal(ref s) => *s == "Z",
+        .all(|term| match term {
+            Term::Terminal(s) => s.as_ref() == "Z",
             _ => false,
         });
 

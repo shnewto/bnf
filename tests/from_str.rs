@@ -35,14 +35,14 @@ mod std_trait {
     #[test]
     fn terminal_from_str() {
         let input = "'👏 '";
-        let terminal = Term::Terminal(String::new());
+        let terminal = Term::Terminal(String::new().into());
         std_str_trait(terminal, input)
     }
 
     #[test]
     fn nonterminal_from_str() {
         let input = "<🤘>";
-        let nonterminal = Term::Nonterminal(String::new());
+        let nonterminal = Term::Nonterminal(String::new().into());
         std_str_trait(nonterminal, input)
     }
 }

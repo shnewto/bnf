@@ -168,10 +168,10 @@ match sentence {
 ```rust
 use bnf::Grammar;
 
-let input =
-    "<dna> ::= <base> | <base> <dna>
-    <base> ::= 'A' | 'C' | 'G' | 'T'";
-let grammar: Grammar = input.parse().unwrap();
+let grammar = "<dna> ::= <base> | <base> <dna>
+    <base> ::= 'A' | 'C' | 'G' | 'T'"
+    .parse::<Grammar>()
+    .unwrap();
 
 // Create a parser from the grammar (validates all nonterminals are defined)
 let parser = grammar.build_parser().unwrap();
@@ -185,22 +185,22 @@ match parse_trees.next() {
 }
 ```
 
-By default, `parse_input` implicitly starts from the first rule. To match another rule, 
+By default, `parse_input` implicitly starts from the first rule. To match another rule,
 `parse_input_starting_with` can be used:
 
 ```rust
 use bnf::{Grammar, Term};
 
-let input =
-    "<dna> ::= <base> | <base> <dna>
-    <base> ::= 'A' | 'C' | 'G' | 'T'";
-let grammar: Grammar = input.parse().unwrap();
+let grammar = "<dna> ::= <base> | <base> <dna>
+    <base> ::= 'A' | 'C' | 'G' | 'T'"
+    .parse::<Grammar>()
+    .unwrap();
 
 // Create a parser from the grammar (validates all nonterminals are defined)
 let parser = grammar.build_parser().unwrap();
 
 let sentence = "G";
-let target_production = Term::Nonterminal("base".to_string());
+let target_production = Term::nonterminal("base");
 
 let mut parse_trees = parser.parse_input_starting_with(sentence, &target_production);
 match parse_trees.next() {
@@ -208,4 +208,22 @@ match parse_trees.next() {
     _ => println!("Grammar could not parse sentence"),
 }
 ```
+
+## Lifetimes in the parser API
+
+Parser-related types use two lifetime parameters so that a **local** grammar works without leaking memory:
+
+- **`'parser`** — **“How long do the borrows last?”**  
+  This is the lifetime of **references** involved in a parse: the borrow of the grammar (when you call `build_parser()`), the borrow of the input string (when you call `parse_input(input)`), and the borrow of the starting term (when you call `parse_input_starting_with(..., &term)`).  
+  In practice, `'parser` is the span of time during which the parser and any parse-tree iterator are in use. Parse trees and the parse iterator are only valid while these borrows are valid (e.g. while the parser and the `&str` you passed in are still in scope).
+
+- **`'gram`** — **“How long does the grammar’s data live?”**  
+  This is the lifetime of the **grammar’s contents**: the productions, terms, and expressions stored inside `Grammar<'a>`. For `Grammar<'static>` (the default type alias), that data can live for the whole program (e.g. from a `const` or a leaked value). For a local `let grammar = ...;`, `'gram` is the scope of that variable.
+
+So:
+
+- **`ParseTree<'parser, 'gram>`** holds references (with lifetime `'parser`) to `Term<'gram>` and to slices of the input string. The tree is only valid while the parser (and thus the grammar and input borrows) are valid.
+- **`GrammarParser<'parser, 'gram>`** holds a reference to the grammar (for `'parser`) and uses the grammar’s data (which lives for `'gram`). The bound `'gram: 'parser` means the grammar’s data outlives the borrow, so the parser can safely reference it.
+
+With this split, you can use a local grammar and a local parser: the parser borrows the grammar and the input for `'parser`, and the compiler enforces that the grammar and input outlive that borrow. You no longer need `Box::leak` for normal “parse a string with a local grammar” usage.
 

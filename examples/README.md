@@ -54,6 +54,19 @@ cargo run --example parse_tree
 - The input string being parsed
 - The parse tree printed in a readable format, or a message if parsing fails
 
+### `const_grammar`
+
+Build a grammar in code (same DNA grammar as the README) using
+`Expression::from_parts`, `Production::from_parts`, and `Grammar::from_parts`.
+No BNF string and no intermediate variables: one `Grammar::from_parts(vec![...])`
+with productions and expressions defined inline.
+
+**Run with:**
+
+```bash
+cargo run --example const_grammar
+```
+
 ### `parse_tree_explicit_entrypoint`
 
 An example showing how to use a `GrammarParser` to parse an input string starting from a specific nonterminal.

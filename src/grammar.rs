@@ -40,6 +40,7 @@ use crate::parsers::{self, BNF, Format};
 use crate::production::Production;
 use crate::term::Term;
 use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
+use std::borrow::Cow;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -49,21 +50,27 @@ use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParseTreeNode<'gram> {
-    Terminal(&'gram str),
-    Nonterminal(ParseTree<'gram>),
+pub enum ParseTreeNode<'parser, 'gram> {
+    Terminal(&'parser str),
+    Nonterminal(ParseTree<'parser, 'gram>),
 }
 
 /// A tree derived by successfully parsing an input string via [`crate::GrammarParser::parse_input()`]
+///
+/// `'parser` is the lifetime of the reference (parser/grammar borrow); `'gram` is the lifetime
+/// of the grammar data. This split allows using a local grammar without `Box::leak`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseTree<'gram> {
+pub struct ParseTree<'parser, 'gram> {
     /// the "left hand side" `Term` used for this `ParseTree`
-    pub lhs: &'gram Term,
-    rhs: Vec<ParseTreeNode<'gram>>,
+    pub lhs: &'parser Term<'gram>,
+    rhs: Vec<ParseTreeNode<'parser, 'gram>>,
 }
 
-impl<'gram> ParseTree<'gram> {
-    pub(crate) const fn new(lhs: &'gram Term, rhs: Vec<ParseTreeNode<'gram>>) -> Self {
+impl<'parser, 'gram> ParseTree<'parser, 'gram> {
+    pub(crate) const fn new(
+        lhs: &'parser Term<'gram>,
+        rhs: Vec<ParseTreeNode<'parser, 'gram>>,
+    ) -> Self {
         Self { lhs, rhs }
     }
 }
@@ -71,7 +78,7 @@ impl<'gram> ParseTree<'gram> {
 // A set of column indices, used for tracking which columns are active when formatting a `ParseTree`
 type ParseTreeFormatSet = std::collections::HashSet<usize>;
 
-impl<'gram> ParseTree<'gram> {
+impl<'parser, 'gram> ParseTree<'parser, 'gram> {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -154,34 +161,42 @@ impl<'gram> ParseTree<'gram> {
     ///
     /// ```
     /// # use bnf::Grammar;
-    /// let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+    /// let grammar = "<dna> ::= <base> | <base> <dna>
     /// <base> ::= 'A' | 'C' | 'G' | 'T'"
-    /// .parse()
-    /// .unwrap();
-    ///
+    ///     .parse::<Grammar>()
+    ///     .unwrap();
     /// let parser = grammar.build_parser().unwrap();
     /// let input = "GATTACA";
-    /// let parsed = parser.parse_input(input).next().unwrap();
-    /// let mermaid = parsed.mermaid().to_string();
+    /// let parses: Vec<_> = parser.parse_input(input).collect();
+    /// let mermaid = parses[0].mermaid_to_string();
     /// println!("parse tree mermaid: {}", mermaid);
     /// ```
     #[must_use]
-    pub const fn mermaid(&self) -> MermaidParseTree<'_> {
+    pub const fn mermaid(&'parser self) -> MermaidParseTree<'parser, 'gram> {
         MermaidParseTree { parse_tree: self }
     }
 
+    /// Return this parse tree as a Mermaid diagram string.
+    /// Convenience method; equivalent to `self.mermaid().to_string()`.
+    #[must_use]
+    pub fn mermaid_to_string(&self) -> String {
+        self.mermaid().to_string()
+    }
+
     /// Iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter<'a>(&'a self) -> impl Iterator<Item = &'a ParseTreeNode<'gram>> {
+    pub fn rhs_iter<'a>(&'a self) -> impl Iterator<Item = &'a ParseTreeNode<'parser, 'gram>> {
         self.rhs.iter()
     }
 
     /// Mutably iterate the "right hand side" parse tree nodes
-    pub fn rhs_iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut ParseTreeNode<'gram>> {
+    pub fn rhs_iter_mut<'a>(
+        &'a mut self,
+    ) -> impl Iterator<Item = &'a mut ParseTreeNode<'parser, 'gram>> {
         self.rhs.iter_mut()
     }
 }
 
-impl fmt::Display for ParseTree<'_> {
+impl fmt::Display for ParseTree<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut depth_format_set = ParseTreeFormatSet::new();
         self.fmt(f, &mut depth_format_set, 0, true)
@@ -190,11 +205,11 @@ impl fmt::Display for ParseTree<'_> {
 
 /// Wrap `ParseTree` in "Mermaid" type, which opts into new implementation of `std::fmt::Display`.
 /// Writes `ParseTree` as [Mermaid.js](https://mermaid-js.github.io/) flowchart.
-pub struct MermaidParseTree<'a> {
-    parse_tree: &'a ParseTree<'a>,
+pub struct MermaidParseTree<'parser, 'gram> {
+    parse_tree: &'parser ParseTree<'parser, 'gram>,
 }
 
-impl MermaidParseTree<'_> {
+impl MermaidParseTree<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, count: &mut usize) -> fmt::Result {
         if *count == 0 {
             writeln!(f, "flowchart TD")?;
@@ -205,7 +220,7 @@ impl MermaidParseTree<'_> {
         // A --> C
         // id1([This is the text in the box])
         let lhs = match self.parse_tree.lhs {
-            Term::Nonterminal(str) => str,
+            Term::Nonterminal(s) => s.as_ref(),
             Term::Terminal(_) => unreachable!(),
             Term::AnonymousNonterminal(_) => unreachable!(),
         };
@@ -220,7 +235,7 @@ impl MermaidParseTree<'_> {
                 }
                 ParseTreeNode::Nonterminal(parse_tree) => {
                     let rhs = match parse_tree.lhs {
-                        Term::Nonterminal(str) => str,
+                        Term::Nonterminal(s) => s.as_ref(),
                         Term::Terminal(_) => unreachable!(),
                         Term::AnonymousNonterminal(_) => unreachable!(),
                     };
@@ -235,7 +250,7 @@ impl MermaidParseTree<'_> {
     }
 }
 
-impl fmt::Display for MermaidParseTree<'_> {
+impl fmt::Display for MermaidParseTree<'_, '_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut count = 0usize;
         self.fmt(f, &mut count)
@@ -246,29 +261,51 @@ impl fmt::Display for MermaidParseTree<'_> {
 ///
 /// The library fully supports Unicode throughout all operations, including Unicode
 /// characters in terminals, nonterminals, input strings, and generated output.
+///
+/// # Data lifetime and const grammars
+///
+/// Grammar uses [`Cow`] internally: runtime parsing (e.g. [`Grammar::parse_from`],
+/// [`FromStr`](std::str::FromStr)) yields `Grammar<'static>` with `Cow::Owned` data. To build a grammar
+/// at compile time with no runtime allocation, use `Cow::Borrowed` and const data:
+/// define const [`Term`]s, const arrays of terms, then
+/// [`Expression::from_borrowed`](crate::Expression::from_borrowed), then
+/// [`Production::from_borrowed_rhs`](crate::Production::from_borrowed_rhs), then
+/// [`Grammar::from_borrowed`]. See the `const_grammar` example.
 #[derive(Clone, Default, Debug, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct Grammar {
-    productions: Vec<Production>,
+pub struct Grammar<'a> {
+    productions: Cow<'a, [Production<'a>]>,
 }
 
-impl Grammar {
+impl<'a> Grammar<'a> {
     /// Construct a new `Grammar`
     #[must_use]
-    pub const fn new() -> Grammar {
+    pub const fn new() -> Grammar<'a> {
         Grammar {
-            productions: vec![],
+            productions: Cow::Owned(vec![]),
         }
     }
 
     /// Construct an `Grammar` from `Production`s
     #[must_use]
-    pub const fn from_parts(v: Vec<Production>) -> Grammar {
-        Grammar { productions: v }
+    pub const fn from_parts(v: Vec<Production<'a>>) -> Grammar<'a> {
+        Grammar {
+            productions: Cow::Owned(v),
+        }
+    }
+
+    /// Construct a `Grammar` from a borrowed slice of productions.
+    /// Use this for const grammars with `Cow::Borrowed` data; runtime parsing yields
+    /// `Grammar<'static>` with `Cow::Owned`.
+    #[must_use]
+    pub const fn from_borrowed(productions: &'a [Production<'a>]) -> Grammar<'a> {
+        Grammar {
+            productions: Cow::Borrowed(productions),
+        }
     }
 
     /// parse a grammar given a format
-    pub fn parse_from<F: Format>(input: &str) -> Result<Self, self::Error> {
+    pub fn parse_from<F: Format>(input: &str) -> Result<Grammar<'static>, self::Error> {
         match parsers::grammar_complete::<F>(input) {
             Result::Ok((_, o)) => Ok(o),
             Result::Err(e) => Err(Error::from(e)),
@@ -276,27 +313,27 @@ impl Grammar {
     }
 
     /// Add `Production` to the `Grammar`
-    pub fn add_production(&mut self, prod: Production) {
-        self.productions.push(prod);
+    pub fn add_production(&mut self, prod: Production<'a>) {
+        self.productions.to_mut().push(prod);
     }
 
     /// Remove `Production` from the `Grammar`
-    pub fn remove_production(&mut self, prod: &Production) -> Option<Production> {
-        if let Some(pos) = self.productions.iter().position(|x| *x == *prod) {
-            Some(self.productions.remove(pos))
-        } else {
-            None
-        }
+    pub fn remove_production(&mut self, prod: &Production<'a>) -> Option<Production<'a>> {
+        let prods = self.productions.to_mut();
+        prods
+            .iter()
+            .position(|x| *x == *prod)
+            .map(|pos| prods.remove(pos))
     }
 
     /// Get iterator of the `Grammar`'s `Production`s
-    pub fn productions_iter(&self) -> impl Iterator<Item = &Production> {
+    pub fn productions_iter(&self) -> impl Iterator<Item = &Production<'a>> {
         self.productions.iter()
     }
 
     /// Get mutable iterator of the `Grammar`'s `Production`s
-    pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production> {
-        self.productions.iter_mut()
+    pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production<'a>> {
+        self.productions.to_mut().iter_mut()
     }
 
     /// Build a reusable parser from this grammar, validating that all nonterminals are defined.
@@ -319,82 +356,33 @@ impl Grammar {
     ///     .parse()
     ///     .unwrap();
     ///
-    /// let parser = grammar.build_parser()?;
+    /// let parser = grammar.build_parser().unwrap();
     /// let parse_trees: Vec<_> = parser.parse_input("GATTACA").collect();
-    /// # Ok::<(), bnf::Error>(())
     /// ```
-    pub fn build_parser(&self) -> Result<crate::GrammarParser<'_>, Error> {
+    ///
+    /// The parser holds a reference to this grammar for lifetime `'b`; the grammar's data
+    /// may live longer (`'a`). This allows using a local grammar without `Box::leak`.
+    pub fn build_parser<'b>(&'b self) -> Result<crate::GrammarParser<'b, 'a>, Error>
+    where
+        'a: 'b,
+    {
         crate::GrammarParser::new(self)
     }
 
-    /// Parse input strings according to `Grammar`
-    ///
-    /// # Deprecated
-    ///
-    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
-    /// all nonterminals at construction time and allows reusing the parser for
-    /// multiple inputs.
-    ///
-    /// ```rust,no_run
-    /// # use bnf::Grammar;
-    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
-    /// let parser = grammar.build_parser()?;
-    /// let parse_trees: Vec<_> = parser.parse_input("input").collect();
-    /// # Ok::<(), bnf::Error>(())
-    /// ```
-    #[deprecated(
-        since = "0.6.0",
-        note = "Use Grammar::build_parser() and GrammarParser::parse_input() instead for validation and reusability"
-    )]
-    pub fn parse_input<'gram>(
-        &'gram self,
-        input: &'gram str,
-    ) -> impl Iterator<Item = ParseTree<'gram>> {
-        crate::earley::parse(self, input)
-    }
-
-    /// Parse input strings according to `Grammar`, starting with given production
-    ///
-    /// # Deprecated
-    ///
-    /// This method is deprecated. Use [`crate::GrammarParser`] instead, which validates
-    /// all nonterminals at construction time and allows reusing the parser for
-    /// multiple inputs.
-    ///
-    /// ```rust,no_run
-    /// # use bnf::{Grammar, Term};
-    /// # let grammar: Grammar = "<dna> ::= <base>".parse().unwrap();
-    /// let parser = grammar.build_parser()?;
-    /// let start = Term::Nonterminal("dna".to_string());
-    /// let parse_trees: Vec<_> = parser.parse_input_starting_with("input", &start).collect();
-    /// # Ok::<(), bnf::Error>(())
-    /// ```
-    #[deprecated(
-        since = "0.6.0",
-        note = "Use Grammar::build_parser() and GrammarParser::parse_input_starting_with() instead for validation and reusability"
-    )]
-    pub fn parse_input_starting_with<'gram>(
-        &'gram self,
-        input: &'gram str,
-        starting_term: &'gram Term,
-    ) -> impl Iterator<Item = ParseTree<'gram>> {
-        crate::earley::parse_starting_with(self, input, starting_term)
-    }
-
     /// Get the starting term
-    pub(crate) fn starting_term(&self) -> Option<&Term> {
+    pub(crate) fn starting_term(&self) -> Option<&Term<'a>> {
         self.productions_iter().next().map(|prod| &prod.lhs)
     }
 
     fn eval_terminal(
         &self,
-        term: &Term,
+        term: &Term<'a>,
         rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         match term {
-            Term::Nonterminal(nt) => self.traverse(nt, rng, f),
-            Term::Terminal(t) => Ok(t.clone()),
+            Term::Nonterminal(nt) => self.traverse(nt.as_ref(), rng, f),
+            Term::Terminal(t) => Ok(t.to_string()),
             Term::AnonymousNonterminal(rhs) => {
                 let Some(expression) = rhs.choose(rng) else {
                     return Err(Error::GenerateError(String::from(
@@ -421,11 +409,13 @@ impl Grammar {
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         loop {
-            let nonterm = Term::Nonterminal(ident.to_string());
-            let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
+            let find_lhs = self.productions_iter().find(|x| match &x.lhs {
+                Term::Nonterminal(nt) => nt.as_ref() == ident,
+                _ => false,
+            });
 
             let Some(production) = find_lhs else {
-                return Ok(nonterm.to_string());
+                return Ok(ident.to_string());
             };
 
             let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
@@ -519,8 +509,8 @@ impl Grammar {
         }
 
         match first_production {
-            Some(term) => match term.lhs {
-                Term::Nonterminal(ref nt) => start_rule = nt.clone(),
+            Some(term) => match &term.lhs {
+                Term::Nonterminal(nt) => start_rule = nt.to_string(),
                 Term::Terminal(_) => {
                     return Err(Error::GenerateError(format!(
                         "Terminal type cannot define a production in '{term}'!"
@@ -638,7 +628,7 @@ impl Grammar {
     }
 }
 
-impl fmt::Display for Grammar {
+impl<'a> fmt::Display for Grammar<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             f,
@@ -652,7 +642,7 @@ impl fmt::Display for Grammar {
     }
 }
 
-impl str::FromStr for Grammar {
+impl str::FromStr for Grammar<'static> {
     type Err = Error;
     #[cfg(feature = "ABNF")]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -677,97 +667,6 @@ impl str::FromStr for Grammar {
     }
 }
 
-/// Construct a `Grammar` from a series of semicolon separated productions.
-/// ```
-/// bnf::grammar! {
-///   <dna> ::= <base> | <base> <dna>;
-///   <base> ::= 'A' | 'C' | 'G' | 'T';
-/// };
-/// ```
-#[macro_export]
-macro_rules! grammar {
-    // empty grammar
-    () => {
-        $crate::Grammar::new()
-    };
-    // Entry: start collecting productions
-    (<$lhs:ident> ::= $($rest:tt)*) => {
-        {
-            // State: [current_terms_vec, current_exprs_nested_vecs, current_lhs, completed_productions_nested]
-            let productions = $crate::grammar!(@collect_prods [[] [] [$lhs]] $($rest)*);
-            $crate::Grammar::from_parts(productions)
-        }
-    };
-
-    // Hit semicolon followed by another production
-    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$curr_lhs:ident] $($prev_prods:tt)*] ; <$next_lhs:ident> ::= $($rest:tt)*) => {
-        {
-            // Save current production and start next one
-            $crate::grammar!(@collect_prods [[] [] [$next_lhs] [[$($curr_terms),*] $($curr_exprs)*] [$curr_lhs] $($prev_prods)*] $($rest)*)
-        }
-    };
-
-    // Hit semicolon at end (no more productions)
-    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$curr_lhs:ident] $($prev_prods:tt)*] ;) => {
-        $crate::grammar!(@collect_prods [[$($curr_terms),*] [$($curr_exprs)*] [$curr_lhs] $($prev_prods)*])
-    };
-
-    // Hit | within a production - finish current expression, start new one
-    (@collect_prods [[$($curr_terms:expr),*] [$($curr_exprs:tt)*] [$lhs:ident] $($prev_prods:tt)*] | $($rest:tt)*) => {
-        $crate::grammar!(@collect_prods [[] [[$($curr_terms),*] $($curr_exprs)*] [$lhs] $($prev_prods)*] $($rest)*)
-    };
-
-    // Collect a literal term
-    (@collect_prods [[$($curr_terms:expr),*] $($state:tt)*] $t:literal $($rest:tt)*) => {
-        $crate::grammar!(@collect_prods [[$($curr_terms,)* $crate::term!($t)] $($state)*] $($rest)*)
-    };
-
-    // Collect a nonterminal
-    (@collect_prods [[$($curr_terms:expr),*] $($state:tt)*] <$nt:ident> $($rest:tt)*) => {
-        $crate::grammar!(@collect_prods [[$($curr_terms,)* $crate::term!(<$nt>)] $($state)*] $($rest)*)
-    };
-
-    // Base case - no more tokens, build all productions
-    (@collect_prods [[$($last_terms:expr),*] [$($last_exprs:tt)*] [$last_lhs:ident] $([$($prod_exprs:tt)*] [$prod_lhs:ident])*]) => {
-        {
-            #[allow(clippy::vec_init_then_push)]
-            {
-                let mut prods = vec![];
-
-                // Build previous productions (in reverse order since we accumulated backwards)
-                $(
-                    let mut exprs = vec![];
-                    $crate::grammar!(@build_exprs exprs $($prod_exprs)*);
-                    prods.push($crate::Production::from_parts(
-                        $crate::term!(<$prod_lhs>),
-                        exprs,
-                    ));
-                )*
-
-                // Build last production
-                let mut last_exprs = vec![];
-                $crate::grammar!(@build_exprs last_exprs $($last_exprs)* [$($last_terms),*]);
-                prods.push($crate::Production::from_parts(
-                    $crate::term!(<$last_lhs>),
-                    last_exprs,
-                ));
-
-                prods
-            }
-        }
-    };
-
-    // Helper to build expressions vector from nested term arrays
-    (@build_exprs $exprs:ident $([$($terms:expr),*])*) => {
-        #[allow(clippy::vec_init_then_push)]
-        {
-            $(
-                $exprs.push($crate::Expression::from_parts(vec![$($terms),*]));
-            )*
-        }
-    };
-}
-
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
@@ -777,18 +676,20 @@ mod tests {
     use crate::term::Term;
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
 
-    impl Arbitrary for Grammar {
+    impl Arbitrary for Grammar<'static> {
         fn arbitrary(g: &mut Gen) -> Self {
-            let mut productions = Vec::<Production>::arbitrary(g);
+            let mut productions = Vec::<Production<'static>>::arbitrary(g);
             // grammar must always have atleast one production
             if productions.is_empty() {
                 productions.push(Production::arbitrary(g));
             }
-            Grammar { productions }
+            Grammar {
+                productions: Cow::Owned(productions),
+            }
         }
     }
 
-    fn prop_to_string_and_back(gram: Grammar) -> TestResult {
+    fn prop_to_string_and_back(gram: Grammar<'static>) -> TestResult {
         let to_string = gram.to_string();
         let from_str: Result<Grammar, _> = to_string.parse();
         match from_str {
@@ -802,22 +703,22 @@ mod tests {
         QuickCheck::new()
             .tests(1000)
             .r#gen(Gen::new(12usize))
-            .quickcheck(prop_to_string_and_back as fn(Grammar) -> TestResult);
+            .quickcheck(prop_to_string_and_back as fn(Grammar<'static>) -> TestResult);
     }
 
     #[test]
     fn new_grammars() {
-        let lhs1 = Term::Nonterminal(String::from("STRING A"));
+        let lhs1 = Term::Nonterminal(Cow::Owned(String::from("STRING A")));
         let rhs1 = Expression::from_parts(vec![
-            Term::Terminal(String::from("STRING B")),
-            Term::Nonterminal(String::from("STRING C")),
+            Term::Terminal(Cow::Owned(String::from("STRING B"))),
+            Term::Nonterminal(Cow::Owned(String::from("STRING C"))),
         ]);
         let p1 = Production::from_parts(lhs1, vec![rhs1]);
 
-        let lhs2 = Term::Nonterminal(String::from("STRING A"));
+        let lhs2 = Term::Nonterminal(Cow::Owned(String::from("STRING A")));
         let rhs2 = Expression::from_parts(vec![
-            Term::Terminal(String::from("STRING B")),
-            Term::Nonterminal(String::from("STRING C")),
+            Term::Terminal(Cow::Owned(String::from("STRING B"))),
+            Term::Nonterminal(Cow::Owned(String::from("STRING C"))),
         ]);
         let p2 = Production::from_parts(lhs2, vec![rhs2]);
 
@@ -943,7 +844,7 @@ mod tests {
     #[test]
     fn generate_with_empty_anonymous_nonterminal() {
         // Test error path when AnonymousNonterminal has empty expressions
-        let empty_anon = Term::AnonymousNonterminal(vec![]);
+        let empty_anon = Term::AnonymousNonterminal(Cow::Owned(vec![]));
         let production = Production::from_parts(
             crate::term!(<start>),
             vec![Expression::from_parts(vec![empty_anon])],
@@ -969,8 +870,8 @@ mod tests {
 
     #[test]
     fn lhs_is_terminal_generate() {
-        let lhs = Term::Terminal(String::from("\"bad LHS\""));
-        let terminal = Term::Terminal(String::from("\"good RHS\""));
+        let lhs = Term::Terminal(Cow::Owned(String::from("\"bad LHS\"")));
+        let terminal = Term::Terminal(Cow::Owned(String::from("\"good RHS\"")));
         let expression = Expression::from_parts(vec![terminal]);
         let production = Production::from_parts(lhs, vec![expression]);
         let grammar = Grammar::from_parts(vec![production]);
@@ -987,7 +888,7 @@ mod tests {
 
     #[test]
     fn no_expressions() {
-        let lhs = Term::Terminal(String::from("<good-lhs>"));
+        let lhs = Term::Terminal(Cow::Owned(String::from("<good-lhs>")));
         let production = Production::from_parts(lhs, vec![]);
         let grammar = Grammar::from_parts(vec![production]);
         let sentence = grammar.generate();
@@ -1009,14 +910,19 @@ mod tests {
 
     #[test]
     fn iterate_parse_tree() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= 'A' | 'C' | 'G' | 'T'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "GATTACA";
 
-        let parse_tree = grammar.parse_input(input).next().unwrap();
+        let parse_tree = grammar
+            .build_parser()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .unwrap();
 
         let rhs_iterated = parse_tree.rhs_iter().next().unwrap();
 
@@ -1025,14 +931,19 @@ mod tests {
 
     #[test]
     fn iterate_mut_parse_tree() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= 'A' | 'C' | 'G' | 'T'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "GATTACA";
 
-        let mut parse_tree = grammar.parse_input(input).next().unwrap();
+        let mut parse_tree = grammar
+            .build_parser()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .unwrap();
 
         let rhs_iterated = parse_tree.rhs_iter_mut().next().unwrap();
 
@@ -1108,16 +1019,15 @@ mod tests {
     }
     // <dna> ::= <base> | <base> <dna>;
 
+    /// Tests grammar construction via string parsing (not the grammar! macro).
     #[test]
-    fn macro_construct() {
-        let grammar = crate::grammar! {
-            <dna> ::= <base> | <base> <dna> ;
-            <base> ::= 'A' | 'C' | 'G' | 'T' ;
-        };
-        let expected = crate::grammar! {
-            <dna> ::= <base> | <base> <dna> ;
-            <base> ::= 'A' | 'C' | 'G' | 'T' ;
-        };
+    fn parse_construct() {
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>; <base> ::= 'A' | 'C' | 'G' | 'T'"
+            .parse()
+            .unwrap();
+        let expected: Grammar = "<dna> ::= <base> | <base> <dna>; <base> ::= 'A' | 'C' | 'G' | 'T'"
+            .parse()
+            .unwrap();
         assert_eq!(grammar, expected);
     }
 
@@ -1168,13 +1078,14 @@ mod tests {
     #[test]
     fn unicode_input_parsing() {
         // Test parsing Unicode input against a grammar
-        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        let grammar = "<text> ::= <emoji> | <emoji> <text>
         <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "😀🎉";
-        let mut parse_trees = grammar.parse_input(input);
+        let parser = grammar.build_parser().unwrap();
+        let mut parse_trees = parser.parse_input(input);
 
         assert!(
             parse_trees.next().is_some(),
@@ -1185,13 +1096,18 @@ mod tests {
     #[test]
     fn unicode_parse_tree_display() {
         // Test that parse trees with Unicode display correctly
-        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        let grammar = "<text> ::= <emoji> | <emoji> <text>
         <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "😀😍";
-        let parse_tree = grammar.parse_input(input).next().unwrap();
+        let parse_tree = grammar
+            .build_parser()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .unwrap();
 
         let display = parse_tree.to_string();
 
@@ -1202,13 +1118,18 @@ mod tests {
     #[test]
     fn unicode_parse_tree_iteration() {
         // Test that parse trees with Unicode can be iterated
-        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        let grammar = "<text> ::= <emoji> | <emoji> <text>
         <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "😀😍🎉";
-        let parse_tree = grammar.parse_input(input).next().unwrap();
+        let parse_tree = grammar
+            .build_parser()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .unwrap();
 
         // Test iteration over RHS nodes
         let rhs_count = parse_tree.rhs_iter().count();
@@ -1226,13 +1147,18 @@ mod tests {
     #[test]
     fn unicode_mermaid_format() {
         // Test that Unicode parse trees can be formatted as Mermaid
-        let grammar: Grammar = "<text> ::= <emoji> | <emoji> <text>
+        let grammar = "<text> ::= <emoji> | <emoji> <text>
         <emoji> ::= '😀' | '😍' | '🎉' | '🚀'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "😀😍";
-        let parse_tree = grammar.parse_input(input).next().unwrap();
+        let parse_tree = grammar
+            .build_parser()
+            .unwrap()
+            .parse_input(input)
+            .next()
+            .unwrap();
 
         let mermaid = parse_tree.mermaid().to_string();
 
@@ -1284,10 +1210,10 @@ mod tests {
     #[test]
     fn unicode_nonterminal_names() {
         // Test that nonterminal names can contain Unicode characters
-        let grammar: Grammar = "<文本> ::= <表情> | <符号> | <表情> <文本>
+        let grammar = "<文本> ::= <表情> | <符号> | <表情> <文本>
         <表情> ::= '😀' | '😍'
         <符号> ::= 'α' | 'β'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let sentence = grammar.generate();
@@ -1307,7 +1233,8 @@ mod tests {
 
         // Test parsing input with this grammar
         let input = "😀α";
-        let mut parse_trees = grammar.parse_input(input);
+        let parser = grammar.build_parser().unwrap();
+        let mut parse_trees = parser.parse_input(input);
         assert!(
             parse_trees.next().is_some(),
             "Should parse Unicode input with Unicode nonterminals: '{input}'"
@@ -1316,22 +1243,25 @@ mod tests {
 
     #[test]
     fn parse_starting_with() {
-        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        let grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
         <dna> ::= <base> | <base> <dna>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "GATTACA";
+        let dna_term = crate::term!(<dna>);
+        let base_term = crate::term!(<base>);
+        let parser = grammar.build_parser().unwrap();
 
         assert!(
-            grammar
-                .parse_input_starting_with(input, &crate::term!(<dna>))
+            parser
+                .parse_input_starting_with(input, &dna_term)
                 .next()
                 .is_some()
         );
         assert!(
-            grammar
-                .parse_input_starting_with(input, &crate::term!(<base>))
+            parser
+                .parse_input_starting_with(input, &base_term)
                 .next()
                 .is_none()
         );
@@ -1339,15 +1269,18 @@ mod tests {
 
     #[test]
     fn parse_starting_with_not_found_production() {
-        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        let grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
         <dna> ::= <base> | <base> <dna>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let input = "GATTACA";
+        let notfound = crate::term!(<notfound>);
         assert!(
             grammar
-                .parse_input_starting_with(input, &crate::term!(<notfound>))
+                .build_parser()
+                .unwrap()
+                .parse_input_starting_with(input, &notfound)
                 .next()
                 .is_none()
         )

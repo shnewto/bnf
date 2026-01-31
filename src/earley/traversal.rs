@@ -10,9 +10,9 @@ append_only_vec_id!(pub(crate) TraversalId);
 
 /// A [`crate::Term`] which has been "matched" while parsing input
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum TermMatch<'gram> {
+pub(crate) enum TermMatch<'parser> {
     /// [`crate::Term::Terminal`] which matched with a string literal
-    Terminal(&'gram str),
+    Terminal(&'parser str),
     /// [`crate::Term::Nonterminal`] which was matched with a fully completed traversal
     Nonterminal(TraversalId),
 }
@@ -20,31 +20,31 @@ pub(crate) enum TermMatch<'gram> {
 /// A single step in Earley parsing.
 /// Also commonly referred to as an Earley "state".
 #[derive(Debug)]
-pub(crate) struct Traversal<'gram> {
+pub(crate) struct Traversal<'parser, 'gram> {
     pub id: TraversalId,
     /// The unmatched "right hand side" [`Term`]s
-    pub unmatched: &'gram [crate::Term],
+    pub unmatched: &'parser [crate::Term<'gram>],
     /// The input text available for parsing
-    pub input_range: InputRange<'gram>,
+    pub input_range: InputRange<'parser>,
     /// Unique ID for the [Production] used to begin this [`Traversal`]
     pub production_id: ProductionId,
     /// Flag indicating that this [`Traversal`] began at the start of parsing,
     /// and if fully completed then qualifies as a successful parse.
     pub is_starting: bool,
     /// Reference to the parent [`Traversal`] which started this one.
-    from: Option<TraversalEdge<'gram>>,
+    from: Option<TraversalEdge<'parser>>,
 }
 
-impl<'gram> Traversal<'gram> {
-    pub const fn next_unmatched(&self) -> Option<&'gram Term> {
+impl<'parser, 'gram> Traversal<'parser, 'gram> {
+    pub const fn next_unmatched(&self) -> Option<&'parser Term<'gram>> {
         self.unmatched.first()
     }
 }
 
 /// The edge which connects [`Traversal`]s in a [`TraversalTree`]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct TraversalEdge<'gram> {
-    pub term: TermMatch<'gram>,
+struct TraversalEdge<'parser> {
+    pub term: TermMatch<'parser>,
     pub parent_id: TraversalId,
 }
 
@@ -55,9 +55,9 @@ struct TraversalRoot {
     input_start: usize,
 }
 
-type TraversalArena<'gram> = AppendOnlyVec<Traversal<'gram>, TraversalId>;
+type TraversalArena<'parser, 'gram> = AppendOnlyVec<Traversal<'parser, 'gram>, TraversalId>;
 type TreeRootMap = crate::HashMap<TraversalRoot, TraversalId>;
-type TreeEdgeMap<'gram> = crate::HashMap<TraversalEdge<'gram>, TraversalId>;
+type TreeEdgeMap<'parser> = crate::HashMap<TraversalEdge<'parser>, TraversalId>;
 
 /// Iterator of [`TermMatch`] which resulted in the [`Traversal`].
 /// Walks a [`TraversalTree`] from [`TraversalRoot`] along [`TraversalEdge`].
@@ -67,14 +67,14 @@ type TreeEdgeMap<'gram> = crate::HashMap<TraversalEdge<'gram>, TraversalId>;
 /// This leads to wasted and repeated walking of [`TraversalEdge`]s. But in practice, this wasted tree
 /// walking seems preferable to alternatives.
 #[derive(Debug)]
-pub(crate) struct TraversalMatchIter<'gram, 'tree> {
-    tree: &'tree TraversalTree<'gram>,
+pub(crate) struct TraversalMatchIter<'parser, 'gram, 'tree> {
+    tree: &'tree TraversalTree<'parser, 'gram>,
     current: TraversalId,
     last: TraversalId,
 }
 
-impl<'gram, 'tree> TraversalMatchIter<'gram, 'tree> {
-    pub fn new(last: TraversalId, tree: &'tree TraversalTree<'gram>) -> Self {
+impl<'parser, 'gram, 'tree> TraversalMatchIter<'parser, 'gram, 'tree> {
+    pub fn new(last: TraversalId, tree: &'tree TraversalTree<'parser, 'gram>) -> Self {
         let _span = tracing::span!(tracing::Level::DEBUG, "match_iter_new").entered();
         // walk up the tree until the root is found
         let mut current = last;
@@ -90,8 +90,8 @@ impl<'gram, 'tree> TraversalMatchIter<'gram, 'tree> {
     }
 }
 
-impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
-    type Item = &'tree TermMatch<'gram>;
+impl<'parser, 'gram, 'tree> Iterator for TraversalMatchIter<'parser, 'gram, 'tree> {
+    type Item = &'tree TermMatch<'parser>;
     fn next(&mut self) -> Option<Self::Item> {
         let _span = tracing::span!(tracing::Level::DEBUG, "match_iter_next").entered();
         if self.current == self.last {
@@ -121,26 +121,26 @@ impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
 /// └── <start> ::= <a=2> •  (this is a different child traversal created by a different match with <a>)
 /// ```
 #[derive(Debug, Default)]
-pub(crate) struct TraversalTree<'gram> {
-    arena: TraversalArena<'gram>,
+pub(crate) struct TraversalTree<'parser, 'gram> {
+    arena: TraversalArena<'parser, 'gram>,
     tree_roots: TreeRootMap,
-    edges: TreeEdgeMap<'gram>,
+    edges: TreeEdgeMap<'parser>,
 }
 
-impl<'gram> TraversalTree<'gram> {
-    pub fn get(&self, id: TraversalId) -> &Traversal<'gram> {
+impl<'parser, 'gram> TraversalTree<'parser, 'gram> {
+    pub fn get(&self, id: TraversalId) -> &Traversal<'parser, 'gram> {
         self.arena.get(id).expect("valid traversal ID")
     }
-    pub fn get_matching(&self, id: TraversalId) -> Option<&'gram Term> {
+    pub fn get_matching(&self, id: TraversalId) -> Option<&'parser Term<'gram>> {
         self.get(id).next_unmatched()
     }
-    pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'gram>> {
+    pub fn get_matched(&self, id: TraversalId) -> impl Iterator<Item = &TermMatch<'parser>> {
         TraversalMatchIter::new(id, self)
     }
     fn _predict(
         &mut self,
-        input_range: &InputRange<'gram>,
-        production: &Production<'gram>,
+        input_range: &InputRange<'parser>,
+        production: &Production<'parser, 'gram>,
         is_starting: bool,
     ) -> TraversalId {
         let _span =
@@ -158,7 +158,7 @@ impl<'gram> TraversalTree<'gram> {
                 let traversal = self.arena.push_with_id(|id| Traversal {
                     id,
                     production_id,
-                    unmatched: &production.rhs.terms,
+                    unmatched: production.rhs.terms.as_ref(),
                     input_range: input_range.after(),
                     is_starting,
                     from: None,
@@ -169,19 +169,19 @@ impl<'gram> TraversalTree<'gram> {
     /// Same as [`TraversalTree::predict`] but flagging the [`Traversal`] as a parsing starting point
     pub fn predict_starting(
         &mut self,
-        production: &Production<'gram>,
-        input_range: &InputRange<'gram>,
+        production: &Production<'parser, 'gram>,
+        input_range: &InputRange<'parser>,
     ) -> TraversalId {
         self._predict(input_range, production, true)
     }
     pub fn predict(
         &mut self,
-        production: &Production<'gram>,
-        input_range: &InputRange<'gram>,
+        production: &Production<'parser, 'gram>,
+        input_range: &InputRange<'parser>,
     ) -> TraversalId {
         self._predict(input_range, production, false)
     }
-    pub fn match_term(&mut self, parent: TraversalId, term: TermMatch<'gram>) -> TraversalId {
+    pub fn match_term(&mut self, parent: TraversalId, term: TermMatch<'parser>) -> TraversalId {
         let _span = tracing::span!(tracing::Level::DEBUG, "match_term").entered();
         let parent = self.arena.get(parent).expect("valid parent traversal ID");
         let input_range = match term {
@@ -236,10 +236,19 @@ mod tests {
         grammar
     }
 
-    fn traversal_test_setup<'a>(
-        grammar: &'a Grammar,
+    /// Leaks a grammar to get `'static` for the test harness (`traversal_test_setup` expects `&'static Grammar`).
+    fn static_grammar(g: Grammar) -> &'static crate::grammar::Grammar<'static> {
+        Box::leak(Box::new(g))
+    }
+
+    fn traversal_test_setup(
+        grammar: &'static crate::grammar::Grammar<'static>,
         input: &'static str,
-    ) -> (ParseGrammar<'a>, InputRange<'static>, TraversalTree<'a>) {
+    ) -> (
+        ParseGrammar<'static, 'static>,
+        InputRange<'static>,
+        TraversalTree<'static, 'static>,
+    ) {
         let matching = ParseGrammar::new(grammar);
         let input = InputRange::new(input);
         let tree = TraversalTree::default();
@@ -249,21 +258,21 @@ mod tests {
 
     #[test]
     fn predict() {
-        let grammar = dna_grammar();
-        let (grammar, input, mut tree) = traversal_test_setup(&grammar, "GATTACA");
-        let production = grammar.productions_iter().next().unwrap();
+        let grammar = static_grammar(dna_grammar());
+        let (parse_grammar, input, mut tree) = traversal_test_setup(grammar, "GATTACA");
+        let production = parse_grammar.productions_iter().next().unwrap();
 
         let id = tree.predict(production, &input);
         let predicted = tree.get(id);
 
-        assert_eq!(&production.rhs.terms, predicted.unmatched);
+        assert_eq!(production.rhs.terms.as_ref(), predicted.unmatched);
     }
 
     #[test]
     fn predict_again() {
-        let grammar = dna_grammar();
-        let (grammar, input, mut tree) = traversal_test_setup(&grammar, "GATTACA");
-        let production = grammar.productions_iter().next().unwrap();
+        let grammar = static_grammar(dna_grammar());
+        let (parse_grammar, input, mut tree) = traversal_test_setup(grammar, "GATTACA");
+        let production = parse_grammar.productions_iter().next().unwrap();
 
         let first = tree.predict(production, &input);
         let again = tree.predict(production, &input);
@@ -273,23 +282,26 @@ mod tests {
 
     #[test]
     fn match_term() {
-        let grammar = "<start> ::= 'A'".parse().unwrap();
-        let (grammar, input, mut tree) = traversal_test_setup(&grammar, "AAAA");
-        let production = grammar.productions_iter().next().unwrap();
+        let grammar = static_grammar("<start> ::= 'A'".parse::<Grammar>().unwrap());
+        let (parse_grammar, input, mut tree) = traversal_test_setup(grammar, "AAAA");
+        let production = parse_grammar.productions_iter().next().unwrap();
         let prediction = tree.predict(production, &input);
         let term_match = TermMatch::Terminal("A");
 
         let id = tree.match_term(prediction, term_match);
         let scanned = tree.get(id);
 
-        assert_eq!(scanned.unmatched, production.rhs.terms.get(1..).unwrap());
+        assert_eq!(
+            scanned.unmatched,
+            production.rhs.terms.as_ref().get(1..).unwrap()
+        );
     }
 
     #[test]
     fn match_term_again() {
-        let grammar = "<start> ::= 'A'".parse().unwrap();
-        let (grammar, input, mut tree) = traversal_test_setup(&grammar, "AAAA");
-        let production = grammar.productions_iter().next().unwrap();
+        let grammar = static_grammar("<start> ::= 'A'".parse::<Grammar>().unwrap());
+        let (parse_grammar, input, mut tree) = traversal_test_setup(grammar, "AAAA");
+        let production = parse_grammar.productions_iter().next().unwrap();
         let prediction = tree.predict(production, &input);
 
         let term_match = TermMatch::Terminal("A");
@@ -302,9 +314,9 @@ mod tests {
 
     #[test]
     fn match_term_complete() {
-        let grammar = "<start> ::= 'A' | 'B' | 'C'".parse().unwrap();
-        let (grammar, input, mut tree) = traversal_test_setup(&grammar, "ABC");
-        let production = grammar.productions_iter().next().unwrap();
+        let grammar = static_grammar("<start> ::= 'A' | 'B' | 'C'".parse::<Grammar>().unwrap());
+        let (parse_grammar, input, mut tree) = traversal_test_setup(grammar, "ABC");
+        let production = parse_grammar.productions_iter().next().unwrap();
         let prediction = tree.predict(production, &input);
 
         // build match tree of <start> -> 'A', <start> -> 'B', <start> -> 'C'

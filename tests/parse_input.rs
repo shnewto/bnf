@@ -1,11 +1,27 @@
 #![cfg(test)]
-#![allow(deprecated)]
 
 use bnf::Grammar;
 use insta::assert_snapshot;
 
+/// Parse a grammar string where `Q` = single quote, so `QQ` in the template becomes `''` (empty rule) after replace.
+/// E.g. `parse_grammar_with_empty("<a> ::= QQ | QaQ <a>")` → grammar with `<a> ::= '' | 'a' <a>`.
+fn parse_grammar_with_empty(template: &str) -> Grammar {
+    template.replace('Q', "'").parse().unwrap()
+}
+
+/// Build parser and collect parse trees as strings. Keeps tests short.
+fn parse_input(grammar: &Grammar, input: &str) -> Vec<String> {
+    grammar
+        .build_parser()
+        .unwrap()
+        .parse_input(input)
+        .map(|t| t.to_string())
+        .collect()
+}
+
 #[test]
 fn undefined_prod() {
+    // Grammar with undefined nonterminal <b> — build_parser() must fail validation
     let grammar: Grammar = "
         <start> ::= <a> | <b>
         <a> ::= 'a'
@@ -13,10 +29,15 @@ fn undefined_prod() {
     .parse()
     .unwrap();
 
-    let input = "a";
-
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
-    assert_snapshot!(parses.join("\n"));
+    let result = grammar.build_parser();
+    assert!(
+        result.is_err(),
+        "build_parser should fail when grammar has undefined nonterminals"
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        bnf::Error::ValidationError(_)
+    ));
 }
 
 #[test]
@@ -28,7 +49,7 @@ fn dna_left_recursive() {
 
     let input = "GATTACA";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -41,7 +62,7 @@ fn dna_right_recursive() {
 
     let input = "GATTACA";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -55,24 +76,24 @@ fn ambiguous() {
 
     let input = "END";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn recursive_nested_infinite() {
-    let grammar: Grammar = "
-            <a> ::= <b> | 'z'
-            <b> ::= <a> 
-        "
-    .parse()
-    .unwrap();
+    let grammar: Grammar = r#"<a> ::= <b> | 'z'
+            <b> ::= <a>"#
+        .parse()
+        .unwrap();
 
     let input = "z";
 
     // there are infinite parses to this, so take the first 100 and call it good
     let parse_count = 100;
     let parses: Vec<_> = grammar
+        .build_parser()
+        .unwrap()
         .parse_input(input)
         .take(parse_count)
         .map(|a| a.to_string())
@@ -83,129 +104,109 @@ fn recursive_nested_infinite() {
 
 #[test]
 fn empty_right_recursive() {
-    let grammar: Grammar = "<a> ::= '' | 'a' <a>".parse().unwrap();
+    let grammar = parse_grammar_with_empty("<a> ::= QQ | QaQ <a>");
 
     let input = "aaaaaaaaaa";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn empty_left_recursive() {
-    let grammar: Grammar = "<a> ::= '' | <a> 'a'".parse().unwrap();
+    let grammar = parse_grammar_with_empty("<a> ::= QQ | <a> QaQ");
 
     let input = "aaaaaaaaaa";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn complete_empty() {
-    let grammar: Grammar = "<start> ::= 'hi' <empty>
-        <empty> ::= ''"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty("<start> ::= QhiQ <empty>\n        <empty> ::= QQ");
 
     let input = "hi";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn empty() {
-    let grammar: Grammar = "<start> ::= ''".parse().unwrap();
+    let grammar = parse_grammar_with_empty("<start> ::= QQ");
 
     let input = "";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn nested_empty_post() {
-    let grammar: Grammar = "
-        <start> ::= <a> <empty>
-        <a> ::= 'a' <empty>
-        <empty> ::= ''"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty(
+        "<start> ::= <a> <empty>\n        <a> ::= 'a' <empty>\n        <empty> ::= QQ",
+    );
 
     let input = "a";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn nested_empty_pre() {
-    let grammar: Grammar = "
-        <start> ::= <empty> <a>
-        <a> ::= <empty> 'a'
-        <empty> ::= ''"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty(
+        "<start> ::= <empty> <a>\n        <a> ::= <empty> 'a'\n        <empty> ::= QQ",
+    );
 
     let input = "a";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn nested_empty_pre_and_post() {
-    let grammar: Grammar = "
-        <start> ::= <empty> <a> <empty>
-        <a> ::= <empty> 'a' <empty>
-        <empty> ::= ''"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty(
+        "<start> ::= <empty> <a> <empty>\n        <a> ::= <empty> 'a' <empty>\n        <empty> ::= QQ",
+    );
 
     let input = "a";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn empty_inline() {
-    let grammar: Grammar = "
-        <start> ::= <a> '' <a>
-        <a> ::= 'a'"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty("<start> ::= <a> QQ <a>\n        <a> ::= 'a'");
 
     let input = "aa";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn empty_ambiguous() {
-    let grammar: Grammar = "
-        <start> ::= <a> | <b>
-        <a> ::= ''
-        <b> ::= ''"
-        .parse()
-        .unwrap();
+    let grammar =
+        parse_grammar_with_empty("<start> ::= <a> | <b>\n        <a> ::= QQ\n        <b> ::= QQ");
 
     let input = "";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn empty_first_nested() {
     // this structure exposes improper "nullable" production detection
-    let grammar: Grammar = "
+    let grammar: Grammar = r#"
         <a> ::= '' | '' <b> <c>
         <b> ::= <c>
         <c> ::= <a>
-        "
+        "#
     .parse()
     .unwrap();
 
@@ -213,6 +214,8 @@ fn empty_first_nested() {
 
     let parse_count = 100;
     let parses: Vec<_> = grammar
+        .build_parser()
+        .unwrap()
         .parse_input(input)
         .take(parse_count)
         .map(|a| a.to_string())
@@ -223,7 +226,7 @@ fn empty_first_nested() {
 
 #[test]
 fn optional_whitespace() {
-    let grammar: Grammar = "
+    let grammar: Grammar = r#"
         <balanced> ::= <left> <balanced> <right>
                      | ''
         
@@ -232,19 +235,20 @@ fn optional_whitespace() {
         
         <opt-ws> ::= '' | <ws>
         <ws> ::= ' ' | ' ' <ws>
-        "
+        "#
     .parse()
     .unwrap();
 
     let input = "()";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn qualified_whitespace() {
-    let grammar: Grammar = "
+    // Use r##"..."## so single-quoted terminals like 'unqualified' are not parsed as Rust char literals
+    let grammar: Grammar = r##"
         <terms> ::= <terms> <ws> <term>
                   | <term>
         <term> ::= <qualified>
@@ -253,29 +257,27 @@ fn qualified_whitespace() {
         <qual-term> ::= <qual-term> <ws>
                       | 'qualified'
         <ws> ::= ' ' | ' ' <ws>
-        "
+        "##
     .parse()
     .unwrap();
 
     let input = "QUALIFIER:qualified unqualified";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 // (source: <https://loup-vaillant.fr/tutorials/earley-parsing/empty-rules>)
 #[test]
 fn empty_noop_infinite() {
-    let grammar: Grammar = "
-        <a> ::= '' | <b>
-        <b> ::= <a>"
-        .parse()
-        .unwrap();
+    let grammar = parse_grammar_with_empty("<a> ::= QQ | <b>\n        <b> ::= <a>");
 
     let input = "";
 
     let parse_count = 100;
     let parses: Vec<_> = grammar
+        .build_parser()
+        .unwrap()
         .parse_input(input)
         .take(parse_count)
         .map(|a| a.to_string())
@@ -312,7 +314,7 @@ fn math() {
 
     let input = "1+(2*3-4)";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -325,13 +327,13 @@ fn parse_dna() {
 
     let input = "GATTACA";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn shared_nonterminal_failure() {
-    let grammar = "
+    let grammar: Grammar = "
         <start> ::= <shortfail> | <longsuccess>
         <shortfail> ::= <char> 'never'
         <char> ::= 'a'
@@ -339,13 +341,13 @@ fn shared_nonterminal_failure() {
         <long2> ::= <long3>
         <long3> ::= <long4>
         <long4> ::= <char>
-        ";
-
-    let grammar = grammar.parse::<Grammar>().unwrap();
+        "
+    .parse()
+    .unwrap();
 
     let input = "a";
 
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -367,12 +369,8 @@ fn swap_left_right_recursion() {
         <whitespace> ::= ' '
         <ws> ::= ' ' | ' ' <ws>
         ";
-    let parses: Vec<_> = left_recursive
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .map(|a| a.to_string())
-        .collect();
+    let grammar: Grammar = left_recursive.parse().unwrap();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 
     let right_recursive = left_recursive.replace(
@@ -380,18 +378,14 @@ fn swap_left_right_recursion() {
         "<string> ::= <char_null> | <string> <char_null>",
         "<string> ::= <char_null> | <char_null> <string>",
     );
-    let parses: Vec<_> = right_recursive
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .map(|a| a.to_string())
-        .collect();
+    let grammar: Grammar = right_recursive.parse().unwrap();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn shared_nullable_nonterminal() {
-    let grammar = "
+    let grammar: Grammar = "
         <disjunction> ::= <predicate> | <disjunction> <or> <predicate>
         <predicate> ::= <char_null_one> | <special-string> '.'
 
@@ -406,27 +400,26 @@ fn shared_nullable_nonterminal() {
         <special-string> ::= <special-char> | <special-char> <special-string>
         <special-char> ::= <char> | <whitespace>
         <char> ::= 'a'
-        ";
+        "
+    .parse()
+    .unwrap();
 
     let input = "a or a";
 
-    let parses: Vec<_> = grammar
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .map(|a| a.to_string())
-        .collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
 #[test]
 fn branching_and_overlapping_parse_trees() {
-    let bnf = "
+    let grammar: Grammar = "
         <and> ::= <and> ' AND ' <terminal>
                 | <and> ' ' <terminal>
                 | <terminal>
         <terminal> ::= 'AND'
-        ";
+        "
+    .parse()
+    .unwrap();
     let input = "AND AND AND AND AND";
 
     // 1. 'AND' <and> 'AND' <and> 'AND'
@@ -434,12 +427,7 @@ fn branching_and_overlapping_parse_trees() {
     // 3. 'AND' 'AND' <and> 'AND' 'AND'
     // 4. 'AND' 'AND' 'AND' <and> 'AND'
     // 5. 'AND' 'AND' 'AND' 'AND' 'AND'
-    let parses: Vec<_> = bnf
-        .parse::<Grammar>()
-        .unwrap()
-        .parse_input(input)
-        .map(|a| a.to_string())
-        .collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -451,7 +439,7 @@ fn format_parse_tree() {
         .unwrap();
 
     let input = "GATTACA";
-    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    let parses = parse_input(&grammar, input);
     assert_snapshot!(parses.join("\n"));
 }
 
@@ -464,10 +452,8 @@ fn mermaid_dna_parse_tree() {
 
     let input = "GATTACA";
 
-    let mermaid: Vec<_> = grammar
-        .parse_input(input)
-        .map(|a| a.mermaid().to_string())
-        .collect();
+    let parses: Vec<_> = grammar.build_parser().unwrap().parse_input(input).collect();
+    let mermaid: Vec<_> = parses.iter().map(|p| p.mermaid_to_string()).collect();
     assert_snapshot!(mermaid.join("\n"));
 }
 
@@ -490,9 +476,7 @@ fn mermaid_math_parse_tree() {
 
     let input = "1+(2*3-4)";
 
-    let mermaid: Vec<_> = grammar
-        .parse_input(input)
-        .map(|a| a.mermaid().to_string())
-        .collect();
+    let parses: Vec<_> = grammar.build_parser().unwrap().parse_input(input).collect();
+    let mermaid: Vec<_> = parses.iter().map(|p| p.mermaid_to_string()).collect();
     assert_snapshot!(mermaid.join("\n"));
 }

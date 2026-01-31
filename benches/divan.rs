@@ -1,12 +1,13 @@
-#![allow(deprecated)]
-
 mod util;
 
 #[global_allocator]
 static ALLOC: divan::AllocProfiler = divan::AllocProfiler::system();
 
 fn main() {
+    #[cfg(feature = "tracing")]
     let _tracing = util::init_tracing();
+    #[cfg(not(feature = "tracing"))]
+    util::init_tracing();
 
     #[cfg(feature = "tracing")]
     let _span = tracing::span!(tracing::Level::DEBUG, "BENCH EXAMPLES").entered();
@@ -45,12 +46,11 @@ mod examples {
         let random_postal_strings = divan::black_box(random_postal_strings);
         let mut index = (0..random_walk_count).cycle();
 
+        let parser = postal_grammar.build_parser().unwrap();
         bencher.bench_local(|| {
             let index = index.next().unwrap();
             let input = random_postal_strings.get(index).unwrap();
-            postal_grammar
-                .parse_input(input)
-                .for_each(divan::black_box_drop);
+            parser.parse_input(input).for_each(divan::black_box_drop);
         });
     }
 
@@ -89,12 +89,11 @@ mod examples {
         let random_walks = divan::black_box(random_walks);
         let mut index = (0..random_walk_count).cycle();
 
+        let parser = polish_calc_grammar.build_parser().unwrap();
         bencher.bench_local(|| {
             let index = index.next().unwrap();
             let input = random_walks.get(index).unwrap();
-            polish_calc_grammar
-                .parse_input(input)
-                .for_each(divan::black_box_drop);
+            parser.parse_input(input).for_each(divan::black_box_drop);
         });
     }
 
@@ -110,11 +109,12 @@ mod examples {
 
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
 
+        let parser = infinite_grammar.build_parser().unwrap();
         bencher
             .with_inputs(|| rng.random_range(1..100))
             .count_inputs_as::<divan::counter::ItemsCount>()
             .bench_local_values(|parse_count| {
-                infinite_grammar
+                parser
                     .parse_input("")
                     .take(parse_count)
                     .for_each(divan::black_box_drop);
@@ -241,7 +241,7 @@ mod parser_api {
         .parse()
         .unwrap();
 
-        // One-time parser: parse each input (grammar.parse_input does internal setup each time)
+        // One-time parser: build parser and parse each input
         bencher
             .with_inputs(|| {
                 let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
@@ -250,10 +250,9 @@ mod parser_api {
                     .collect::<Vec<_>>()
             })
             .bench_local_refs(|inputs| {
+                let parser = polish_calc_grammar.build_parser().unwrap();
                 for input in inputs {
-                    polish_calc_grammar
-                        .parse_input(input)
-                        .for_each(divan::black_box_drop);
+                    parser.parse_input(input).for_each(divan::black_box_drop);
                 }
             });
     }

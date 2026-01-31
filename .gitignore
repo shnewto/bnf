@@ -1,4 +1,6 @@
+# Rust build output (root and any crate subdirs, e.g. bnf-macros/target)
 /target/
+target/
 **/*.rs.bk
 Cargo.lock
 *.log

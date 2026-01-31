@@ -21,25 +21,27 @@ use std::rc::Rc;
 ///     .parse()
 ///     .unwrap();
 ///
-/// let parser = grammar.build_parser()?;
+/// let parser = grammar.build_parser().unwrap();
 /// let parse_trees: Vec<_> = parser.parse_input("GATTACA").collect();
-/// # Ok::<(), bnf::Error>(())
 /// ```
 #[derive(Debug)]
-pub struct GrammarParser<'gram> {
-    starting_term: &'gram Term,
-    parse_grammar: Rc<ParseGrammar<'gram>>,
+pub struct GrammarParser<'parser, 'gram> {
+    starting_term: &'parser Term<'gram>,
+    parse_grammar: Rc<ParseGrammar<'parser, 'gram>>,
 }
 
-impl<'gram> GrammarParser<'gram> {
-    /// Construct a new `GrammarParser` from a `Grammar`, validating that all
+impl<'parser, 'gram> GrammarParser<'parser, 'gram> {
+    /// Construct a new `GrammarParser` from a reference to a `Grammar`, validating that all
     /// nonterminals referenced in productions have definitions.
     ///
     /// # Errors
     ///
     /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
     /// productions lacks a definition in the grammar.
-    pub fn new(grammar: &'gram Grammar) -> Result<Self, Error> {
+    pub fn new(grammar: &'parser Grammar<'gram>) -> Result<Self, Error>
+    where
+        'gram: 'parser,
+    {
         validate_nonterminals(grammar)?;
         let starting_term = grammar.starting_term().ok_or_else(|| {
             Error::ValidationError("Grammar must have at least one production".to_string())
@@ -54,7 +56,10 @@ impl<'gram> GrammarParser<'gram> {
     /// Parse an input string using the grammar's starting nonterminal.
     ///
     /// Returns an iterator over all possible parse trees for the input.
-    pub fn parse_input(&self, input: &'gram str) -> impl Iterator<Item = ParseTree<'gram>> {
+    pub fn parse_input(
+        &self,
+        input: &'parser str,
+    ) -> impl Iterator<Item = ParseTree<'parser, 'gram>> {
         self.parse_input_starting_with(input, self.starting_term)
     }
 
@@ -63,9 +68,9 @@ impl<'gram> GrammarParser<'gram> {
     /// Returns an iterator over all possible parse trees for the input.
     pub fn parse_input_starting_with(
         &self,
-        input: &'gram str,
-        start: &'gram Term,
-    ) -> impl Iterator<Item = ParseTree<'gram>> {
+        input: &'parser str,
+        start: &'parser Term<'gram>,
+    ) -> impl Iterator<Item = ParseTree<'parser, 'gram>> {
         crate::earley::parse_starting_with_grammar(&self.parse_grammar, input, start)
     }
 }
@@ -75,12 +80,12 @@ impl<'gram> GrammarParser<'gram> {
 /// # Errors
 ///
 /// Returns `Error::ValidationError` with a message listing all undefined nonterminals.
-fn validate_nonterminals(grammar: &Grammar) -> Result<(), Error> {
+fn validate_nonterminals(grammar: &Grammar<'_>) -> Result<(), Error> {
     // Collect all nonterminals defined in LHS of productions
     let mut defined_nonterminals = HashSet::new();
     for production in grammar.productions_iter() {
         if let Term::Nonterminal(ref nt) = production.lhs {
-            defined_nonterminals.insert(nt.clone());
+            defined_nonterminals.insert(nt.to_string());
         }
     }
 
@@ -91,21 +96,18 @@ fn validate_nonterminals(grammar: &Grammar) -> Result<(), Error> {
             for term in expression.terms_iter() {
                 match term {
                     Term::Nonterminal(nt) => {
-                        referenced_nonterminals.insert(nt.clone());
+                        referenced_nonterminals.insert(nt.to_string());
                     }
                     Term::AnonymousNonterminal(exprs) => {
-                        // For anonymous nonterminals, check the expressions they contain
-                        for expr in exprs {
+                        for expr in exprs.iter() {
                             for inner_term in expr.terms_iter() {
                                 if let Term::Nonterminal(nt) = inner_term {
-                                    referenced_nonterminals.insert(nt.clone());
+                                    referenced_nonterminals.insert(nt.to_string());
                                 }
                             }
                         }
                     }
-                    Term::Terminal(_) => {
-                        // Terminals don't need definitions
-                    }
+                    Term::Terminal(_) => {} // Terminals don't need definitions.
                 }
             }
         }
@@ -139,12 +141,13 @@ mod tests {
     use crate::expression::Expression;
     use crate::production::Production;
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+    use std::borrow::Cow;
 
     #[test]
     fn parser_construction_with_valid_grammar() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= 'A' | 'C' | 'G' | 'T'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser = grammar.build_parser();
@@ -172,7 +175,7 @@ mod tests {
     fn parser_validation_with_anonymous_nonterminal_containing_undefined() {
         // Test that validation checks nonterminals inside anonymous nonterminals
         let expr = crate::expression!(<undefined>);
-        let anon = Term::AnonymousNonterminal(vec![expr]);
+        let anon = Term::AnonymousNonterminal(vec![expr].into());
         let production = Production::from_parts(
             crate::term!(<start>),
             vec![Expression::from_parts(vec![anon])],
@@ -190,7 +193,7 @@ mod tests {
     fn parser_validation_with_anonymous_nonterminal_containing_defined() {
         // Test that validation works correctly when anonymous nonterminal contains defined nonterminal
         let expr = crate::expression!(<base>);
-        let anon = Term::AnonymousNonterminal(vec![expr]);
+        let anon = Term::AnonymousNonterminal(vec![expr].into());
         let production1 = Production::from_parts(
             crate::term!(<start>),
             vec![Expression::from_parts(vec![anon])],
@@ -206,9 +209,9 @@ mod tests {
 
     #[test]
     fn parser_construction_fails_with_undefined_nonterminal() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= <undefined>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser = grammar.build_parser();
@@ -224,9 +227,9 @@ mod tests {
 
     #[test]
     fn parser_can_parse_multiple_inputs() {
-        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar = "<dna> ::= <base> | <base> <dna>
         <base> ::= 'A' | 'C' | 'G' | 'T'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser = grammar.build_parser().unwrap();
@@ -243,9 +246,9 @@ mod tests {
 
     #[test]
     fn parser_accepts_explicit_starting_nonterminal() {
-        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        let grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
         <dna> ::= <base> | <base> <dna>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser = grammar.build_parser().unwrap();
@@ -264,9 +267,9 @@ mod tests {
 
     #[test]
     fn parser_accepts_explicit_starting_terminal() {
-        let grammar: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        let grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
         <dna> ::= <base> | <base> <dna>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser = grammar.build_parser().unwrap();
@@ -293,15 +296,15 @@ mod tests {
     #[test]
     fn parser_is_order_independent() {
         // Create grammar with productions in one order
-        let grammar1: Grammar = "<dna> ::= <base> | <base> <dna>
+        let grammar1 = "<dna> ::= <base> | <base> <dna>
         <base> ::= 'A' | 'C' | 'G' | 'T'"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         // Create same grammar with productions in different order
-        let grammar2: Grammar = "<base> ::= 'A' | 'C' | 'G' | 'T'
+        let grammar2 = "<base> ::= 'A' | 'C' | 'G' | 'T'
         <dna> ::= <base> | <base> <dna>"
-            .parse()
+            .parse::<Grammar>()
             .unwrap();
 
         let parser1 = grammar1.build_parser().unwrap();
@@ -354,16 +357,16 @@ mod tests {
                             // Reference a previously defined nonterminal
                             let ref_idx = usize::arbitrary(g) % idx;
                             if let Some(nt) = nonterms.get(ref_idx) {
-                                terms.push(Term::Nonterminal(nt.clone()));
+                                terms.push(Term::Nonterminal(Cow::Owned(nt.clone())));
                             } else {
                                 // Use a terminal if index is out of bounds
                                 let term_str = String::arbitrary(g);
-                                terms.push(Term::Terminal(term_str));
+                                terms.push(Term::Terminal(Cow::Owned(term_str)));
                             }
                         } else {
                             // Use a terminal
                             let term_str = String::arbitrary(g);
-                            terms.push(Term::Terminal(term_str));
+                            terms.push(Term::Terminal(Cow::Owned(term_str)));
                         }
                     }
 
@@ -371,7 +374,7 @@ mod tests {
                 }
 
                 productions.push(Production::from_parts(
-                    Term::Nonterminal(nt.clone()),
+                    Term::Nonterminal(Cow::Owned(nt.clone())),
                     expressions,
                 ));
             }
@@ -415,12 +418,12 @@ mod tests {
                             // Reference any nonterminal (may be undefined)
                             let ref_idx = usize::arbitrary(g) % nonterms.len();
                             if let Some(nt) = nonterms.get(ref_idx) {
-                                terms.push(Term::Nonterminal(nt.clone()));
+                                terms.push(Term::Nonterminal(Cow::Owned(nt.clone())));
                             } else {
-                                terms.push(Term::Terminal(String::arbitrary(g)));
+                                terms.push(Term::Terminal(Cow::Owned(String::arbitrary(g))));
                             }
                         } else {
-                            terms.push(Term::Terminal(String::arbitrary(g)));
+                            terms.push(Term::Terminal(Cow::Owned(String::arbitrary(g))));
                         }
                     }
 
@@ -428,7 +431,7 @@ mod tests {
                 }
 
                 productions.push(Production::from_parts(
-                    Term::Nonterminal(nt.clone()),
+                    Term::Nonterminal(Cow::Owned(nt.clone())),
                     expressions,
                 ));
             }
@@ -445,7 +448,7 @@ mod tests {
         let mut defined = std::collections::HashSet::new();
         for production in grammar.productions_iter() {
             if let Term::Nonterminal(nt) = &production.lhs {
-                defined.insert(nt.clone());
+                defined.insert(nt.as_ref().to_string());
             }
         }
 
@@ -455,7 +458,7 @@ mod tests {
             for expression in production.rhs_iter() {
                 for term in expression.terms_iter() {
                     if let Term::Nonterminal(nt) = term {
-                        referenced.insert(nt.clone());
+                        referenced.insert(nt.as_ref().to_string());
                     }
                 }
             }
@@ -509,12 +512,12 @@ mod tests {
                             // Reference a previously defined nonterminal
                             let ref_idx = usize::arbitrary(g) % idx;
                             if let Some(nt) = nonterms.get(ref_idx) {
-                                terms.push(Term::Nonterminal(nt.clone()));
+                                terms.push(Term::Nonterminal(Cow::Owned(nt.clone())));
                             } else {
-                                terms.push(Term::Terminal(String::arbitrary(g)));
+                                terms.push(Term::Terminal(Cow::Owned(String::arbitrary(g))));
                             }
                         } else {
-                            terms.push(Term::Terminal(String::arbitrary(g)));
+                            terms.push(Term::Terminal(Cow::Owned(String::arbitrary(g))));
                         }
                     }
 
@@ -522,7 +525,7 @@ mod tests {
                 }
 
                 productions.push(Production::from_parts(
-                    Term::Nonterminal(nt.clone()),
+                    Term::Nonterminal(Cow::Owned(nt.clone())),
                     expressions,
                 ));
             }
@@ -533,14 +536,13 @@ mod tests {
 
     // Property test: Parser results are identical regardless of production order
     fn prop_parser_order_independent(grammar: ValidGrammarWithMultipleProductions) -> TestResult {
-        let grammar = grammar.0;
+        let grammar1 = grammar.0;
 
         // Create a shuffled version of the grammar
-        let mut productions: Vec<_> = grammar.productions_iter().cloned().collect();
+        let mut productions: Vec<_> = grammar1.productions_iter().cloned().collect();
         let mut rng = rand::rng();
         rand::seq::SliceRandom::shuffle(productions.as_mut_slice(), &mut rng);
 
-        let grammar1 = grammar;
         let grammar2 = Grammar::from_parts(productions);
 
         let parser1 = match grammar1.build_parser() {
@@ -630,7 +632,7 @@ mod tests {
         let mut defined = std::collections::HashSet::new();
         for production in grammar.productions_iter() {
             if let Term::Nonterminal(nt) = &production.lhs {
-                defined.insert(nt.clone());
+                defined.insert(nt.as_ref().to_string());
             }
         }
 
@@ -640,7 +642,7 @@ mod tests {
             for expression in production.rhs_iter() {
                 for term in expression.terms_iter() {
                     if let Term::Nonterminal(nt) = term {
-                        referenced.insert(nt.clone());
+                        referenced.insert(nt.as_ref().to_string());
                     }
                 }
             }

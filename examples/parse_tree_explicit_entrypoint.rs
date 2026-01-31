@@ -16,7 +16,7 @@ fn main() {
     "#;
 
     // Parse the BNF string into a Grammar object
-    let grammar: Grammar = match bnf_input.parse() {
+    let grammar = match bnf_input.parse::<Grammar>() {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to create grammar from BNF string: {e}");
@@ -38,7 +38,7 @@ fn main() {
     println!("Parsing input with <dna>: {sentence}");
 
     // Target to start from
-    let target_production = Term::Nonterminal("dna".to_string());
+    let target_production = Term::nonterminal("dna");
 
     // Parse the input string using the parser, starting with the <dna> nonterminal
     let mut parse_trees = parser.parse_input_starting_with(sentence, &target_production);

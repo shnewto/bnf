@@ -17,4 +17,5 @@ pub fn init_tracing() -> impl Drop {
 }
 
 #[cfg(not(feature = "tracing"))]
+#[allow(clippy::missing_const_for_fn)]
 pub fn init_tracing() {}

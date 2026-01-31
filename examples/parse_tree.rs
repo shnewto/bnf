@@ -15,7 +15,7 @@ fn main() {
     "#;
 
     // Parse the BNF string into a Grammar object
-    let grammar: Grammar = match bnf_input.parse() {
+    let grammar = match bnf_input.parse::<Grammar>() {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to create grammar from BNF string: {e}");

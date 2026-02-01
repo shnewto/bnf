@@ -1,8 +1,12 @@
 #![cfg(test)]
 #![allow(deprecated)]
 
-use bnf::Grammar;
+use bnf::{Grammar, ParseTree, ParseTreeNode, escape_mermaid_label};
 use insta::assert_snapshot;
+use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
+use rand::SeedableRng;
+use std::fmt;
+use std::sync::LazyLock;
 
 #[test]
 fn undefined_prod() {
@@ -495,4 +499,497 @@ fn mermaid_math_parse_tree() {
         .map(|a| a.mermaid().to_string())
         .collect();
     assert_snapshot!(mermaid.join("\n"));
+}
+
+#[test]
+fn mermaid_via_build_parser() {
+    // Recommended API: build_parser().unwrap().parse_input(...) instead of deprecated parse_input.
+    let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
+        .parse()
+        .unwrap();
+    let parser = grammar.build_parser().unwrap();
+    let input = "GATTACA";
+    let mermaid: Vec<_> = parser
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    assert!(!mermaid.is_empty());
+    let output = mermaid.join("\n");
+    assert!(output.starts_with("flowchart TD"));
+    assert!(output.contains("-->"));
+}
+
+// --- Mermaid entity-code escaping: labels with ", ], [, \, #, ;, newlines ---
+// Node labels are escaped with Mermaid entity codes so flowchart syntax is valid
+// (see https://mermaid.js.org/syntax/flowchart.html#entity-codes-to-escape-characters).
+
+#[test]
+fn mermaid_punctuation_double_quote_terminal() {
+    // Terminal is the double-quote character; escaped as #34; in label.
+    let grammar: Grammar = r#"<q> ::= '"'
+        "#
+    .parse()
+    .unwrap();
+    let input = "\"";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+#[test]
+fn mermaid_punctuation_closing_bracket_terminal() {
+    // Terminal ']' escaped as #93; in label.
+    let grammar: Grammar = "<b> ::= ']'
+        "
+    .parse()
+    .unwrap();
+    let input = "]";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+#[test]
+fn mermaid_punctuation_opening_bracket_terminal() {
+    // Terminal '[' escaped as #91; in label.
+    let grammar: Grammar = "<b> ::= '['
+        "
+    .parse()
+    .unwrap();
+    let input = "[";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+#[test]
+fn mermaid_punctuation_backslash_terminal() {
+    // Terminal '\' escaped as #92; in label.
+    let grammar: Grammar = r#"<b> ::= '\\'"#.parse().unwrap();
+    let input = "\\";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+#[test]
+fn mermaid_punctuation_slash_and_angle_brackets() {
+    // Slash and angle brackets don't require escaping; '/' in label.
+    let grammar: Grammar = "<expr> ::= '/'
+        "
+    .parse()
+    .unwrap();
+    let input = "/";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+/// List-of-strings grammar: parses ["foo", "bar", "baz"] (a list of quoted strings).
+/// Uses special characters [ ] " , so Mermaid output escapes them with entity codes.
+#[test]
+fn mermaid_silly_syntax_salad() {
+    // string terminals are single-quoted so the inner " is literal: '"foo"' etc.
+    let grammar: Grammar = r#"
+        <list> ::= '[' <items> ']'
+        <items> ::= <string> ',' <items> | <string>
+        <string> ::= '"foo"' | '"bar"' | '"baz"'
+        "#
+    .parse()
+    .unwrap();
+    let input = "[\"foo\",\"bar\",\"baz\"]";
+    let parses: Vec<_> = grammar.parse_input(input).collect();
+    assert!(!parses.is_empty(), "grammar should parse list of strings");
+    let mermaid: Vec<_> = parses
+        .into_iter()
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert_snapshot!(output);
+}
+
+#[test]
+fn mermaid_entity_codes_hash_and_semicolon() {
+    // Terminals '#' and ';' escaped as #35; and #59; in labels.
+    let grammar: Grammar = "<h> ::= '#' | ';'
+        "
+    .parse()
+    .unwrap();
+    for input in ["#", ";"] {
+        let mermaid: Vec<_> = grammar
+            .parse_input(input)
+            .map(|a| a.mermaid().to_string())
+            .collect();
+        let output = mermaid.join("\n");
+        assert!(
+            output.contains("#35;") || output.contains("#59;"),
+            "output should escape # or ;"
+        );
+        for line in output.lines() {
+            if line.contains("-->") {
+                assert_eq!(
+                    line.matches('"').count(),
+                    4,
+                    "balanced quotes on line: {line:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn mermaid_entity_codes_newline_in_label() {
+    // Newline in terminal escaped as #10; so flowchart stays one statement per line.
+    let grammar: Grammar = "<nl> ::= '\n'
+        "
+    .parse()
+    .unwrap();
+    let input = "\n";
+    let mermaid: Vec<_> = grammar
+        .parse_input(input)
+        .map(|a| a.mermaid().to_string())
+        .collect();
+    let output = mermaid.join("\n");
+    assert!(output.contains("#10;"), "newline should be escaped as #10;");
+    assert!(
+        !output.contains("\n\n"),
+        "no double newline from raw newline in label"
+    );
+}
+
+#[test]
+fn mermaid_escape_mermaid_label_public_api() {
+    // Public API: escape_mermaid_label produces valid Mermaid entity codes.
+    assert_eq!(escape_mermaid_label("a\"b"), "a#34;b");
+    assert_eq!(escape_mermaid_label("["), "#91;");
+    assert_eq!(escape_mermaid_label("]"), "#93;");
+    assert_eq!(escape_mermaid_label("\\"), "#92;");
+    assert_eq!(escape_mermaid_label("#"), "#35;");
+    assert_eq!(escape_mermaid_label(";"), "#59;");
+    assert_eq!(escape_mermaid_label("<"), "#60;");
+    assert_eq!(escape_mermaid_label(">"), "#62;");
+    assert_eq!(escape_mermaid_label("&"), "#38;");
+    assert_eq!(escape_mermaid_label("plain"), "plain");
+}
+
+/// Asserts that generated Mermaid has balanced double-quotes in node labels so
+/// the flowchart is parseable (labels escaped with entity codes).
+#[test]
+fn mermaid_output_safe_for_special_chars() {
+    let grammar: Grammar = r#"<q> ::= '"'
+        <b> ::= ']' | '['
+        <s> ::= '\\'
+        "#
+    .parse()
+    .unwrap();
+
+    for input in ["\"", "]", "[", "\\"] {
+        let mermaid: Vec<_> = grammar
+            .parse_input(input)
+            .map(|a| a.mermaid().to_string())
+            .collect();
+        let output = mermaid.join("\n");
+        for line in output.lines() {
+            if line.is_empty() || line == "flowchart TD" {
+                continue;
+            }
+            // Each edge line: N["..."] --> M["..."] - exactly 4 quotes (two node wrappers).
+            let quote_count = line.matches('"').count();
+            assert_eq!(
+                quote_count, 4,
+                "Line must have 4 quotes (balanced node labels). input={:?} line={:?} count={}",
+                input, line, quote_count
+            );
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Property tests: parse-tree invariants, API parity, Mermaid output
+// -----------------------------------------------------------------------------
+
+/// Terminating grammars that produce short sentences to avoid deep parse trees and stack overflow.
+static TERMINATING_GRAMMARS: LazyLock<Vec<Grammar>> = LazyLock::new(|| {
+    vec![
+        "<x> ::= 'a' | 'b' | 'c'"
+            .parse()
+            .expect("single-char grammar"),
+        "<ab> ::= 'a' 'b' | 'a' <ab> 'b'"
+            .parse()
+            .expect("a^n b^n grammar"),
+        "<list> ::= <digit> | <digit> ',' <list>\n<digit> ::= '0' | '1' | '2'"
+            .parse()
+            .expect("digit list grammar"),
+    ]
+});
+
+/// A grammar and an input string that parses with that grammar (sentence generated from the grammar).
+#[derive(Clone)]
+struct ParsableInput {
+    grammar: Grammar,
+    input: String,
+}
+
+impl fmt::Debug for ParsableInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ParsableInput(grammar, {:?})", self.input)
+    }
+}
+
+impl Arbitrary for ParsableInput {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let grammars = LazyLock::force(&TERMINATING_GRAMMARS);
+        let idx = usize::arbitrary(g) % grammars.len();
+        let grammar = grammars.get(idx).expect("non-empty").clone();
+        let seed = u64::arbitrary(g);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+        let mut input = grammar
+            .generate_seeded(&mut rng)
+            .expect("grammar must terminate");
+        if input.len() > 50 {
+            input.truncate(50);
+        }
+        ParsableInput { grammar, input }
+    }
+}
+
+fn collect_terminals(tree: &ParseTree<'_>) -> String {
+    let mut s = String::new();
+    for node in tree.rhs_iter() {
+        match node {
+            ParseTreeNode::Terminal(t) => s.push_str(t),
+            ParseTreeNode::Nonterminal(nt) => s.push_str(&collect_terminals(nt)),
+        }
+    }
+    s
+}
+
+fn prop_parse_tree_terminals_equal_input(p: ParsableInput) -> TestResult {
+    let parser = match p.grammar.build_parser() {
+        Ok(parser) => parser,
+        Err(e) => return TestResult::error(format!("build_parser failed: {e}")),
+    };
+    let parses: Vec<_> = parser.parse_input(&p.input).collect();
+    if parses.is_empty() {
+        return TestResult::error(format!(
+            "expected at least one parse for input {:?}",
+            p.input
+        ));
+    }
+    for tree in &parses {
+        let terminals = collect_terminals(tree);
+        if terminals != p.input {
+            return TestResult::error(format!("terminals {:?} != input {:?}", terminals, p.input));
+        }
+    }
+    TestResult::passed()
+}
+
+fn prop_parse_input_build_parser_parity(p: ParsableInput) -> TestResult {
+    let deprecated: Vec<_> = p.grammar.parse_input(&p.input).collect();
+    let parser = match p.grammar.build_parser() {
+        Ok(parser) => parser,
+        Err(e) => return TestResult::error(format!("build_parser failed: {e}")),
+    };
+    let recommended: Vec<_> = parser.parse_input(&p.input).collect();
+    if deprecated != recommended {
+        return TestResult::error(format!(
+            "API parity: deprecated len {} != recommended len {}",
+            deprecated.len(),
+            recommended.len()
+        ));
+    }
+    TestResult::passed()
+}
+
+#[test]
+fn parse_prop_terminals_equal_input() {
+    QuickCheck::new()
+        .tests(200)
+        .r#gen(Gen::new(16))
+        .quickcheck(prop_parse_tree_terminals_equal_input as fn(ParsableInput) -> TestResult)
+}
+
+#[test]
+fn parse_prop_build_parser_parity() {
+    QuickCheck::new()
+        .tests(200)
+        .r#gen(Gen::new(16))
+        .quickcheck(prop_parse_input_build_parser_parity as fn(ParsableInput) -> TestResult)
+}
+
+/// Content suitable for a single-quoted BNF terminal (no unescaped `'`). May contain Mermaid-special chars.
+#[derive(Clone)]
+struct MermaidLabelContent(String);
+
+impl fmt::Debug for MermaidLabelContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "MermaidLabelContent({:?})", self.0)
+    }
+}
+
+impl Arbitrary for MermaidLabelContent {
+    fn arbitrary(g: &mut Gen) -> Self {
+        let s: String = String::arbitrary(g);
+        MermaidLabelContent(s.replace('\'', "_"))
+    }
+}
+
+fn count_parse_tree_edges(tree: &ParseTree<'_>) -> usize {
+    let mut n = tree.rhs_iter().count();
+    for node in tree.rhs_iter() {
+        if let ParseTreeNode::Nonterminal(nt) = node {
+            n += count_parse_tree_edges(nt);
+        }
+    }
+    n
+}
+
+fn assert_mermaid_edge_lines_balanced(mermaid: &str) -> Result<(), String> {
+    for line in mermaid.lines() {
+        if line.contains("-->") {
+            let quote_count = line.matches('"').count();
+            if quote_count != 4 {
+                return Err(format!(
+                    "edge line must have 4 quotes (balanced node labels), got {}: {:?}",
+                    quote_count, line
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn count_mermaid_edges(mermaid: &str) -> usize {
+    mermaid.lines().filter(|l| l.contains("-->")).count()
+}
+
+const MERMAID_RAW_SPECIALS: &[char] = &['"', '[', ']', '\\', '<', '>', '&', '\n', '\r'];
+
+fn assert_mermaid_labels_no_raw_specials(mermaid: &str) -> Result<(), String> {
+    for segment in mermaid.split("[\"") {
+        if let Some(label) = segment.split("\"]").next()
+            && label != segment
+        {
+            for &bad in MERMAID_RAW_SPECIALS {
+                if label.contains(bad) {
+                    return Err(format!("raw special {:?} in label {:?}", bad, label));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn unescape_mermaid_entity_codes(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut it = s.chars().peekable();
+    while let Some(c) = it.next() {
+        if c == '#' {
+            let mut digits = String::new();
+            while it.peek().copied().is_some_and(|d| d.is_ascii_digit()) {
+                digits.push(it.next().unwrap());
+            }
+            if it.peek() == Some(&';') && !digits.is_empty() {
+                it.next();
+                if let Ok(n) = digits.parse::<u32>()
+                    && let Some(ch) = std::char::from_u32(n)
+                {
+                    out.push(ch);
+                    continue;
+                }
+            }
+            out.push('#');
+            out.push_str(&digits);
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+fn grammar_single_node(content: &str) -> String {
+    format!("<root> ::= '{}'", content)
+}
+
+fn prop_mermaid_single_node_well_formed(content: MermaidLabelContent) -> TestResult {
+    let s = content.0;
+    let grammar_src = grammar_single_node(&s);
+    let grammar: Grammar = match grammar_src.parse() {
+        Ok(g) => g,
+        Err(e) => {
+            return TestResult::error(format!("grammar parse failed: {grammar_src:?} -> {e}"));
+        }
+    };
+    let parser = match grammar.build_parser() {
+        Ok(p) => p,
+        Err(e) => return TestResult::error(format!("build_parser failed: {e}")),
+    };
+    let parses: Vec<_> = parser.parse_input(&s).collect();
+    if parses.is_empty() {
+        return TestResult::error(format!("expected at least one parse for input {s:?}"));
+    }
+    for tree in &parses {
+        let mermaid = tree.mermaid().to_string();
+        if let Err(e) = assert_mermaid_edge_lines_balanced(&mermaid) {
+            return TestResult::error(e);
+        }
+        let tree_edges = count_parse_tree_edges(tree);
+        let mermaid_edges = count_mermaid_edges(&mermaid);
+        if tree_edges != mermaid_edges {
+            return TestResult::error(format!(
+                "edge count: tree {} != mermaid {}",
+                tree_edges, mermaid_edges
+            ));
+        }
+        if let Err(e) = assert_mermaid_labels_no_raw_specials(&mermaid) {
+            return TestResult::error(e);
+        }
+    }
+    TestResult::passed()
+}
+
+fn prop_escape_mermaid_round_trip(content: MermaidLabelContent) -> TestResult {
+    let s = &content.0;
+    let escaped = escape_mermaid_label(s);
+    let round = unescape_mermaid_entity_codes(&escaped);
+    if *s != round {
+        return TestResult::error(format!(
+            "round-trip: original {:?} != unescape(escape(...)) {:?}",
+            s, round
+        ));
+    }
+    TestResult::passed()
+}
+
+#[test]
+fn mermaid_prop_arbitrary_labels_well_formed() {
+    QuickCheck::new()
+        .tests(500)
+        .r#gen(Gen::new(20))
+        .quickcheck(prop_mermaid_single_node_well_formed as fn(MermaidLabelContent) -> TestResult)
+}
+
+#[test]
+fn mermaid_prop_escape_round_trip() {
+    QuickCheck::new()
+        .tests(500)
+        .r#gen(Gen::new(20))
+        .quickcheck(prop_escape_mermaid_round_trip as fn(MermaidLabelContent) -> TestResult)
 }

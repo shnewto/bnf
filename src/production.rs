@@ -32,7 +32,7 @@ impl Production {
         }
     }
 
-    /// Construct an `Production` from `Expression`s
+    /// Construct a `Production` from `Expression`s
     #[must_use]
     pub const fn from_parts(t: Term, e: Vec<Expression>) -> Production {
         Production { lhs: t, rhs: e }
@@ -112,8 +112,8 @@ impl FromStr for Production {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match all_consuming(parsers::production::<BNF>).parse(s) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
+            Ok((_, o)) => Ok(o),
+            Err(e) => Err(Error::from(e)),
         }
     }
 }

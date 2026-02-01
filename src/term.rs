@@ -50,8 +50,8 @@ impl FromStr for Term {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match all_consuming(parsers::term::<BNF>).parse(s) {
-            Result::Ok((_, o)) => Ok(o),
-            Result::Err(e) => Err(Error::from(e)),
+            Ok((_, o)) => Ok(o),
+            Err(e) => Err(Error::from(e)),
         }
     }
 }

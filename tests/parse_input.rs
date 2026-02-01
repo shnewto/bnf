@@ -10,6 +10,25 @@ use std::sync::LazyLock;
 
 #[test]
 fn undefined_prod() {
+    // Grammar references <b> but only defines <a>; validation should fail
+    let grammar: Grammar = "
+        <start> ::= <a> | <b>
+        <a> ::= 'a'
+        "
+    .parse()
+    .unwrap();
+
+    let parser_result = grammar.build_parser();
+    assert!(
+        parser_result.is_err(),
+        "Parser should fail when grammar has undefined nonterminals"
+    );
+}
+
+#[test]
+fn undefined_prod_deprecated_parses() {
+    // Deprecated parse_input skips validation: grammar has undefined <b> but still
+    // parses via the defined <a> branch.
     let grammar: Grammar = "
         <start> ::= <a> | <b>
         <a> ::= 'a'
@@ -18,7 +37,6 @@ fn undefined_prod() {
     .unwrap();
 
     let input = "a";
-
     let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
     assert_snapshot!(parses.join("\n"));
 }

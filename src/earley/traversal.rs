@@ -240,7 +240,7 @@ mod tests {
         grammar: &'a Grammar,
         input: &'static str,
     ) -> (ParseGrammar<'a>, InputRange<'static>, TraversalTree<'a>) {
-        let matching = ParseGrammar::new(grammar);
+        let matching = ParseGrammar::new(grammar).unwrap();
         let input = InputRange::new(input);
         let tree = TraversalTree::default();
 

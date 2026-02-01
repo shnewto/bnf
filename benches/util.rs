@@ -17,4 +17,4 @@ pub fn init_tracing() -> impl Drop {
 }
 
 #[cfg(not(feature = "tracing"))]
-pub fn init_tracing() {}
+pub const fn init_tracing() {}

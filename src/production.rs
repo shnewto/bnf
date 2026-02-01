@@ -76,6 +76,12 @@ impl Production {
         self.rhs.is_empty()
     }
 
+    /// Get the RHS expression at `index` (crate-internal; O(1) index access).
+    #[must_use]
+    pub(crate) fn get_expression(&self, index: usize) -> Option<&Expression> {
+        self.rhs.get(index)
+    }
+
     /// If the production _can_ terminate,
     /// i.e. contains an expression of all terminals or every non-terminal in an
     /// expression exists in the (optional) list of 'terminating rules'

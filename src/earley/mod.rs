@@ -2,36 +2,47 @@ mod input_range;
 mod traversal;
 
 use crate::parser::grammar::ParseGrammar;
-use crate::{ParseTree, ParseTreeNode, Term, tracing};
+use crate::{GrammarParser, ParseTree, ParseTreeNode, Term, tracing};
 use input_range::InputRange;
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::Rc;
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
 pub fn parse<'gram>(
-    grammar: &'gram crate::Grammar,
+    grammar: &'gram GrammarParser<'gram>,
     input: &'gram str,
+    starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
-    ParseTreeIter::new(grammar, input)
+    ParseTreeIter::new(ParserHold::Borrowed(grammar), input, starting_term)
 }
 
-pub fn parse_starting_with<'gram>(
-    grammar: &'gram crate::Grammar,
+/// Parse using an owned parser (e.g. from deprecated `Grammar::parse_input`).
+/// The iterator holds `Rc<GrammarParser>` to keep the parser alive.
+pub fn parse_with_parser_rc<'gram>(
+    parser: Rc<GrammarParser<'gram>>,
     input: &'gram str,
-    starting_term: &'gram Term,
+    starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
-    ParseTreeIter::new_starting_with(grammar, input, starting_term)
+    ParseTreeIter::new(ParserHold::Owned(parser), input, starting_term)
 }
 
-/// Parse input using a pre-built `ParseGrammar`, starting with the given term.
-/// This allows reusing the `ParseGrammar` for multiple inputs.
-pub(crate) fn parse_starting_with_grammar<'gram>(
-    parse_grammar: &Rc<ParseGrammar<'gram>>,
-    input: &'gram str,
-    starting_term: &'gram Term,
-) -> impl Iterator<Item = ParseTree<'gram>> {
-    // Clone the Rc (just increments reference count, no data copying)
-    ParseTreeIter::new_starting_with_grammar(Rc::clone(parse_grammar), input, starting_term)
+/// Holds either a borrowed or owned parser so the iterator can keep it alive when needed.
+///
+/// Only required for the deprecated `Grammar::parse_input` and `Grammar::parse_input_starting_with` methods.
+/// Prefer `GrammarParser::parse_input` and `GrammarParser::parse_input_starting_with` instead.
+#[derive(Debug)]
+enum ParserHold<'gram> {
+    Borrowed(&'gram GrammarParser<'gram>),
+    Owned(Rc<GrammarParser<'gram>>),
+}
+
+impl<'gram> ParserHold<'gram> {
+    fn as_ref(&self) -> &GrammarParser<'gram> {
+        match self {
+            ParserHold::Borrowed(p) => p,
+            ParserHold::Owned(rc) => rc.as_ref(),
+        }
+    }
 }
 
 /// A queue of [`TraversalId`] for processing, with repetitions ignored.
@@ -169,45 +180,35 @@ fn earley<'gram>(
 
 #[derive(Debug)]
 struct ParseTreeIter<'gram> {
+    parser: ParserHold<'gram>,
     traversal_tree: TraversalTree<'gram>,
-    grammar: Rc<ParseGrammar<'gram>>,
     queue: TraversalQueue,
     completions: CompletionMap<'gram>,
 }
 
 impl<'gram> ParseTreeIter<'gram> {
-    pub fn new(grammar: &'gram crate::Grammar, input: &'gram str) -> Self {
-        let starting_term = grammar
-            .starting_term()
-            .expect("Grammar must have one production to parse");
-
-        Self::new_starting_with(grammar, input, starting_term)
-    }
-
-    pub fn new_starting_with(
-        grammar: &'gram crate::Grammar,
+    pub fn new(
+        parser: ParserHold<'gram>,
         input: &'gram str,
-        starting_term: &'gram Term,
+        starting_term: Option<&'gram Term>,
     ) -> Self {
-        let parse_grammar = Rc::new(ParseGrammar::new(grammar));
-        Self::new_starting_with_grammar(parse_grammar, input, starting_term)
-    }
-
-    pub(crate) fn new_starting_with_grammar(
-        parse_grammar: Rc<ParseGrammar<'gram>>,
-        input: &'gram str,
-        starting_term: &'gram Term,
-    ) -> Self {
-        let input = InputRange::new(input);
+        let input_range = InputRange::new(input);
         let mut traversal_tree = TraversalTree::default();
         let mut queue = TraversalQueue::default();
         let completions = CompletionMap::default();
+        let parser_ref = parser.as_ref();
+        let starting_term = starting_term.unwrap_or(parser_ref.starting_term);
 
-        queue.push_back_starting(&mut traversal_tree, &parse_grammar, starting_term, &input);
+        queue.push_back_starting(
+            &mut traversal_tree,
+            parser_ref.parse_grammar.as_ref(),
+            starting_term,
+            &input_range,
+        );
 
         Self {
             traversal_tree,
-            grammar: parse_grammar,
+            parser,
             queue,
             completions,
         }
@@ -220,13 +221,14 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
         let Self {
             queue,
             completions,
-            grammar,
+            parser,
             traversal_tree,
         } = self;
+        let parse_grammar = &parser.as_ref().parse_grammar;
 
-        earley(queue, traversal_tree, completions, grammar).map(|traversal_id| {
+        earley(queue, traversal_tree, completions, parse_grammar).map(|traversal_id| {
             let _span = tracing::span!(tracing::Level::DEBUG, "next_parse_tree").entered();
-            let parse_tree = parse_tree(traversal_tree, grammar, traversal_id);
+            let parse_tree = parse_tree(traversal_tree, parse_grammar, traversal_id);
             tracing::event!(tracing::Level::TRACE, "\n{parse_tree}");
             parse_tree
         })
@@ -338,8 +340,9 @@ mod tests {
 
     fn prop_empty_rules_allow_parse(grammar: NestedEmptyGrammar) -> TestResult {
         let input = "a";
+        let parser = GrammarParser::new(&grammar.0).unwrap();
 
-        let mut parses = parse(&grammar.0, input);
+        let mut parses = parse(&parser, input, None);
         TestResult::from_bool(parses.next().is_some())
     }
 

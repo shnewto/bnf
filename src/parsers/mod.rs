@@ -11,7 +11,6 @@ use crate::expression::Expression;
 use crate::grammar::Grammar;
 use crate::production::Production;
 use crate::term::Term;
-use std::collections::HashSet;
 
 use nom::{
     IResult, Parser,
@@ -326,7 +325,7 @@ fn parsed_grammar_complete<F: Format>(input: &str) -> IResult<&str, ParsedGramma
 /// so they do not clash with any existing LHS nonterminal (e.g. user-defined `<__anon0>`).
 /// Optionals `[A / B]` are lowered to a fresh nonterminal with alternatives `A | B | ''`.
 fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
-    let mut used_names = HashSet::new();
+    let mut used_names = crate::HashSet::new();
     for prod in &parsed.productions {
         let ParsedProduction::Complex { lhs, .. } = prod;
         used_names.insert(lhs.clone());
@@ -336,7 +335,7 @@ fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
     let mut anon_prods = Vec::new();
 
     /// Pick a fresh name that does not collide with user-defined LHS or other generated names.
-    fn fresh_anon_name(used: &mut HashSet<String>, counter: &mut usize) -> String {
+    fn fresh_anon_name(used: &mut crate::HashSet<String>, counter: &mut usize) -> String {
         loop {
             let candidate = format!("__anon{}", counter);
             *counter += 1;
@@ -349,7 +348,7 @@ fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
 
     fn lower_expression(
         expr: ParsedExpression,
-        used: &mut HashSet<String>,
+        used: &mut crate::HashSet<String>,
         counter: &mut usize,
         anon_prods: &mut Vec<Production>,
     ) -> Expression {
@@ -363,7 +362,7 @@ fn normalize_parsed_grammar(parsed: ParsedGrammar) -> Grammar {
 
     fn lower_term(
         term: ParsedTerm,
-        used: &mut HashSet<String>,
+        used: &mut crate::HashSet<String>,
         counter: &mut usize,
         anon_prods: &mut Vec<Production>,
     ) -> Term {

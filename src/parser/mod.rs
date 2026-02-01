@@ -5,7 +5,6 @@ use crate::error::Error;
 use crate::grammar::Grammar;
 use crate::term::Term;
 use grammar::ParseGrammar;
-use std::collections::HashSet;
 use std::rc::Rc;
 
 /// A reusable parser built from a `Grammar` that validates all nonterminals are defined
@@ -27,8 +26,8 @@ use std::rc::Rc;
 /// ```
 #[derive(Debug)]
 pub struct GrammarParser<'gram> {
-    starting_term: &'gram Term,
-    parse_grammar: Rc<ParseGrammar<'gram>>,
+    pub(crate) starting_term: &'gram Term,
+    pub(crate) parse_grammar: Rc<ParseGrammar<'gram>>,
 }
 
 impl<'gram> GrammarParser<'gram> {
@@ -40,81 +39,49 @@ impl<'gram> GrammarParser<'gram> {
     /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
     /// productions lacks a definition in the grammar.
     pub fn new(grammar: &'gram Grammar) -> Result<Self, Error> {
-        validate_nonterminals(grammar)?;
         let starting_term = grammar.starting_term().ok_or_else(|| {
             Error::ValidationError("Grammar must have at least one production".to_string())
         })?;
-        let parse_grammar = Rc::new(ParseGrammar::new(grammar));
+        let parse_grammar = Rc::new(ParseGrammar::new(grammar)?);
         Ok(Self {
             starting_term,
             parse_grammar,
         })
     }
 
+    /// Construct a parser without validating that all nonterminals are defined.
+    /// Used only by deprecated `Grammar::parse_input` / `parse_input_starting_with`.
+    pub(crate) fn new_unchecked(grammar: &'gram Grammar) -> Self {
+        let starting_term = grammar
+            .starting_term()
+            .expect("Grammar must have at least one production");
+        let parse_grammar = Rc::new(ParseGrammar::new_unchecked(grammar));
+        Self {
+            starting_term,
+            parse_grammar,
+        }
+    }
+
     /// Parse an input string using the grammar's starting nonterminal.
     ///
     /// Returns an iterator over all possible parse trees for the input.
-    pub fn parse_input(&self, input: &'gram str) -> impl Iterator<Item = ParseTree<'gram>> {
+    pub fn parse_input<'p: 'gram>(
+        &'p self,
+        input: &'gram str,
+    ) -> impl Iterator<Item = ParseTree<'gram>> + use<'p, 'gram> {
         self.parse_input_starting_with(input, self.starting_term)
     }
 
     /// Parse an input string starting with the given term (nonterminal or terminal).
     ///
     /// Returns an iterator over all possible parse trees for the input.
-    pub fn parse_input_starting_with(
-        &self,
+    pub fn parse_input_starting_with<'p: 'gram>(
+        &'p self,
         input: &'gram str,
         start: &'gram Term,
-    ) -> impl Iterator<Item = ParseTree<'gram>> {
-        crate::earley::parse_starting_with_grammar(&self.parse_grammar, input, start)
+    ) -> impl Iterator<Item = ParseTree<'gram>> + use<'p, 'gram> {
+        crate::earley::parse(self, input, Some(start))
     }
-}
-
-/// Validate that all nonterminals referenced in the grammar have definitions.
-///
-/// # Errors
-///
-/// Returns `Error::ValidationError` with a message listing all undefined nonterminals.
-fn validate_nonterminals(grammar: &Grammar) -> Result<(), Error> {
-    // Collect all nonterminals defined in LHS of productions
-    let mut defined_nonterminals = HashSet::new();
-    for production in grammar.productions_iter() {
-        if let Term::Nonterminal(ref nt) = production.lhs {
-            defined_nonterminals.insert(nt.clone());
-        }
-    }
-
-    // Collect all nonterminals used in RHS of all productions
-    let mut referenced_nonterminals = HashSet::new();
-    for production in grammar.productions_iter() {
-        for expression in production.rhs_iter() {
-            for term in expression.terms_iter() {
-                if let Term::Nonterminal(nt) = term {
-                    referenced_nonterminals.insert(nt.clone());
-                }
-            }
-        }
-    }
-
-    // Find undefined nonterminals
-    let undefined: Vec<String> = referenced_nonterminals
-        .difference(&defined_nonterminals)
-        .cloned()
-        .collect();
-
-    if !undefined.is_empty() {
-        let message = format!(
-            "Undefined nonterminals: {}",
-            undefined
-                .iter()
-                .map(|nt| format!("<{nt}>"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-        return Err(Error::ValidationError(message));
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -412,42 +379,60 @@ mod tests {
         }
     }
 
-    // Helper: Generate grammar that may have undefined nonterminals
+    /// Generates a grammar that always has at least one undefined nonterminal
+    /// (referenced in a production RHS but never defined).
+    ///
+    /// Structure: `[nt0, nt1, ..., undefined0, undefined1, ...]`
+    /// - First `defined_count` nonterminals get productions
+    /// - Remaining "undefined" nonterminals are referenced but never defined
+    /// - We force at least one undefined reference so the grammar is invalid
     #[derive(Debug, Clone)]
     struct GrammarWithUndefined(Grammar);
     impl Arbitrary for GrammarWithUndefined {
         fn arbitrary(g: &mut Gen) -> Self {
-            let num_nonterms = usize::arbitrary(g) % 4 + 1;
-            let mut nonterms: Vec<String> = (0..num_nonterms).map(|i| format!("nt{}", i)).collect();
+            let defined_count = usize::arbitrary(g) % 4 + 1;
+            let num_undefined = usize::arbitrary(g) % 3 + 1;
 
-            // Add some undefined nonterminals
-            let num_undefined = usize::arbitrary(g) % 3;
-            for i in 0..num_undefined {
-                nonterms.push(format!("undefined{}", i));
-            }
+            let defined_nonterms: Vec<String> =
+                (0..defined_count).map(|i| format!("nt{}", i)).collect();
+            let undefined_nonterms: Vec<String> = (0..num_undefined)
+                .map(|i| format!("undefined{}", i))
+                .collect();
+            let all_nonterms: Vec<String> = defined_nonterms
+                .iter()
+                .chain(undefined_nonterms.iter())
+                .cloned()
+                .collect();
 
             let mut productions = Vec::new();
-            let defined_count = num_nonterms;
+            let mut has_undefined_reference = false;
 
-            for (idx, nt) in nonterms.iter().enumerate() {
-                if idx >= defined_count {
-                    // Don't define the undefined nonterminals
-                    continue;
-                }
-
+            for (idx, nt) in defined_nonterms.iter().enumerate() {
                 let mut expressions = Vec::new();
                 let num_alternatives = usize::arbitrary(g) % 2 + 1;
 
-                for _ in 0..num_alternatives {
+                for alt_idx in 0..num_alternatives {
                     let mut terms = Vec::new();
                     let num_terms = usize::arbitrary(g) % 2 + 1;
 
-                    for _ in 0..num_terms {
-                        if bool::arbitrary(g) && !nonterms.is_empty() {
-                            // Reference any nonterminal (may be undefined)
-                            let ref_idx = usize::arbitrary(g) % nonterms.len();
-                            if let Some(nt) = nonterms.get(ref_idx) {
-                                terms.push(Term::Nonterminal(nt.clone()));
+                    // Invariant: first production's first alternative must reference undefined
+                    let is_first_alt_of_first_prod = idx == 0 && alt_idx == 0;
+                    let must_insert_undefined =
+                        is_first_alt_of_first_prod && !has_undefined_reference;
+
+                    for term_idx in 0..num_terms {
+                        let use_nonterminal = must_insert_undefined && term_idx == 0
+                            || (bool::arbitrary(g) && !all_nonterms.is_empty());
+
+                        if use_nonterminal {
+                            let ref_idx = if must_insert_undefined && term_idx == 0 {
+                                has_undefined_reference = true;
+                                defined_count + usize::arbitrary(g) % num_undefined
+                            } else {
+                                usize::arbitrary(g) % all_nonterms.len()
+                            };
+                            if let Some(ref_nt) = all_nonterms.get(ref_idx) {
+                                terms.push(Term::Nonterminal(ref_nt.clone()));
                             } else {
                                 terms.push(Term::Terminal(String::arbitrary(g)));
                             }
@@ -472,42 +457,9 @@ mod tests {
     // Property test: Parser construction fails if any nonterminal lacks definition
     fn prop_parser_fails_with_undefined_nonterminal(grammar: GrammarWithUndefined) -> TestResult {
         let grammar = grammar.0;
-
-        // Collect all nonterminals defined in LHS
-        let mut defined = std::collections::HashSet::new();
-        for production in grammar.productions_iter() {
-            if let Term::Nonterminal(nt) = &production.lhs {
-                defined.insert(nt.clone());
-            }
-        }
-
-        // Collect all nonterminals used in RHS
-        let mut referenced = std::collections::HashSet::new();
-        for production in grammar.productions_iter() {
-            for expression in production.rhs_iter() {
-                for term in expression.terms_iter() {
-                    if let Term::Nonterminal(nt) = term {
-                        referenced.insert(nt.clone());
-                    }
-                }
-            }
-        }
-
-        // Find undefined nonterminals
-        let undefined: Vec<_> = referenced.difference(&defined).cloned().collect();
-
-        let parser_result = grammar.build_parser();
-
-        if undefined.is_empty() {
-            // All nonterminals are defined, parser should succeed
-            TestResult::from_bool(parser_result.is_ok())
-        } else {
-            // Some nonterminals are undefined, parser should fail
-            TestResult::from_bool(
-                parser_result.is_err()
-                    && matches!(parser_result.unwrap_err(), Error::ValidationError(_)),
-            )
-        }
+        let parser = grammar.build_parser();
+        let is_validation_error = matches!(parser, Err(Error::ValidationError(_)));
+        TestResult::from_bool(is_validation_error)
     }
 
     #[test]
@@ -659,7 +611,7 @@ mod tests {
         let grammar = grammar.0;
 
         // Collect all nonterminals defined in LHS
-        let mut defined = std::collections::HashSet::new();
+        let mut defined = crate::HashSet::new();
         for production in grammar.productions_iter() {
             if let Term::Nonterminal(nt) = &production.lhs {
                 defined.insert(nt.clone());
@@ -667,7 +619,7 @@ mod tests {
         }
 
         // Collect all nonterminals used in RHS
-        let mut referenced = std::collections::HashSet::new();
+        let mut referenced = crate::HashSet::new();
         for production in grammar.productions_iter() {
             for expression in production.rhs_iter() {
                 for term in expression.terms_iter() {
@@ -688,11 +640,11 @@ mod tests {
                 TestResult::from_bool(undefined.is_empty())
             }
             Err(Error::ValidationError(msg)) => {
-                // Parser failed, error message should mention all undefined nonterminals
-                let all_mentioned = undefined
+                // Parser failed, error message should mention at least one undefined nonterminal
+                let any_mentioned = undefined
                     .iter()
-                    .all(|nt| msg.contains(&format!("<{nt}>")) || msg.contains(nt));
-                TestResult::from_bool(!undefined.is_empty() && all_mentioned)
+                    .any(|nt| msg.contains(&format!("<{nt}>")) || msg.contains(nt));
+                TestResult::from_bool(!undefined.is_empty() && any_mentioned)
             }
             Err(_) => TestResult::error("Expected ValidationError"),
         }

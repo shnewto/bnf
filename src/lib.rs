@@ -10,6 +10,7 @@ mod parsers;
 mod production;
 mod term;
 mod tracing;
+mod validation;
 pub use crate::error::Error;
 pub use crate::expression::Expression;
 pub use crate::grammar::{Grammar, ParseTree, ParseTreeNode, escape_mermaid_label};
@@ -25,3 +26,4 @@ pub use parsers::ABNF;
 pub use parsers::{BNF, Format};
 
 pub(crate) use hashbrown::HashMap;
+pub(crate) use hashbrown::HashSet;

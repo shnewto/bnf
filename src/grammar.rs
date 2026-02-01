@@ -45,6 +45,7 @@ use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
 use serde::{Deserialize, Serialize};
 
 use std::fmt::{self, Write};
+use std::rc::Rc;
 use std::str;
 
 /// A node of a `ParseTree`, either terminating or continuing the `ParseTree`
@@ -69,7 +70,7 @@ impl<'gram> ParseTree<'gram> {
 }
 
 // A set of column indices, used for tracking which columns are active when formatting a `ParseTree`
-type ParseTreeFormatSet = std::collections::HashSet<usize>;
+type ParseTreeFormatSet = crate::HashSet<usize>;
 
 impl<'gram> ParseTree<'gram> {
     fn fmt(
@@ -344,11 +345,10 @@ impl Grammar {
 
     /// Remove `Production` from the `Grammar`
     pub fn remove_production(&mut self, prod: &Production) -> Option<Production> {
-        if let Some(pos) = self.productions.iter().position(|x| *x == *prod) {
-            Some(self.productions.remove(pos))
-        } else {
-            None
-        }
+        self.productions
+            .iter()
+            .position(|x| *x == *prod)
+            .map(|pos| self.productions.swap_remove(pos))
     }
 
     /// Get iterator of the `Grammar`'s `Production`s
@@ -359,6 +359,40 @@ impl Grammar {
     /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production> {
         self.productions.iter_mut()
+    }
+
+    /// Validate the `Grammar` has no undefined nonterminals
+    ///
+    /// No need to call this method before building a parser, as the parser will validate the grammar at construction time.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::ValidationError` if the grammar has no productions or has undefined nonterminals.
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.productions.is_empty() {
+            return Err(Error::ValidationError(
+                "Grammar must have at least one production".to_string(),
+            ));
+        }
+        let mut sets = crate::validation::NonterminalSets::new();
+        for production in self.productions_iter() {
+            if let Term::Nonterminal(nt) = &production.lhs {
+                sets.record_lhs(nt.as_str());
+            }
+            for expression in production.rhs_iter() {
+                for term in expression.terms_iter() {
+                    if let Term::Nonterminal(nt) = term {
+                        sets.record_rhs(nt.as_str());
+                    }
+                }
+            }
+        }
+        if let Some(undefined) = sets.undefined().next() {
+            return Err(Error::ValidationError(format!(
+                "Undefined nonterminals: <{undefined}>"
+            )));
+        }
+        Ok(())
     }
 
     /// Build a reusable parser from this grammar, validating that all nonterminals are defined.
@@ -412,7 +446,8 @@ impl Grammar {
         &'gram self,
         input: &'gram str,
     ) -> impl Iterator<Item = ParseTree<'gram>> {
-        crate::earley::parse(self, input)
+        let parser = Rc::new(crate::GrammarParser::new_unchecked(self));
+        crate::earley::parse_with_parser_rc(parser, input, None)
     }
 
     /// Parse input strings according to `Grammar`, starting with given production
@@ -440,7 +475,8 @@ impl Grammar {
         input: &'gram str,
         starting_term: &'gram Term,
     ) -> impl Iterator<Item = ParseTree<'gram>> {
-        crate::earley::parse_starting_with(self, input, starting_term)
+        let parser = Rc::new(crate::GrammarParser::new_unchecked(self));
+        crate::earley::parse_with_parser_rc(parser, input, Some(starting_term))
     }
 
     /// Get the starting term
@@ -939,6 +975,48 @@ mod tests {
     }
 
     #[test]
+    fn validate_fails_for_empty_grammar() {
+        let grammar = Grammar::from_parts(vec![]);
+        let result = grammar.validate();
+        assert!(result.is_err(), "validate should fail for empty grammar");
+        assert!(matches!(result.unwrap_err(), Error::ValidationError(_)));
+    }
+
+    #[test]
+    fn validate_succeeds_for_valid_grammar() {
+        let grammar: Grammar = "<start> ::= <a> | <b>
+            <a> ::= 'a'
+            <b> ::= 'b'"
+            .parse()
+            .unwrap();
+        assert!(grammar.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_fails_for_undefined_nonterminal() {
+        let grammar: Grammar = "<start> ::= <a> | <b>
+            <a> ::= 'a'"
+            .parse()
+            .unwrap();
+        let result = grammar.validate();
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), Error::ValidationError(_)));
+    }
+
+    #[test]
+    fn validate_error_message_contains_undefined_nonterminal() {
+        let grammar: Grammar = "<start> ::= <undefined_nt>".parse().unwrap();
+        let err = grammar.validate().unwrap_err();
+        let Error::ValidationError(msg) = err else {
+            panic!("expected ValidationError");
+        };
+        assert!(
+            msg.contains("<undefined_nt>"),
+            "message should mention undefined nonterminal: {msg}"
+        );
+    }
+
+    #[test]
     fn parse_error() {
         let grammar: Result<Grammar, _> = "<almost_grammar> ::= <test".parse();
         assert!(grammar.is_err(), "{grammar:?} should be error");
@@ -1026,7 +1104,7 @@ mod tests {
         <c> ::= 'c'"
             .parse()
             .unwrap();
-        let valid: std::collections::HashSet<String> = ["a", "b", "ac", "bc"]
+        let valid: crate::HashSet<String> = ["a", "b", "ac", "bc"]
             .into_iter()
             .map(String::from)
             .collect();

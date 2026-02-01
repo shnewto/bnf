@@ -3,6 +3,7 @@ mod defs {
     pub(crate) use tracing::{Level, event, span};
 
     #[allow(dead_code)]
+    #[mutants::skip]
     pub fn init_subscriber() {
         tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -16,6 +17,7 @@ mod defs {
     pub struct Span {}
 
     impl Span {
+        #[mutants::skip]
         pub const fn entered(&self) -> Self {
             Self {}
         }
@@ -42,6 +44,7 @@ mod defs {
     pub(crate) use event;
 
     #[allow(dead_code)]
+    #[mutants::skip]
     pub const fn init_subscriber() {}
 }
 

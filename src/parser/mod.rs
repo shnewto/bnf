@@ -40,7 +40,7 @@ impl<'gram> GrammarParser<'gram> {
     /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
     /// productions lacks a definition in the grammar.
     pub fn new(grammar: &'gram Grammar) -> Result<Self, Error> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "GrammarParser::new").entered();
+        let _span = tracing::span!(DEBUG, "GrammarParser::new").entered();
         let starting_term = grammar.starting_term().ok_or_else(|| {
             Error::ValidationError("Grammar must have at least one production".to_string())
         })?;
@@ -54,7 +54,7 @@ impl<'gram> GrammarParser<'gram> {
     /// Construct a parser without validating that all nonterminals are defined.
     /// Used only by deprecated `Grammar::parse_input` / `parse_input_starting_with`.
     pub(crate) fn new_unchecked(grammar: &'gram Grammar) -> Self {
-        let _span = tracing::span!(tracing::Level::DEBUG, "GrammarParser::new_unchecked").entered();
+        let _span = tracing::span!(DEBUG, "GrammarParser::new_unchecked").entered();
         let starting_term = grammar
             .starting_term()
             .expect("Grammar must have at least one production");
@@ -72,7 +72,7 @@ impl<'gram> GrammarParser<'gram> {
         &'p self,
         input: &'gram str,
     ) -> impl Iterator<Item = ParseTree<'gram>> + use<'p, 'gram> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "GrammarParser::parse_input").entered();
+        let _span = tracing::span!(DEBUG, "GrammarParser::parse_input").entered();
         self.parse_input_starting_with(input, self.starting_term)
     }
 
@@ -84,7 +84,7 @@ impl<'gram> GrammarParser<'gram> {
         input: &'gram str,
         start: &'gram Term,
     ) -> impl Iterator<Item = ParseTree<'gram>> + use<'p, 'gram> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "GrammarParser::parse_input_starting_with").entered();
+        let _span = tracing::span!(DEBUG, "GrammarParser::parse_input_starting_with").entered();
         crate::earley::parse(self, input, Some(start))
     }
 }

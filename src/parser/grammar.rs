@@ -32,7 +32,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
     /// Returns `Error::ValidationError` if any nonterminal used in the RHS of
     /// productions lacks a definition in the grammar.
     pub fn new(grammar: &'gram crate::Grammar) -> Result<Self, Error> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "ParseGrammar_new").entered();
+        let _span = tracing::span!(DEBUG, "ParseGrammar_new").entered();
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();
@@ -74,7 +74,7 @@ impl<'gram, 'a> ParseGrammar<'gram> {
     /// `Grammar::parse_input` / `parse_input_starting_with` to preserve
     /// pre-validation behavior.
     pub(crate) fn new_unchecked(grammar: &'gram crate::Grammar) -> Self {
-        let _span = tracing::span!(tracing::Level::DEBUG, "ParseGrammar_new_unchecked").entered();
+        let _span = tracing::span!(DEBUG, "ParseGrammar_new_unchecked").entered();
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();

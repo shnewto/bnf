@@ -75,7 +75,7 @@ pub(crate) struct TraversalMatchIter<'gram, 'tree> {
 
 impl<'gram, 'tree> TraversalMatchIter<'gram, 'tree> {
     pub fn new(last: TraversalId, tree: &'tree TraversalTree<'gram>) -> Self {
-        let _span = tracing::span!(tracing::Level::DEBUG, "match_iter_new").entered();
+        let _span = tracing::span!(DEBUG, "match_iter_new").entered();
         // walk up the tree until the root is found
         let mut current = last;
         while let Some(edge) = &tree.get(current).from {
@@ -93,7 +93,7 @@ impl<'gram, 'tree> TraversalMatchIter<'gram, 'tree> {
 impl<'gram, 'tree> Iterator for TraversalMatchIter<'gram, 'tree> {
     type Item = &'tree TermMatch<'gram>;
     fn next(&mut self) -> Option<Self::Item> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "match_iter_next").entered();
+        let _span = tracing::span!(DEBUG, "match_iter_next").entered();
         if self.current == self.last {
             return None;
         }
@@ -143,8 +143,7 @@ impl<'gram> TraversalTree<'gram> {
         production: &Production<'gram>,
         is_starting: bool,
     ) -> TraversalId {
-        let _span =
-            tracing::span!(tracing::Level::DEBUG, "traversal_tree_predict_is_starting").entered();
+        let _span = tracing::span!(DEBUG, "traversal_tree_predict_is_starting").entered();
         let production_id = production.id;
         let traversal_root_key = TraversalRoot {
             production_id,
@@ -182,7 +181,7 @@ impl<'gram> TraversalTree<'gram> {
         self._predict(input_range, production, false)
     }
     pub fn match_term(&mut self, parent: TraversalId, term: TermMatch<'gram>) -> TraversalId {
-        let _span = tracing::span!(tracing::Level::DEBUG, "match_term").entered();
+        let _span = tracing::span!(DEBUG, "match_term").entered();
         let parent = self.arena.get(parent).expect("valid parent traversal ID");
         let input_range = match term {
             TermMatch::Terminal(term) => parent.input_range.advance_by(term.len()),

@@ -356,7 +356,7 @@ impl Grammar {
     }
 
     /// Number of productions (for capacity reservation in validation).
-    pub(crate) fn production_count(&self) -> usize {
+    pub(crate) const fn production_count(&self) -> usize {
         self.productions.len()
     }
 

@@ -37,6 +37,8 @@ impl<'gram, 'a> ParseGrammar<'gram> {
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();
         let mut sets = crate::validation::NonterminalSets::new();
+        let n = grammar.production_count();
+        sets.reserve(n, n.saturating_mul(2));
 
         let flat_prod_iter = grammar
             .productions_iter()

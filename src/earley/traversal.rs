@@ -212,7 +212,7 @@ impl<'gram> TraversalTree<'gram> {
                 id,
                 production_id,
                 unmatched,
-                input_range: input_range.clone(),
+                input_range,
                 is_starting,
                 from: Some(from.clone()),
             });

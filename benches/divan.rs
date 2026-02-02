@@ -22,6 +22,8 @@ mod examples {
         ));
 
         bencher.bench(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_postal").entered();
             input.parse::<bnf::Grammar>().unwrap();
         });
     }
@@ -46,6 +48,8 @@ mod examples {
         let mut index = (0..random_walk_count).cycle();
 
         bencher.bench_local(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_postal_input").entered();
             let index = index.next().unwrap();
             let input = random_postal_strings.get(index).unwrap();
             postal_grammar
@@ -64,6 +68,8 @@ mod examples {
                 grammar
             })
             .bench_refs(|grammar| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::span!(tracing::Level::DEBUG, "bench_generate_dna").entered();
                 grammar.generate().unwrap();
             });
     }
@@ -90,6 +96,8 @@ mod examples {
         let mut index = (0..random_walk_count).cycle();
 
         bencher.bench_local(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_polish_calculator").entered();
             let index = index.next().unwrap();
             let input = random_walks.get(index).unwrap();
             polish_calc_grammar
@@ -114,6 +122,8 @@ mod examples {
             .with_inputs(|| rng.random_range(1..100))
             .count_inputs_as::<divan::counter::ItemsCount>()
             .bench_local_values(|parse_count| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_infinite_nullable_grammar").entered();
                 infinite_grammar
                     .parse_input("")
                     .take(parse_count)
@@ -132,6 +142,8 @@ mod parser_api {
         );
 
         bencher.bench(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_build_postal_parser").entered();
             grammar.build_parser().unwrap();
         });
     }
@@ -148,6 +160,8 @@ mod parser_api {
         );
 
         bencher.bench(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_build_polish_parser").entered();
             grammar.build_parser().unwrap();
         });
     }
@@ -173,6 +187,8 @@ mod parser_api {
         let mut index = (0..random_walk_count).cycle();
 
         bencher.bench_local(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_postal_with_parser").entered();
             let index = index.next().unwrap();
             let input = random_postal_strings.get(index).unwrap();
             parser.parse_input(input).for_each(divan::black_box_drop);
@@ -202,6 +218,8 @@ mod parser_api {
         let mut index = (0..random_walk_count).cycle();
 
         bencher.bench_local(|| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_polish_with_parser").entered();
             let index = index.next().unwrap();
             let input = random_walks.get(index).unwrap();
             parser.parse_input(input).for_each(divan::black_box_drop);
@@ -225,6 +243,8 @@ mod parser_api {
             .with_inputs(|| rng.random_range(1..100))
             .count_inputs_as::<divan::counter::ItemsCount>()
             .bench_local_values(|parse_count| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::span!(tracing::Level::DEBUG, "bench_parse_infinite_nullable_with_parser").entered();
                 parser
                     .parse_input("")
                     .take(parse_count)
@@ -250,6 +270,8 @@ mod parser_api {
                     .collect::<Vec<_>>()
             })
             .bench_local_refs(|inputs| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::span!(tracing::Level::DEBUG, "bench_per_input_100").entered();
                 for input in inputs {
                     polish_calc_grammar
                         .parse_input(input)
@@ -277,6 +299,8 @@ mod parser_api {
                     .collect::<Vec<_>>()
             })
             .bench_local_refs(|inputs| {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::span!(tracing::Level::DEBUG, "bench_reuse_parser_100").entered();
                 for input in inputs {
                     parser.parse_input(input).for_each(divan::black_box_drop);
                 }

@@ -4,7 +4,7 @@ mod traversal;
 use crate::parser::grammar::ParseGrammar;
 use crate::{GrammarParser, ParseTree, ParseTreeNode, Term, tracing};
 use input_range::InputRange;
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
@@ -13,6 +13,7 @@ pub fn parse<'gram>(
     input: &'gram str,
     starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(tracing::Level::DEBUG, "earley::parse").entered();
     ParseTreeIter::new(ParserHold::Borrowed(grammar), input, starting_term)
 }
 
@@ -23,6 +24,7 @@ pub fn parse_with_parser_rc<'gram>(
     input: &'gram str,
     starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(tracing::Level::DEBUG, "earley::parse_with_parser_rc").entered();
     ParseTreeIter::new(ParserHold::Owned(parser), input, starting_term)
 }
 
@@ -86,15 +88,15 @@ fn parse_tree<'gram>(
         let traversal = traversal_tree.get(traversal_id);
         grammar.get_production_by_id(traversal.production_id)
     };
-    let rhs = traversal_tree
-        .get_matched(traversal_id)
-        .map(|term_match| match term_match {
+    let mut rhs = Vec::with_capacity(production.rhs.terms.len());
+    for term_match in traversal_tree.get_matched(traversal_id) {
+        rhs.push(match term_match {
             TermMatch::Terminal(term) => ParseTreeNode::Terminal(term),
             TermMatch::Nonterminal(traversal_id) => {
                 ParseTreeNode::Nonterminal(parse_tree(traversal_tree, grammar, *traversal_id))
             }
-        })
-        .collect::<Vec<ParseTreeNode>>();
+        });
+    }
 
     ParseTree::new(production.lhs, rhs)
 }
@@ -124,7 +126,7 @@ fn earley<'gram>(
 
                 completions.insert(traversal, lhs);
 
-                let input_range = traversal.input_range.clone();
+                let input_range = traversal.input_range;
 
                 for production in grammar.get_productions_by_lhs(nonterminal) {
                     let predicted = traversal_tree.predict(production, &input_range);
@@ -192,10 +194,11 @@ impl<'gram> ParseTreeIter<'gram> {
         input: &'gram str,
         starting_term: Option<&'gram Term>,
     ) -> Self {
+        let _span = tracing::span!(tracing::Level::DEBUG, "ParseTreeIter::new").entered();
         let input_range = InputRange::new(input);
         let mut traversal_tree = TraversalTree::default();
         let mut queue = TraversalQueue::default();
-        let completions = CompletionMap::default();
+        let completions = CompletionMap::with_capacity(32, 32);
         let parser_ref = parser.as_ref();
         let starting_term = starting_term.unwrap_or(parser_ref.starting_term);
 
@@ -256,13 +259,34 @@ impl<'gram> CompletionKey<'gram> {
     }
 }
 
-#[derive(Debug, Default)]
+/// Insert into a sorted Vec; no-op if already present. Keeps iteration order stable (same as BTreeSet).
+fn sorted_vec_insert(vec: &mut Vec<TraversalId>, id: TraversalId) {
+    match vec.binary_search(&id) {
+        Ok(_) => {}
+        Err(i) => vec.insert(i, id),
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct CompletionMap<'gram> {
-    incomplete: crate::HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
-    complete: crate::HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
+    incomplete: crate::HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+    complete: crate::HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+}
+
+impl<'gram> Default for CompletionMap<'gram> {
+    fn default() -> Self {
+        Self::with_capacity(0, 0)
+    }
 }
 
 impl<'gram> CompletionMap<'gram> {
+    /// Create with reserved capacity to reduce rehashing during parsing.
+    pub fn with_capacity(incomplete: usize, complete: usize) -> Self {
+        Self {
+            incomplete: crate::HashMap::with_capacity(incomplete),
+            complete: crate::HashMap::with_capacity(complete),
+        }
+    }
     pub fn get_incomplete<'map>(
         &'map self,
         term: &'gram Term,
@@ -289,11 +313,11 @@ impl<'gram> CompletionMap<'gram> {
             }
             Some(unmatched @ Term::Nonterminal(_)) => {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
-                self.incomplete.entry(key).or_default().insert(traversal.id);
+                sorted_vec_insert(self.incomplete.entry(key).or_default(), traversal.id);
             }
             None => {
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
-                self.complete.entry(key).or_default().insert(traversal.id);
+                sorted_vec_insert(self.complete.entry(key).or_default(), traversal.id);
             }
         }
     }

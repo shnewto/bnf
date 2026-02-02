@@ -13,6 +13,9 @@ impl Format for BNF {
     fn alternative_separator() -> char {
         '|'
     }
+    fn production_start_char() -> Option<char> {
+        Some('<')
+    }
 }
 
 #[cfg(test)]

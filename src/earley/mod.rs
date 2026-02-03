@@ -4,7 +4,7 @@ mod traversal;
 use crate::parser::grammar::ParseGrammar;
 use crate::{GrammarParser, ParseTree, ParseTreeNode, Term, tracing};
 use input_range::InputRange;
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 
@@ -13,6 +13,7 @@ pub fn parse<'gram>(
     input: &'gram str,
     starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(DEBUG, "earley::parse").entered();
     ParseTreeIter::new(ParserHold::Borrowed(grammar), input, starting_term)
 }
 
@@ -23,6 +24,7 @@ pub fn parse_with_parser_rc<'gram>(
     input: &'gram str,
     starting_term: Option<&'gram Term>,
 ) -> impl Iterator<Item = ParseTree<'gram>> {
+    let _span = tracing::span!(DEBUG, "earley::parse_with_parser_rc").entered();
     ParseTreeIter::new(ParserHold::Owned(parser), input, starting_term)
 }
 
@@ -86,15 +88,15 @@ fn parse_tree<'gram>(
         let traversal = traversal_tree.get(traversal_id);
         grammar.get_production_by_id(traversal.production_id)
     };
-    let rhs = traversal_tree
-        .get_matched(traversal_id)
-        .map(|term_match| match term_match {
+    let mut rhs = Vec::with_capacity(production.rhs.terms.len());
+    for term_match in traversal_tree.get_matched(traversal_id) {
+        rhs.push(match term_match {
             TermMatch::Terminal(term) => ParseTreeNode::Terminal(term),
             TermMatch::Nonterminal(traversal_id) => {
                 ParseTreeNode::Nonterminal(parse_tree(traversal_tree, grammar, *traversal_id))
             }
-        })
-        .collect::<Vec<ParseTreeNode>>();
+        });
+    }
 
     ParseTree::new(production.lhs, rhs)
 }
@@ -107,10 +109,10 @@ fn earley<'gram>(
     completions: &mut CompletionMap<'gram>,
     grammar: &Rc<ParseGrammar<'gram>>,
 ) -> Option<TraversalId> {
-    let _span = tracing::span!(tracing::Level::DEBUG, "earley").entered();
+    let _span = tracing::span!(DEBUG, "earley").entered();
     while let Some(traversal_id) = queue.pop_front() {
         tracing::event!(
-            tracing::Level::TRACE,
+            TRACE,
             "earley queue pop: {:#?}",
             traversal_tree.get(traversal_id)
         );
@@ -118,41 +120,38 @@ fn earley<'gram>(
 
         match traversal_tree.get_matching(traversal_id) {
             Some(nonterminal @ Term::Nonterminal(_)) => {
-                let _span = tracing::span!(tracing::Level::DEBUG, "Predict").entered();
+                let _span = tracing::span!(DEBUG, "Predict").entered();
 
                 let lhs = grammar.get_production_by_id(traversal.production_id).lhs;
 
                 completions.insert(traversal, lhs);
 
-                let input_range = traversal.input_range.clone();
+                let input_range = traversal.input_range;
 
                 for production in grammar.get_productions_by_lhs(nonterminal) {
                     let predicted = traversal_tree.predict(production, &input_range);
-                    tracing::event!(tracing::Level::TRACE, "predicted: {predicted:#?}");
+                    tracing::event!(TRACE, "predicted: {predicted:#?}");
                     queue.push_back(predicted);
                 }
 
                 for completed in completions.get_complete(nonterminal, &input_range) {
                     let term_match = TermMatch::Nonterminal(completed);
                     let prior_completed = traversal_tree.match_term(traversal_id, term_match);
-                    tracing::event!(
-                        tracing::Level::TRACE,
-                        "prior_completed: {prior_completed:#?}"
-                    );
+                    tracing::event!(TRACE, "prior_completed: {prior_completed:#?}");
                     queue.push_back(prior_completed);
                 }
             }
             Some(Term::Terminal(term)) => {
-                let _span = tracing::span!(tracing::Level::DEBUG, "Scan").entered();
+                let _span = tracing::span!(DEBUG, "Scan").entered();
                 if traversal.input_range.next().starts_with(term) {
                     let term_match = TermMatch::Terminal(term);
                     let scanned = traversal_tree.match_term(traversal_id, term_match);
-                    tracing::event!(tracing::Level::TRACE, "scanned: {scanned:#?}");
+                    tracing::event!(TRACE, "scanned: {scanned:#?}");
                     queue.push_back(scanned);
                 }
             }
             None => {
-                let _span = tracing::span!(tracing::Level::DEBUG, "Complete").entered();
+                let _span = tracing::span!(DEBUG, "Complete").entered();
 
                 let is_full_traversal =
                     traversal.is_starting && traversal.input_range.is_complete();
@@ -164,7 +163,7 @@ fn earley<'gram>(
                     let term_match = TermMatch::Nonterminal(traversal_id);
                     let completed = traversal_tree.match_term(incomplete_traversal_id, term_match);
 
-                    tracing::event!(tracing::Level::TRACE, "completed: {completed:#?}");
+                    tracing::event!(TRACE, "completed: {completed:#?}");
                     queue.push_back(completed);
                 }
 
@@ -192,10 +191,11 @@ impl<'gram> ParseTreeIter<'gram> {
         input: &'gram str,
         starting_term: Option<&'gram Term>,
     ) -> Self {
+        let _span = tracing::span!(DEBUG, "ParseTreeIter::new").entered();
         let input_range = InputRange::new(input);
         let mut traversal_tree = TraversalTree::default();
         let mut queue = TraversalQueue::default();
-        let completions = CompletionMap::default();
+        let completions = CompletionMap::with_capacity(32, 32);
         let parser_ref = parser.as_ref();
         let starting_term = starting_term.unwrap_or(parser_ref.starting_term);
 
@@ -227,9 +227,9 @@ impl<'gram> Iterator for ParseTreeIter<'gram> {
         let parse_grammar = &parser.as_ref().parse_grammar;
 
         earley(queue, traversal_tree, completions, parse_grammar).map(|traversal_id| {
-            let _span = tracing::span!(tracing::Level::DEBUG, "next_parse_tree").entered();
+            let _span = tracing::span!(DEBUG, "next_parse_tree").entered();
             let parse_tree = parse_tree(traversal_tree, parse_grammar, traversal_id);
-            tracing::event!(tracing::Level::TRACE, "\n{parse_tree}");
+            tracing::event!(TRACE, "\n{parse_tree}");
             parse_tree
         })
     }
@@ -256,19 +256,40 @@ impl<'gram> CompletionKey<'gram> {
     }
 }
 
-#[derive(Debug, Default)]
+/// Insert into a sorted Vec; no-op if already present. Keeps iteration order stable (same as `BTreeSet`).
+fn sorted_vec_insert(vec: &mut Vec<TraversalId>, id: TraversalId) {
+    match vec.binary_search(&id) {
+        Ok(_) => {}
+        Err(i) => vec.insert(i, id),
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct CompletionMap<'gram> {
-    incomplete: crate::HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
-    complete: crate::HashMap<CompletionKey<'gram>, BTreeSet<TraversalId>>,
+    incomplete: crate::HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+    complete: crate::HashMap<CompletionKey<'gram>, Vec<TraversalId>>,
+}
+
+impl<'gram> Default for CompletionMap<'gram> {
+    fn default() -> Self {
+        Self::with_capacity(0, 0)
+    }
 }
 
 impl<'gram> CompletionMap<'gram> {
+    /// Create with reserved capacity to reduce rehashing during parsing.
+    pub fn with_capacity(incomplete: usize, complete: usize) -> Self {
+        Self {
+            incomplete: crate::HashMap::with_capacity(incomplete),
+            complete: crate::HashMap::with_capacity(complete),
+        }
+    }
     pub fn get_incomplete<'map>(
         &'map self,
         term: &'gram Term,
         complete_traversal: &Traversal<'gram>,
     ) -> impl Iterator<Item = TraversalId> + use<'map> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "get_incomplete").entered();
+        let _span = tracing::span!(DEBUG, "get_incomplete").entered();
         let key = CompletionKey::new_start(term, &complete_traversal.input_range);
         self.incomplete.get(&key).into_iter().flatten().cloned()
     }
@@ -277,23 +298,23 @@ impl<'gram> CompletionMap<'gram> {
         term: &'gram Term,
         input_range: &InputRange<'gram>,
     ) -> impl Iterator<Item = TraversalId> + use<'map> {
-        let _span = tracing::span!(tracing::Level::DEBUG, "get_complete").entered();
+        let _span = tracing::span!(DEBUG, "get_complete").entered();
         let key = CompletionKey::new_total(term, input_range);
         self.complete.get(&key).into_iter().flatten().cloned()
     }
     pub fn insert(&mut self, traversal: &Traversal<'gram>, lhs: &'gram Term) {
-        let _span = tracing::span!(tracing::Level::DEBUG, "insert").entered();
+        let _span = tracing::span!(DEBUG, "insert").entered();
         match traversal.next_unmatched() {
             Some(Term::Terminal(_)) => {
                 // do nothing, because terminals are irrelevant to completion
             }
             Some(unmatched @ Term::Nonterminal(_)) => {
                 let key = CompletionKey::new_total(unmatched, &traversal.input_range);
-                self.incomplete.entry(key).or_default().insert(traversal.id);
+                sorted_vec_insert(self.incomplete.entry(key).or_default(), traversal.id);
             }
             None => {
                 let key = CompletionKey::new_start(lhs, &traversal.input_range);
-                self.complete.entry(key).or_default().insert(traversal.id);
+                sorted_vec_insert(self.complete.entry(key).or_default(), traversal.id);
             }
         }
     }

@@ -24,7 +24,7 @@ pub(crate) struct ParseGrammar<'gram> {
 
 impl<'gram, 'a> ParseGrammar<'gram> {
     pub fn new(grammar: &'gram crate::Grammar) -> Self {
-        let _span = tracing::span!(tracing::Level::DEBUG, "ParseGrammar_new").entered();
+        let _span = tracing::span!(DEBUG, "ParseGrammar_new").entered();
 
         let mut productions = AppendOnlyVec::<Production, ProductionId>::new();
         let mut prods_by_lhs = ProdTermMap::new();

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct InputRangeOffset {
     pub start: usize,
     pub len: usize,
@@ -11,7 +11,7 @@ impl InputRangeOffset {
 }
 
 /// A sliding window over the input strings being parsed.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub(crate) struct InputRange<'gram> {
     input: &'gram str,
     pub offset: InputRangeOffset,
@@ -24,6 +24,8 @@ impl<'gram> InputRange<'gram> {
             offset: InputRangeOffset { start: 0, len: 0 },
         }
     }
+    /// Remaining input from the current position (slice; does not allocate).
+    #[inline(always)]
     pub fn next(&self) -> &'gram str {
         let next_idx = self.offset.start + self.offset.len;
         self.input.get(next_idx..).unwrap_or("")

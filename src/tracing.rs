@@ -1,6 +1,22 @@
 #[cfg(feature = "tracing")]
 mod defs {
-    pub(crate) use tracing::{Level, event, span};
+    #[allow(unused_imports)]
+    pub(crate) use ::tracing::Level;
+
+    macro_rules! span {
+        (Level::$level:ident, $($rest:tt)*) => { ::tracing::span!(::tracing::Level::$level, $($rest)*) };
+        ($level:ident, $($rest:tt)*) => { ::tracing::span!(::tracing::Level::$level, $($rest)*) };
+        ($($all:tt)*) => { ::tracing::span!($($all)*) };
+    }
+
+    macro_rules! event {
+        (Level::$level:ident, $($rest:tt)*) => { ::tracing::event!(::tracing::Level::$level, $($rest)*) };
+        ($level:ident, $($rest:tt)*) => { ::tracing::event!(::tracing::Level::$level, $($rest)*) };
+        ($($all:tt)*) => { ::tracing::event!($($all)*) };
+    }
+
+    pub(crate) use event;
+    pub(crate) use span;
 
     #[allow(dead_code)]
     #[mutants::skip]
@@ -14,6 +30,16 @@ mod defs {
 
 #[cfg(not(feature = "tracing"))]
 mod defs {
+    /// Stub level when the `tracing` feature is disabled; only used inside macros (arguments are discarded).
+    #[allow(dead_code)]
+    pub enum Level {
+        TRACE,
+        DEBUG,
+        INFO,
+        WARN,
+        ERROR,
+    }
+
     pub struct Span {}
 
     impl Span {
@@ -24,6 +50,14 @@ mod defs {
     }
 
     macro_rules! span {
+        (Level::$level:ident, $($rest:tt)*) => {{
+            use crate::tracing::Span;
+            Span {}
+        }};
+        ($level:ident, $($rest:tt)*) => {{
+            use crate::tracing::Span;
+            Span {}
+        }};
         ($($any:tt)*) => {{
             use crate::tracing::Span;
             Span {}
@@ -32,13 +66,13 @@ mod defs {
 
     pub(crate) use span;
 
+    #[allow(dead_code)]
     pub struct Event {}
 
     macro_rules! event {
-        ($($any:tt)*) => {{
-            use crate::tracing::Event;
-            Event {}
-        }};
+        (Level::$level:ident, $($rest:tt)*) => {{}};
+        ($level:ident, $($rest:tt)*) => {{}};
+        ($($any:tt)*) => {{}};
     }
 
     pub(crate) use event;
@@ -84,5 +118,17 @@ mod tests {
         // Test that span.entered() works
         let span = span!(Level::DEBUG, "test");
         let _entered = span.entered();
+    }
+
+    #[test]
+    fn test_span_macro_bare_level() {
+        // Test that span! accepts bare level (no Level:: prefix, no import)
+        let _span = span!(DEBUG, "bare_level_span").entered();
+    }
+
+    #[test]
+    fn test_event_macro_bare_level() {
+        // Test that event! accepts bare level (no Level:: prefix, no import)
+        event!(INFO, "bare_level_event");
     }
 }

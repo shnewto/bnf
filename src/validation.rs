@@ -25,6 +25,12 @@ impl<'a> NonterminalSets<'a> {
         self.referenced.insert(nt);
     }
 
+    /// Reserve capacity to avoid reallocations during recording.
+    pub(crate) fn reserve(&mut self, defined: usize, referenced: usize) {
+        self.defined.reserve(defined);
+        self.referenced.reserve(referenced);
+    }
+
     /// Iterator over nonterminals that are referenced but not defined.
     pub(crate) fn undefined(&self) -> impl Iterator<Item = &'a str> + '_ {
         self.referenced.difference(&self.defined).copied()

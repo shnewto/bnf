@@ -35,11 +35,10 @@
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
 use crate::error::Error;
-use crate::expression::Expression;
 use crate::parsers::{self, BNF, Format};
 use crate::production::Production;
 use crate::term::Term;
-use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::IndexedRandom};
+use rand::{Rng, SeedableRng, rng, rngs::StdRng};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -356,6 +355,11 @@ impl Grammar {
         self.productions.iter()
     }
 
+    /// Number of productions (for capacity reservation in validation).
+    pub(crate) const fn production_count(&self) -> usize {
+        self.productions.len()
+    }
+
     /// Get mutable iterator of the `Grammar`'s `Production`s
     pub fn productions_iter_mut(&mut self) -> impl Iterator<Item = &mut Production> {
         self.productions.iter_mut()
@@ -491,7 +495,7 @@ impl Grammar {
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         match term {
-            Term::Nonterminal(nt) => self.traverse(nt, rng, f),
+            Term::Nonterminal(nt) => self.traverse(nt.as_str(), rng, f),
             Term::Terminal(t) => Ok(t.clone()),
         }
     }
@@ -503,19 +507,25 @@ impl Grammar {
         f: &impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
         loop {
-            let nonterm = Term::Nonterminal(ident.to_string());
-            let find_lhs = self.productions_iter().find(|&x| x.lhs == nonterm);
-
-            let Some(production) = find_lhs else {
-                return Ok(nonterm.to_string());
+            let production = match self
+                .productions_iter()
+                .find(|p| matches!(&p.lhs, Term::Nonterminal(s) if s.as_str() == ident))
+            {
+                Some(p) => p,
+                None => return Ok(ident.to_string()),
             };
 
-            let expressions = production.rhs_iter().collect::<Vec<&Expression>>();
-
-            let Some(expression) = expressions.choose(rng) else {
-                return Err(Error::GenerateError(String::from(
-                    "Couldn't select random Expression!",
-                )));
+            let len = production.len();
+            let expression = match len {
+                0 => {
+                    return Err(Error::GenerateError(String::from(
+                        "Couldn't select random Expression!",
+                    )));
+                }
+                n => {
+                    let idx = rng.random_range(0..n);
+                    production.rhs_iter().nth(idx).expect("n > 0")
+                }
             };
 
             let mut result = String::new();

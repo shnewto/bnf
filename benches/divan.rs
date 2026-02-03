@@ -137,6 +137,58 @@ mod examples {
     }
 }
 
+mod generation_strategies {
+    use bnf::{CoverageGuided, DepthBounded, RandomWalk, Weighted};
+
+    const SEED: [u8; 32] = [0; 32];
+
+    fn postal_grammar() -> bnf::Grammar {
+        include_str!("../tests/fixtures/postal_address.terminated.input.bnf")
+            .parse()
+            .unwrap()
+    }
+
+    #[divan::bench(min_time = 5, max_time = 30)]
+    fn generate_random_walk(bencher: divan::Bencher) {
+        bencher.with_inputs(postal_grammar).bench_refs(|grammar| {
+            let mut strategy = RandomWalk::from_seed(SEED);
+            grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .unwrap()
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 30)]
+    fn generate_depth_bounded(bencher: divan::Bencher) {
+        bencher.with_inputs(postal_grammar).bench_refs(|grammar| {
+            let mut strategy = DepthBounded::from_seed(10, SEED);
+            grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .unwrap()
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 30)]
+    fn generate_coverage_guided(bencher: divan::Bencher) {
+        bencher.with_inputs(postal_grammar).bench_refs(|grammar| {
+            let mut strategy = CoverageGuided::from_seed(SEED);
+            grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .unwrap()
+        });
+    }
+
+    #[divan::bench(min_time = 5, max_time = 30)]
+    fn generate_weighted(bencher: divan::Bencher) {
+        bencher.with_inputs(postal_grammar).bench_refs(|grammar| {
+            let mut strategy = Weighted::from_seed(100, 1, SEED);
+            grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .unwrap()
+        });
+    }
+}
+
 mod parser_api {
     #[divan::bench(min_time = 5, max_time = 60)]
     fn build_postal_parser(bencher: divan::Bencher) {

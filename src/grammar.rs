@@ -35,6 +35,7 @@
 #[cfg(feature = "ABNF")]
 use crate::ABNF;
 use crate::error::Error;
+use crate::generation::{GenerationStrategy, RandomWalk};
 use crate::parsers::{self, BNF, Format};
 use crate::production::Production;
 use crate::term::Term;
@@ -488,23 +489,25 @@ impl Grammar {
         self.productions_iter().next().map(|prod| &prod.lhs)
     }
 
-    fn eval_terminal(
+    fn eval_terminal_with_strategy<S: GenerationStrategy>(
         &self,
         term: &Term,
-        rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
+        strategy: &mut S,
+        depth: usize,
     ) -> Result<String, Error> {
         match term {
-            Term::Nonterminal(nt) => self.traverse(nt.as_str(), rng, f),
+            Term::Nonterminal(nt) => self.traverse_with_strategy(nt, f, strategy, depth + 1),
             Term::Terminal(t) => Ok(t.clone()),
         }
     }
 
-    fn traverse(
+    fn traverse_with_strategy<S: GenerationStrategy>(
         &self,
         ident: &str,
-        rng: &mut StdRng,
         f: &impl Fn(&str, &str) -> bool,
+        strategy: &mut S,
+        depth: usize,
     ) -> Result<String, Error> {
         loop {
             let production = match self
@@ -515,22 +518,36 @@ impl Grammar {
                 None => return Ok(ident.to_string()),
             };
 
-            let len = production.len();
-            let expression = match len {
-                0 => {
-                    return Err(Error::GenerateError(String::from(
-                        "Couldn't select random Expression!",
-                    )));
+            /// True if the production has no choosable alternative (no RHS or only an empty/epsilon alternative).
+            fn production_has_no_choice(production: &Production) -> bool {
+                if production.is_empty() {
+                    return true;
                 }
-                n => {
-                    let idx = rng.random_range(0..n);
-                    production.rhs_iter().nth(idx).expect("n > 0")
+                if production.len() == 1 {
+                    let only = production.rhs_iter().next().expect("len is 1");
+                    return only.terms_iter().next().is_none();
                 }
-            };
+                false
+            }
 
+            if production_has_no_choice(production) {
+                return Err(Error::GenerateError(String::from(
+                    "Production has no choosable alternative!",
+                )));
+            }
+
+            let Some(expression) = strategy.choose(production, depth) else {
+                return Err(Error::GenerateError(String::from(
+                    "Couldn't select random Expression!",
+                )));
+            };
+            debug_assert!(
+                production.rhs_iter().any(|e| std::ptr::eq(e, expression)),
+                "strategy returned an expression not from the provided production"
+            );
             let mut result = String::new();
             for term in expression.terms_iter() {
-                match self.eval_terminal(term, rng, f) {
+                match self.eval_terminal_with_strategy(term, f, strategy, depth) {
                     Ok(s) => result.push_str(&s),
                     Err(e) => return Err(e),
                 }
@@ -576,7 +593,10 @@ impl Grammar {
     /// # assert!(sentence_clone.is_ok());
     /// ```
     pub fn generate_seeded(&self, rng: &mut StdRng) -> Result<String, Error> {
-        self.generate_seeded_callback(rng, |_, _| true)
+        let mut seed = [0u8; 32];
+        rng.fill(&mut seed);
+        let mut strategy = RandomWalk::from_seed(seed);
+        self.generate_seeded_with_strategy(&mut strategy)
     }
 
     /// Does the same as [`Grammar::generate_seeded`], except it takes a callback which is
@@ -600,6 +620,32 @@ impl Grammar {
         rng: &mut StdRng,
         f: impl Fn(&str, &str) -> bool,
     ) -> Result<String, Error> {
+        let mut seed = [0u8; 32];
+        rng.fill(&mut seed);
+        let mut strategy = RandomWalk::from_seed(seed);
+        self.generate_seeded_callback_with_strategy(f, &mut strategy)
+    }
+
+    /// Generate a random sentence using the given strategy.
+    ///
+    /// Same preconditions as [`Grammar::generate_seeded`]; uses the provided
+    /// [`GenerationStrategy`] to choose which production expression to expand at each step.
+    pub fn generate_seeded_with_strategy<S: GenerationStrategy>(
+        &self,
+        strategy: &mut S,
+    ) -> Result<String, Error> {
+        self.generate_seeded_callback_with_strategy(|_, _| true, strategy)
+    }
+
+    /// Generate a random sentence with a callback and strategy.
+    ///
+    /// Same as [`Grammar::generate_seeded_callback`], but uses the given
+    /// [`GenerationStrategy`] instead of uniform random choice.
+    pub fn generate_seeded_callback_with_strategy<S: GenerationStrategy>(
+        &self,
+        f: impl Fn(&str, &str) -> bool,
+        strategy: &mut S,
+    ) -> Result<String, Error> {
         if !self.terminates() {
             return Err(Error::GenerateError(
                 "Can't generate, first rule in grammar doesn't lead to a terminal state"
@@ -622,7 +668,7 @@ impl Grammar {
                 )));
             }
         };
-        self.traverse(&start_rule, rng, &f)
+        self.traverse_with_strategy(&start_rule, &f, strategy, 0)
     }
 
     /// Generate a random sentence from self.
@@ -862,6 +908,9 @@ macro_rules! grammar {
 mod tests {
     use super::*;
     use crate::expression::Expression;
+    use crate::generation::{
+        CoverageGuided, DepthBounded, GenerationStrategy, RandomWalk, Weighted,
+    };
     use crate::production::Production;
     use crate::term::Term;
     use quickcheck::{Arbitrary, Gen, QuickCheck, TestResult};
@@ -1125,6 +1174,205 @@ mod tests {
                 "generated '{s}' should be one of a, b, ac, bc"
             );
         }
+    }
+
+    /// Strategy that deliberately returns an expression from a *different* production
+    /// than the one provided. Uses unsafe to bypass lifetime checking so the
+    /// `debug_assert` in `traverse_with_strategy` can be tested.
+    struct BuggyStrategy<'a> {
+        other_production: &'a Production,
+    }
+
+    impl GenerationStrategy for BuggyStrategy<'_> {
+        fn choose<'p>(
+            &mut self,
+            _production: &'p Production,
+            _depth: usize,
+        ) -> Option<&'p Expression> {
+            let wrong = self.other_production.rhs_iter().next();
+            // SAFETY: Only used in test; we deliberately return a ref from a different
+            // production to trigger the debug_assert that validates the choice.
+            unsafe { std::mem::transmute(wrong) }
+        }
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "strategy returned an expression not from the provided production")]
+    fn strategy_must_return_expression_from_provided_production() {
+        // Grammar with two productions: <s> (first/start) and <x> (second).
+        // BuggyStrategy returns the second production's RHS when choose() is
+        // called with the first production, triggering the debug_assert.
+        let grammar: Grammar = "<s> ::= 'a'
+<x> ::= 'b'"
+            .parse()
+            .unwrap();
+        let other_production = grammar
+            .productions_iter()
+            .nth(1)
+            .expect("grammar has two productions");
+        let mut strategy = BuggyStrategy { other_production };
+        grammar
+            .generate_seeded_with_strategy(&mut strategy)
+            .expect("test should panic in debug before returning");
+    }
+
+    #[test]
+    fn generate_seeded_with_strategy_random_walk() {
+        // RandomWalk should behave like generate_seeded (uniform choice)
+        let grammar: Grammar = "<dna> ::= <base> | <base> <dna>
+        <base> ::= 'A' | 'C' | 'G' | 'T'"
+            .parse()
+            .unwrap();
+        let mut strategy = RandomWalk::default();
+        let s = grammar
+            .generate_seeded_with_strategy(&mut strategy)
+            .expect("generate should succeed");
+        assert!(
+            s.chars().all(|c| matches!(c, 'A' | 'C' | 'G' | 'T')),
+            "RandomWalk should produce valid DNA: {s}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_with_strategy_depth_bounded() {
+        // DepthBounded with max_depth 1 should force terminal-only at depth 1, bounding expansion
+        let grammar: Grammar = "<s> ::= 'a' | '(' <s> ')'
+        "
+        .parse()
+        .unwrap();
+        let mut strategy = DepthBounded::new(1);
+        for _ in 0..20 {
+            let s = grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .expect("generate should succeed");
+            // At depth 1 we can only choose terminal-only option 'a'; so we get "a" or "(a)", never deeper nesting
+            assert!(
+                s == "a" || s == "(a)",
+                "DepthBounded(1) should produce only 'a' or '(a)', got {s:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn generate_seeded_with_strategy_coverage_guided() {
+        // CoverageGuided should eventually exercise all options; multiple runs produce variety
+        let grammar: Grammar = "<s> ::= 'a' | 'b' | 'c'
+        "
+        .parse()
+        .unwrap();
+        let mut strategy = CoverageGuided::new();
+        let mut seen = crate::HashSet::new();
+        for _ in 0..30 {
+            let s = grammar
+                .generate_seeded_with_strategy(&mut strategy)
+                .expect("generate should succeed");
+            seen.insert(s);
+        }
+        assert!(
+            seen.len() >= 2,
+            "CoverageGuided should produce multiple distinct outputs, got {seen:?}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_with_strategy_weighted() {
+        // Weighted with high recursive weight should tend to longer outputs (more recursion)
+        let grammar: Grammar = "<s> ::= 'x' | <s> 'x'
+        "
+        .parse()
+        .unwrap();
+        let mut strategy_heavy = Weighted::new(100, 1);
+        let lengths_heavy: Vec<usize> = (0..20)
+            .map(|_| {
+                grammar
+                    .generate_seeded_with_strategy(&mut strategy_heavy)
+                    .expect("generate should succeed")
+                    .len()
+            })
+            .collect();
+        let mut strategy_light = Weighted::new(1, 100);
+        let lengths_light: Vec<usize> = (0..20)
+            .map(|_| {
+                grammar
+                    .generate_seeded_with_strategy(&mut strategy_light)
+                    .expect("generate should succeed")
+                    .len()
+            })
+            .collect();
+        let avg_heavy: usize = lengths_heavy.iter().sum::<usize>() / lengths_heavy.len();
+        let avg_light: usize = lengths_light.iter().sum::<usize>() / lengths_light.len();
+        assert!(
+            avg_heavy >= avg_light,
+            "Weighted(100,1) should tend to longer strings than Weighted(1,100); heavy avg {avg_heavy}, light avg {avg_light}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_callback_with_strategy_non_terminating_grammar() {
+        let grammar: Grammar = "<nonterm> ::= <nonterm>".parse().unwrap();
+        let mut strategy = RandomWalk::default();
+        let result = grammar.generate_seeded_callback_with_strategy(|_, _| true, &mut strategy);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("first rule in grammar doesn't lead to a terminal state"),
+            "expected non-terminating error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_callback_with_strategy_no_productions() {
+        let grammar = Grammar::from_parts(vec![]);
+        let mut strategy = RandomWalk::default();
+        let result = grammar.generate_seeded_callback_with_strategy(|_, _| true, &mut strategy);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to get first production"),
+            "expected no productions error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_callback_with_strategy_terminal_lhs() {
+        let lhs = Term::Terminal(String::from("\"bad LHS\""));
+        let terminal = Term::Terminal(String::from("\"good RHS\""));
+        let expression = Expression::from_parts(vec![terminal]);
+        let production = Production::from_parts(lhs, vec![expression]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let mut strategy = RandomWalk::default();
+        let result = grammar.generate_seeded_callback_with_strategy(|_, _| true, &mut strategy);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Terminal type cannot define a production"),
+            "expected terminal LHS error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn generate_seeded_callback_with_strategy_empty_rhs() {
+        // Grammar where start rule has empty RHS. Fails terminates() because the rule doesn't lead to a terminal.
+        // This exercises the strategy API error path (we never reach strategy with empty expressions
+        // in a terminating grammar, but we do reject this invalid grammar).
+        let production = Production::from_parts(Term::Nonterminal("s".to_string()), vec![]);
+        let grammar = Grammar::from_parts(vec![production]);
+        let mut strategy = RandomWalk::default();
+        let result = grammar.generate_seeded_callback_with_strategy(|_, _| true, &mut strategy);
+        assert!(result.is_err());
+        // Empty RHS on start rule means grammar doesn't terminate
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("first rule in grammar doesn't lead to a terminal state")
+                || err
+                    .to_string()
+                    .contains("Couldn't select random Expression"),
+            "expected termination or no-choice error, got: {err}"
+        );
     }
 
     #[test]

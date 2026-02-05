@@ -107,3 +107,71 @@ mod custom_trait {
         assert!(nonterminal.is_ok())
     }
 }
+
+mod comments {
+    use bnf::{Grammar, Term};
+
+    #[test]
+    fn grammar_with_comments_throughout() {
+        let input = "<a> ::= 'x' ; end of first rule
+; comment-only line
+<b> ::= 'y' ; end of second rule";
+        let grammar: Grammar = input.parse().expect("parse");
+        assert_eq!(
+            grammar.productions_iter().count(),
+            2,
+            "parsed grammar must have two productions"
+        );
+        let mut prods = grammar.productions_iter();
+        let first = prods.next().unwrap();
+        assert_eq!(first.lhs, Term::Nonterminal("a".into()));
+        assert_eq!(first.rhs_iter().next().unwrap().to_string(), "'x'");
+        let second = prods.next().unwrap();
+        assert_eq!(second.lhs, Term::Nonterminal("b".into()));
+        assert_eq!(second.rhs_iter().next().unwrap().to_string(), "'y'");
+    }
+
+    #[test]
+    fn comment_does_not_break_parsing() {
+        let input = "<a> ::= 'x' ; note\n<b> ::= 'y'";
+        let grammar: Grammar = input.parse().expect("parse");
+        assert_eq!(
+            grammar.productions_iter().count(),
+            2,
+            "parsed grammar must have two productions"
+        );
+        let mut prods = grammar.productions_iter();
+        let first = prods.next().unwrap();
+        assert_eq!(first.lhs, Term::Nonterminal("a".into()));
+        assert_eq!(first.rhs_iter().next().unwrap().to_string(), "'x'");
+        let second = prods.next().unwrap();
+        assert_eq!(second.lhs, Term::Nonterminal("b".into()));
+        assert_eq!(second.rhs_iter().next().unwrap().to_string(), "'y'");
+    }
+
+    /// Full annotated DNA grammar: leading comment, inline comment, trailing comment.
+    /// Comments are stripped; the grammar parses to the same structure as the uncommented version.
+    #[test]
+    fn annotated_dna_grammar_with_comments() {
+        let grammar_str = "; the building blocks of life!
+<dna> ::= <base> | <base> <dna>
+<base> ::= 'A' | 'C' | 'G' | 'T' ;(Adenine, Cytosine, Guanine, and Thymine)
+; the end 📖";
+        let grammar: Grammar = grammar_str.parse().expect("parse annotated DNA grammar");
+
+        assert_eq!(
+            grammar.productions_iter().count(),
+            2,
+            "annotated grammar must have two productions (dna, base)"
+        );
+        let mut prods = grammar.productions_iter();
+        let dna = prods.next().unwrap();
+        assert_eq!(dna.lhs, Term::Nonterminal("dna".into()));
+        let dna_rhs: Vec<_> = dna.rhs_iter().map(|e| e.to_string()).collect();
+        assert_eq!(dna_rhs, ["<base>", "<base> <dna>"]);
+        let base = prods.next().unwrap();
+        assert_eq!(base.lhs, Term::Nonterminal("base".into()));
+        let base_rhs: Vec<_> = base.rhs_iter().map(|e| e.to_string()).collect();
+        assert_eq!(base_rhs, ["'A'", "'C'", "'G'", "'T'"]);
+    }
+}

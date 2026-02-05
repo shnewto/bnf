@@ -68,6 +68,22 @@ fn dna_right_recursive() {
 }
 
 #[test]
+fn dna_annotated_grammar_parses_input() {
+    // Same DNA grammar as dna_right_recursive but with BNF comments throughout.
+    // Comments are stripped; parsing "GATTACA" yields the same parse trees.
+    let grammar: Grammar = "; the building blocks of life!
+<dna> ::= <base> | <base> <dna>
+<base> ::= 'A' | 'C' | 'G' | 'T' ;(Adenine, Cytosine, Guanine, and Thymine)
+; the end 📖"
+        .parse()
+        .unwrap();
+
+    let input = "GATTACA";
+    let parses: Vec<_> = grammar.parse_input(input).map(|a| a.to_string()).collect();
+    assert_snapshot!(parses.join("\n"));
+}
+
+#[test]
 fn ambiguous() {
     let grammar: Grammar = "<start> ::= <a> | <b>
         <a> ::= 'END'

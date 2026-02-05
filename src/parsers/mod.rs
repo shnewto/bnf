@@ -497,6 +497,27 @@ pub mod tests {
     use super::*;
 
     #[test]
+    fn whitespace_plus_comments_skips_comment_then_rest() {
+        let input = "  ; comment\n  rest";
+        let (remaining, _) = whitespace_plus_comments(input).unwrap();
+        assert_eq!(remaining, "rest");
+    }
+
+    #[test]
+    fn whitespace_plus_comments_comment_to_eof() {
+        let input = "  ; comment";
+        let (remaining, _) = whitespace_plus_comments(input).unwrap();
+        assert_eq!(remaining, "");
+    }
+
+    #[test]
+    fn whitespace_plus_comments_skips_only_whitespace_without_semicolon() {
+        let input = "  x";
+        let (remaining, _) = whitespace_plus_comments(input).unwrap();
+        assert!(remaining.starts_with('x'));
+    }
+
+    #[test]
     fn terminal_match() {
         let input = "\"hello world\"";
         let expected = Term::Terminal("hello world".to_string());

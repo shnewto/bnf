@@ -107,3 +107,45 @@ mod custom_trait {
         assert!(nonterminal.is_ok())
     }
 }
+
+mod comments {
+    use bnf::{Grammar, Term};
+
+    #[test]
+    fn grammar_with_comments_throughout() {
+        let input = "<a> ::= 'x' ; end of first rule
+; comment-only line
+<b> ::= 'y' ; end of second rule";
+        let grammar: Grammar = input.parse().expect("parse");
+        assert_eq!(
+            grammar.productions_iter().count(),
+            2,
+            "parsed grammar must have two productions"
+        );
+        let mut prods = grammar.productions_iter();
+        let first = prods.next().unwrap();
+        assert_eq!(first.lhs, Term::Nonterminal("a".into()));
+        assert_eq!(first.rhs_iter().next().unwrap().to_string(), "'x'");
+        let second = prods.next().unwrap();
+        assert_eq!(second.lhs, Term::Nonterminal("b".into()));
+        assert_eq!(second.rhs_iter().next().unwrap().to_string(), "'y'");
+    }
+
+    #[test]
+    fn comment_does_not_break_parsing() {
+        let input = "<a> ::= 'x' ; note\n<b> ::= 'y'";
+        let grammar: Grammar = input.parse().expect("parse");
+        assert_eq!(
+            grammar.productions_iter().count(),
+            2,
+            "parsed grammar must have two productions"
+        );
+        let mut prods = grammar.productions_iter();
+        let first = prods.next().unwrap();
+        assert_eq!(first.lhs, Term::Nonterminal("a".into()));
+        assert_eq!(first.rhs_iter().next().unwrap().to_string(), "'x'");
+        let second = prods.next().unwrap();
+        assert_eq!(second.lhs, Term::Nonterminal("b".into()));
+        assert_eq!(second.rhs_iter().next().unwrap().to_string(), "'y'");
+    }
+}

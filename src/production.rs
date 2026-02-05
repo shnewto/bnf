@@ -298,6 +298,24 @@ mod tests {
     }
 
     #[test]
+    fn parse_comment_with_text_then_newline() {
+        let prod = Production::from_str("<a> ::= 'x' ; this is a comment\n").unwrap();
+        assert_eq!(prod, crate::production!(<a> ::= 'x'));
+    }
+
+    #[test]
+    fn parse_comment_to_eof() {
+        let prod = Production::from_str("<a> ::= 'x' ; comment").unwrap();
+        assert_eq!(prod, crate::production!(<a> ::= 'x'));
+    }
+
+    #[test]
+    fn parse_comment_between_alternatives() {
+        let prod = Production::from_str("<a> ::= 'x' ; comment\n | 'y'").unwrap();
+        assert_eq!(prod, crate::production!(<a> ::= 'x' | 'y'));
+    }
+
+    #[test]
     fn parse_incomplete() {
         let result = Production::from_str("");
         assert!(

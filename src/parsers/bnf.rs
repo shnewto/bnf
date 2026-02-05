@@ -79,4 +79,62 @@ mod tests {
         let (_, actual) = grammar::<BNF>(input).unwrap();
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn production_with_comment_suffix() {
+        let input = "<a> ::= 'x' ; only a comment\n";
+        let expected = Production::from_parts(
+            Term::Nonterminal("a".to_string()),
+            vec![Expression::from_parts(vec![Term::Terminal(
+                "x".to_string(),
+            )])],
+        );
+
+        let (_, actual) = production::<BNF>(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn grammar_with_comment_only_line() {
+        let input = "<a> ::= 'x'\n; comment\n<b> ::= 'y'\n";
+        let expected = Grammar::from_parts(vec![
+            Production::from_parts(
+                Term::Nonterminal("a".to_string()),
+                vec![Expression::from_parts(vec![Term::Terminal(
+                    "x".to_string(),
+                )])],
+            ),
+            Production::from_parts(
+                Term::Nonterminal("b".to_string()),
+                vec![Expression::from_parts(vec![Term::Terminal(
+                    "y".to_string(),
+                )])],
+            ),
+        ]);
+
+        let (_, actual) = grammar::<BNF>(input).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn grammar_with_comment_to_eof() {
+        let input = "<a> ::= 'x'\n<b> ::= 'y' ; last line comment";
+        let expected = Grammar::from_parts(vec![
+            Production::from_parts(
+                Term::Nonterminal("a".to_string()),
+                vec![Expression::from_parts(vec![Term::Terminal(
+                    "x".to_string(),
+                )])],
+            ),
+            Production::from_parts(
+                Term::Nonterminal("b".to_string()),
+                vec![Expression::from_parts(vec![Term::Terminal(
+                    "y".to_string(),
+                )])],
+            ),
+        ]);
+
+        let (_, actual) = grammar::<BNF>(input).unwrap();
+        assert_eq!(expected, actual);
+    }
 }

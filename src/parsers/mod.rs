@@ -129,7 +129,7 @@ pub fn terminal(input: &str) -> IResult<&str, Term> {
 }
 
 /// Skips whitespace and ;-comments in one pass. Never fails.
-#[mutants::skip]
+#[cfg_attr(test, mutants::skip)]
 pub fn whitespace_plus_comments(mut input: &str) -> IResult<&str, char> {
     let _span = crate::tracing::span!(DEBUG, "whitespace_plus_comments").entered();
     loop {

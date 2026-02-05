@@ -224,7 +224,7 @@ impl<'gram> TraversalTree<'gram> {
 mod tests {
     use super::*;
     use crate::Grammar;
-    use crate::earley::ParseGrammar;
+    use crate::parser::grammar::ParseGrammar;
 
     fn dna_grammar() -> Grammar {
         let grammar: Grammar = "<dna> ::= <base> | <base> <dna>

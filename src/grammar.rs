@@ -803,7 +803,7 @@ impl str::FromStr for Grammar {
         }
     }
     #[cfg(not(feature = "ABNF"))]
-    #[mutants::skip]
+    #[cfg_attr(test, mutants::skip)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match parsers::grammar_complete::<BNF>(s) {
             Ok((_, g)) => Ok(g),

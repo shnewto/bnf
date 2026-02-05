@@ -8,10 +8,12 @@ authors = ["@shnewto", "@CrockAgile"]
 description = "A library for parsing Backus–Naur form context-free grammars"
 readme = "README.md"
 keywords = ["bnf", "earley", "parser"]
+categories = ["parser-implementations", "parsing", "development-tools"]
 exclude = [".github", "tests", "*.snap", "*.bnf"]
 
 homepage = "https://github.com/shnewto/bnf"
 repository = "https://github.com/shnewto/bnf"
+documentation = "https://docs.rs/bnf"
 
 license = "MIT"
 
@@ -51,9 +53,6 @@ hashbrown = "0.16.1"
 [dependencies.rand]
 version = "0.9.2"
 
-[dependencies.mutants]
-version = "0.0.4"
-
 [dependencies.nom]
 version = "^8.0.0"
 
@@ -69,6 +68,7 @@ optional = true
 [dev-dependencies]
 divan = "0.1.21"
 insta = { version = "1.46.1", default-features = false }
+mutants = "0.0.4"
 
 [dev-dependencies.quickcheck]
 version = "1.0.3"
@@ -79,6 +79,9 @@ ABNF = []
 serde = ["dep:serde", "dep:serde_json"]
 unstable = []
 tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-flame"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [[bench]]
 name = "divan"

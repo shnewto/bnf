@@ -39,7 +39,7 @@ impl<'gram> InputRange<'gram> {
             },
         }
     }
-    #[mutants::skip]
+    #[cfg_attr(test, mutants::skip)]
     pub fn advance_by(&self, step: usize) -> Self {
         let InputRangeOffset { start, len } = self.offset;
         let max_len = self.input.len() - start;

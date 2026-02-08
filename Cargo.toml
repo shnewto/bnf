@@ -23,6 +23,8 @@ all-features = true
 [lints.clippy]
 all = "deny"
 clone_on_ref_ptr = "deny"
+disallowed_methods = "deny"
+disallowed_types = "deny"
 complexity = "deny"
 dbg_macro = "deny"
 doc_markdown = "deny"

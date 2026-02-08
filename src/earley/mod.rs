@@ -4,7 +4,9 @@ mod traversal;
 use crate::parser::grammar::ParseGrammar;
 use crate::{GrammarParser, ParseTree, ParseTreeNode, Term, tracing};
 use input_range::InputRange;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
+
+use crate::HashSet;
 use std::rc::Rc;
 use traversal::{TermMatch, Traversal, TraversalId, TraversalTree};
 

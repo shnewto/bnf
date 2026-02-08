@@ -1,0 +1,10 @@
+# Prefer crate::HashSet / crate::HashMap (hashbrown) over std
+disallowed-types = [
+    { path = "std::collections::HashSet", reason = "use crate::HashSet (hashbrown) for consistency and performance", replacement = "crate::HashSet" },
+    { path = "std::collections::HashMap", reason = "use crate::HashMap (hashbrown) for consistency and performance", replacement = "crate::HashMap" },
+]
+
+disallowed-methods = [
+    { path = "std::collections::HashSet::new", reason = "use crate::HashSet (hashbrown)", replacement = "crate::HashSet::new" },
+    { path = "std::collections::HashMap::new", reason = "use crate::HashMap (hashbrown)", replacement = "crate::HashMap::new" },
+]
